@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git init:*)",
+      "Bash(python:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "Bash(pip install:*)",
+      "WebFetch(domain:gist.github.com)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd project rules and Electron architecture skill\n\nInitialize project with comprehensive guidelines and custom skill\nfor AI agents working on Electron applications.\n\n- Add AGENTS.md with Git, code quality, and security rules\n- Add electron-architecture skill with best practices\n- Add skill-creator for creating additional skills\n- Configure Claude Code settings and permissions\n\nThe Electron architecture skill provides:\n- Process architecture patterns \\(main/renderer/preload\\)\n- Secure IPC communication examples\n- Code organization and directory structure\n- Security best practices and checklists\n- Architecture planning templates\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")"
+    ]
+  }
+}

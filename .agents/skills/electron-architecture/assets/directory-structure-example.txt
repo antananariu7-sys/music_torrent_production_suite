@@ -1,0 +1,206 @@
+Recommended Electron Project Directory Structure
+================================================
+
+electron-app/
+├── .vscode/
+│   ├── launch.json              # Debug configurations
+│   └── settings.json            # Editor settings
+│
+├── src/
+│   ├── main/                    # Main process (Node.js environment)
+│   │   ├── index.ts            # Application entry point
+│   │   ├── window.ts           # Window creation and management
+│   │   ├── menu.ts             # Application menu
+│   │   ├── tray.ts             # System tray (optional)
+│   │   │
+│   │   ├── ipc/                # IPC handler registration
+│   │   │   ├── index.ts        # Register all handlers
+│   │   │   ├── user-handlers.ts
+│   │   │   ├── file-handlers.ts
+│   │   │   └── settings-handlers.ts
+│   │   │
+│   │   ├── services/           # Business logic services
+│   │   │   ├── database.service.ts
+│   │   │   ├── auth.service.ts
+│   │   │   ├── file.service.ts
+│   │   │   └── logger.service.ts
+│   │   │
+│   │   ├── repositories/       # Data access layer (optional)
+│   │   │   ├── user.repository.ts
+│   │   │   └── settings.repository.ts
+│   │   │
+│   │   ├── utils/              # Main process utilities
+│   │   │   ├── validation.ts
+│   │   │   └── helpers.ts
+│   │   │
+│   │   └── types/              # Main process types
+│   │       └── index.ts
+│   │
+│   ├── renderer/               # Renderer process (Chromium environment)
+│   │   ├── index.html          # HTML entry point
+│   │   ├── index.tsx           # TypeScript/React entry point
+│   │   ├── App.tsx             # Root component
+│   │   │
+│   │   ├── pages/              # Page-level components
+│   │   │   ├── Home.tsx
+│   │   │   ├── Settings.tsx
+│   │   │   └── Profile.tsx
+│   │   │
+│   │   ├── components/         # Reusable UI components
+│   │   │   ├── common/         # Common/shared components
+│   │   │   │   ├── Button.tsx
+│   │   │   │   ├── Input.tsx
+│   │   │   │   └── Modal.tsx
+│   │   │   │
+│   │   │   ├── features/       # Feature-specific components
+│   │   │   │   ├── UserProfile/
+│   │   │   │   │   ├── UserProfile.tsx
+│   │   │   │   │   ├── ProfileEdit.tsx
+│   │   │   │   │   └── Avatar.tsx
+│   │   │   │   └── Dashboard/
+│   │   │   │       ├── Dashboard.tsx
+│   │   │   │       └── Widget.tsx
+│   │   │   │
+│   │   │   └── layouts/        # Layout components
+│   │   │       ├── MainLayout.tsx
+│   │   │       └── Sidebar.tsx
+│   │   │
+│   │   ├── hooks/              # Custom React hooks
+│   │   │   ├── useUser.ts
+│   │   │   ├── useSettings.ts
+│   │   │   └── useIpc.ts
+│   │   │
+│   │   ├── store/              # State management
+│   │   │   ├── index.ts        # Store configuration
+│   │   │   ├── hooks.ts        # Typed Redux hooks
+│   │   │   └── slices/         # Redux Toolkit slices
+│   │   │       ├── userSlice.ts
+│   │   │       ├── settingsSlice.ts
+│   │   │       └── uiSlice.ts
+│   │   │
+│   │   ├── services/           # Renderer services (IPC wrappers)
+│   │   │   ├── api.ts          # Main API client
+│   │   │   ├── user.service.ts
+│   │   │   └── file.service.ts
+│   │   │
+│   │   ├── utils/              # Renderer utilities
+│   │   │   ├── format.ts
+│   │   │   └── validation.ts
+│   │   │
+│   │   ├── styles/             # Global styles
+│   │   │   ├── global.css
+│   │   │   ├── variables.css
+│   │   │   └── themes.css
+│   │   │
+│   │   └── types/              # Renderer types
+│   │       └── index.ts
+│   │
+│   ├── preload/                # Preload scripts (Bridge)
+│   │   ├── index.ts            # Main preload script
+│   │   ├── api.ts              # API exposure via contextBridge
+│   │   └── types.ts            # Window API type declarations
+│   │
+│   └── shared/                 # Code shared between processes
+│       ├── types/              # Shared TypeScript types
+│       │   ├── user.types.ts
+│       │   ├── file.types.ts
+│       │   └── ipc.types.ts
+│       ├── constants.ts        # Shared constants
+│       ├── validation/         # Shared validation schemas
+│       │   └── schemas.ts
+│       └── utils/              # Shared utilities
+│           └── helpers.ts
+│
+├── resources/                  # Application resources
+│   ├── icons/                  # Application icons
+│   │   ├── icon.icns          # macOS icon
+│   │   ├── icon.ico           # Windows icon
+│   │   └── icon.png           # Linux icon
+│   ├── assets/                 # Other assets
+│   └── installer/              # Installer resources
+│
+├── dist/                       # Build output (gitignored)
+│   ├── main/                   # Compiled main process
+│   ├── renderer/               # Compiled renderer
+│   └── preload/                # Compiled preload
+│
+├── release/                    # Release builds (gitignored)
+│   ├── win-unpacked/
+│   ├── mac/
+│   └── linux-unpacked/
+│
+├── tests/                      # Test files
+│   ├── unit/                   # Unit tests
+│   │   ├── main/
+│   │   │   └── services/
+│   │   │       └── auth.service.test.ts
+│   │   └── renderer/
+│   │       └── components/
+│   │           └── Button.test.tsx
+│   │
+│   ├── integration/            # Integration tests
+│   │   └── ipc/
+│   │       └── user-flow.test.ts
+│   │
+│   └── e2e/                    # End-to-end tests
+│       ├── app.spec.ts
+│       └── user-journey.spec.ts
+│
+├── scripts/                    # Build and utility scripts
+│   ├── build.js
+│   └── notarize.js            # macOS notarization
+│
+├── .github/                    # GitHub-specific files
+│   └── workflows/
+│       └── build.yml
+│
+├── .gitignore
+├── .eslintrc.js               # ESLint configuration
+├── .prettierrc                # Prettier configuration
+│
+├── package.json               # Dependencies and scripts
+├── package-lock.json
+│
+├── tsconfig.json              # Base TypeScript config
+├── tsconfig.main.json         # Main process TS config
+├── tsconfig.renderer.json     # Renderer process TS config
+├── tsconfig.preload.json      # Preload script TS config
+│
+├── vite.config.ts             # Vite config (for renderer)
+├── electron-builder.yml       # Electron Builder config
+│
+├── jest.config.js             # Jest configuration
+├── playwright.config.ts       # Playwright config (E2E)
+│
+├── LICENSE
+└── README.md
+
+Key Principles:
+===============
+
+1. Process Separation
+   - main/ contains Node.js code
+   - renderer/ contains browser code
+   - preload/ bridges the two securely
+   - shared/ for common code/types
+
+2. Feature-Based Organization
+   - Group related files together
+   - Makes features easy to find and modify
+   - Facilitates code splitting
+
+3. Clear Boundaries
+   - Services handle business logic
+   - Repositories handle data access
+   - Components handle UI
+   - IPC handlers coordinate processes
+
+4. Type Safety
+   - Shared types ensure consistency
+   - Preload types provide autocomplete
+   - Separate configs for each process
+
+5. Testability
+   - Organized tests mirror source structure
+   - Unit, integration, and E2E tests separated
+   - Easy to mock services and dependencies
