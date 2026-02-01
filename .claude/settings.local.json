@@ -13,7 +13,9 @@
       "Bash(git commit:*)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash($env:PYTHONIOENCODING=\"utf-8\")"
+      "Bash($env:PYTHONIOENCODING=\"utf-8\")",
+      "Bash(ls:*)",
+      "Bash(test:*)"
     ]
   }
 }
