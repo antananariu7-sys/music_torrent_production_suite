@@ -1,6 +1,10 @@
 import { createSystem, defaultConfig, defineConfig } from '@chakra-ui/react'
 
 const config = defineConfig({
+  conditions: {
+    light: '[data-theme=light] &',
+    dark: '[data-theme=dark] &',
+  },
   theme: {
     tokens: {
       colors: {

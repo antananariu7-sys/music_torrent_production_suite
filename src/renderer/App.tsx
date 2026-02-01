@@ -1,17 +1,20 @@
 import { useEffect, useState } from 'react'
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Box, Spinner, VStack, Text } from '@chakra-ui/react'
 import type { AppInfo } from '../shared/types/app.types'
 import Welcome from './pages/Welcome'
 import Settings from './pages/Settings'
 import { useThemeStore } from './store/useThemeStore'
 
-type Page = 'welcome' | 'settings'
-
-function App() {
+function AppContent() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
   const [loading, setLoading] = useState(true)
-  const [currentPage, setCurrentPage] = useState<Page>('welcome')
   const mode = useThemeStore((state) => state.mode)
+
+  useEffect(() => {
+    // Apply theme to document root
+    document.documentElement.setAttribute('data-theme', mode)
+  }, [mode])
 
   useEffect(() => {
     // Get app info on mount
@@ -41,12 +44,19 @@ function App() {
   }
 
   return (
-    <Box data-theme={mode}>
-      {currentPage === 'welcome' && (
-        <Welcome appInfo={appInfo} onOpenSettings={() => setCurrentPage('settings')} />
-      )}
-      {currentPage === 'settings' && <Settings onBack={() => setCurrentPage('welcome')} />}
-    </Box>
+    <Routes>
+      <Route path="/" element={<Welcome appInfo={appInfo} />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
+
+function App() {
+  return (
+    <HashRouter>
+      <AppContent />
+    </HashRouter>
   )
 }
 
