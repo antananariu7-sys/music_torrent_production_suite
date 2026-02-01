@@ -9,6 +9,10 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, 'dist/renderer'),
     emptyOutDir: true,
+    target: 'esnext',
+  },
+  esbuild: {
+    target: 'esnext',
   },
   resolve: {
     alias: {

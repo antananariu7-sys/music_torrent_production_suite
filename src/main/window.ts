@@ -16,7 +16,7 @@ export function createWindow(): BrowserWindow {
       // Security: Enable sandbox
       sandbox: true,
       // Preload script for safe IPC
-      preload: join(__dirname, '../../preload/index.js'),
+      preload: join(__dirname, '../../preload/index.cjs'),
     },
     show: false, // Don't show until ready-to-show
   })

@@ -7,24 +7,24 @@ const __dirname = dirname(__filename)
 
 const rootDir = resolve(__dirname, '..')
 
-async function buildPreload() {
+async function buildMain() {
   try {
     await esbuild.build({
-      entryPoints: [resolve(rootDir, 'src/preload/index.ts')],
+      entryPoints: [resolve(rootDir, 'src/main/index.ts')],
       bundle: true,
       platform: 'node',
       target: 'node25',
       format: 'cjs',
-      outfile: resolve(rootDir, 'dist/preload/index.cjs'),
+      outfile: resolve(rootDir, 'dist/main/main/index.cjs'),
       external: ['electron'],
       sourcemap: process.env.NODE_ENV === 'development',
       minify: process.env.NODE_ENV === 'production',
     })
-    console.log('✓ Preload script bundled successfully')
+    console.log('✓ Main process bundled successfully')
   } catch (error) {
-    console.error('✗ Failed to bundle preload script:', error)
+    console.error('✗ Failed to bundle main process:', error)
     process.exit(1)
   }
 }
 
-buildPreload()
+buildMain()

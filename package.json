@@ -2,17 +2,21 @@
   "name": "music-production-suite",
   "version": "0.1.0",
   "description": "Music Production Suite with integrated torrent search, download management, and mixing capabilities",
-  "main": "dist/main/main/index.js",
+  "main": "dist/main/main/index.cjs",
   "author": "Your Name",
   "license": "MIT",
   "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=25.0.0"
+  },
   "scripts": {
     "dev": "npm run build:main && npm run build:preload && concurrently \"npm run dev:renderer\" \"npm run start:dev\"",
     "dev:renderer": "vite",
     "start:dev": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
     "build": "npm run build:renderer && npm run build:main && npm run build:preload",
     "build:renderer": "vite build",
-    "build:main": "tsc -p tsconfig.main.json",
+    "build:main": "node scripts/build-main.mjs",
     "build:preload": "node scripts/build-preload.mjs",
     "start": "electron .",
     "package": "npm run build && electron-builder",
