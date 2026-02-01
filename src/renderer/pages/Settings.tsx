@@ -26,7 +26,12 @@ function Settings({ onBack }: SettingsProps) {
           <Button onClick={onBack} variant="ghost" colorPalette="brand">
             ← Back to Home
           </Button>
-          <Heading as="h1" fontSize="4xl" fontWeight="bold" color="text.primary">
+          <Heading
+            as="h1"
+            fontSize="4xl"
+            fontWeight="bold"
+            color="text.primary"
+          >
             ⚙️ Settings
           </Heading>
           <Text fontSize="lg" color="text.secondary">
@@ -60,7 +65,9 @@ function Settings({ onBack }: SettingsProps) {
                   colorPalette="brand"
                   size="lg"
                 >
-                  <Switch.Thumb />
+                  <Switch.HiddenInput />
+                  <Switch.Control />
+                  <Switch.Label />
                 </Switch.Root>
               </HStack>
 

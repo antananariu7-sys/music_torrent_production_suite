@@ -1,4 +1,16 @@
-import { Box, Container, Heading, Text, SimpleGrid, Card, Button, VStack, HStack, Badge, IconButton } from '@chakra-ui/react'
+import {
+  Box,
+  Container,
+  Heading,
+  Text,
+  SimpleGrid,
+  Card,
+  Button,
+  VStack,
+  HStack,
+  Badge,
+  IconButton,
+} from '@chakra-ui/react'
 import type { AppInfo } from '../../shared/types/app.types'
 
 interface WelcomeProps {
@@ -36,8 +48,13 @@ function Welcome({ appInfo, onOpenSettings }: WelcomeProps) {
           >
             🎵 Music Production Suite
           </Heading>
-          <Text fontSize={{ base: 'lg', md: 'xl' }} color="text.secondary" maxW="2xl">
-            Integrated torrent search, download management, and mixing capabilities
+          <Text
+            fontSize={{ base: 'lg', md: 'xl' }}
+            color="text.secondary"
+            maxW="2xl"
+          >
+            Integrated torrent search, download management, and mixing
+            capabilities
           </Text>
         </VStack>
 
@@ -49,7 +66,11 @@ function Welcome({ appInfo, onOpenSettings }: WelcomeProps) {
             borderWidth="1px"
             borderColor="border.base"
             transition="all 0.2s"
-            _hover={{ transform: 'translateY(-4px)', shadow: 'xl', borderColor: 'border.hover' }}
+            _hover={{
+              transform: 'translateY(-4px)',
+              shadow: 'xl',
+              borderColor: 'border.hover',
+            }}
           >
             <Card.Body gap={4}>
               <VStack align="start" gap={3}>
@@ -60,7 +81,8 @@ function Welcome({ appInfo, onOpenSettings }: WelcomeProps) {
                   </Heading>
                 </HStack>
                 <Text color="text.secondary" lineHeight="tall">
-                  Automated RuTracker search with batch processing and real-time progress
+                  Automated RuTracker search with batch processing and real-time
+                  progress
                 </Text>
                 <Button colorPalette="accent" variant="solid" disabled w="full">
                   Coming Soon
@@ -75,7 +97,11 @@ function Welcome({ appInfo, onOpenSettings }: WelcomeProps) {
             borderWidth="1px"
             borderColor="border.base"
             transition="all 0.2s"
-            _hover={{ transform: 'translateY(-4px)', shadow: 'xl', borderColor: 'border.hover' }}
+            _hover={{
+              transform: 'translateY(-4px)',
+              shadow: 'xl',
+              borderColor: 'border.hover',
+            }}
           >
             <Card.Body gap={4}>
               <VStack align="start" gap={3}>
@@ -101,7 +127,11 @@ function Welcome({ appInfo, onOpenSettings }: WelcomeProps) {
             borderWidth="1px"
             borderColor="border.base"
             transition="all 0.2s"
-            _hover={{ transform: 'translateY(-4px)', shadow: 'xl', borderColor: 'border.hover' }}
+            _hover={{
+              transform: 'translateY(-4px)',
+              shadow: 'xl',
+              borderColor: 'border.hover',
+            }}
           >
             <Card.Body gap={4}>
               <VStack align="start" gap={3}>
