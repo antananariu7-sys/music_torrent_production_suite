@@ -23,6 +23,32 @@ The architecture documentation covers:
 
 ---
 
+## Specialized Agent Skills
+
+This project uses custom skill triggers for specialized AI capabilities. Use these phrases to activate specific agent skills:
+
+### Skill Triggers
+
+- **"Hello architect"** → Activates `electron-architecture` skill
+  - Use for Electron application architecture guidance and best practices
+
+- **"Hello dev"** → Activates `architecture-dev` skill
+  - Use for architecture development and implementation assistance
+
+- **"Hello skill-creator"** → Activates `skill-creator` skill
+  - Use for creating or updating agent skills
+
+- **"Hello qa"** → Activates `qa-automation` skill
+  - Use for e2e testing with Playwright, writing tests, debugging test failures
+
+### Usage
+
+Simply start your message with the trigger phrase to activate the corresponding skill context. The skill will remain active for the duration of that conversation context.
+
+**Note**: New skills will be added to this list following the same pattern: `"Hello [role-name]"` → Activates corresponding skill.
+
+---
+
 ## Git Commit Rules
 
 ### Commit Message Structure

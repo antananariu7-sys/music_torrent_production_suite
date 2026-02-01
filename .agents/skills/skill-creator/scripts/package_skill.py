@@ -7,7 +7,10 @@ Usage:
 
 Example:
     python utils/package_skill.py skills/public/my-skill
+    # Creates: _packed_skills/my-skill.skill
+
     python utils/package_skill.py skills/public/my-skill ./dist
+    # Creates: ./dist/my-skill.skill
 """
 
 import sys
@@ -22,7 +25,7 @@ def package_skill(skill_path, output_dir=None):
 
     Args:
         skill_path: Path to the skill folder
-        output_dir: Optional output directory for the .skill file (defaults to current directory)
+        output_dir: Optional output directory for the .skill file (defaults to _packed_skills/)
 
     Returns:
         Path to the created .skill file, or None if error
@@ -59,7 +62,9 @@ def package_skill(skill_path, output_dir=None):
         output_path = Path(output_dir).resolve()
         output_path.mkdir(parents=True, exist_ok=True)
     else:
-        output_path = Path.cwd()
+        # Default to _packed_skills directory in current working directory
+        output_path = Path.cwd() / "_packed_skills"
+        output_path.mkdir(parents=True, exist_ok=True)
 
     skill_filename = output_path / f"{skill_name}.skill"
 
@@ -87,7 +92,9 @@ def main():
         print("Usage: python utils/package_skill.py <path/to/skill-folder> [output-directory]")
         print("\nExample:")
         print("  python utils/package_skill.py skills/public/my-skill")
-        print("  python utils/package_skill.py skills/public/my-skill ./dist")
+        print("    Creates: _packed_skills/my-skill.skill")
+        print("\n  python utils/package_skill.py skills/public/my-skill ./dist")
+        print("    Creates: ./dist/my-skill.skill")
         sys.exit(1)
 
     skill_path = sys.argv[1]

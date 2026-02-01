@@ -208,7 +208,8 @@ Skill creation involves these steps:
 3. Initialize the skill (run init_skill.py)
 4. Edit the skill (implement resources and write SKILL.md)
 5. Package the skill (run package_skill.py)
-6. Iterate based on real usage
+6. Register the skill in AGENTS.md
+7. Iterate based on real usage
 
 Follow these steps in order, skipping only if there is a clear reason why they are not applicable.
 
@@ -344,7 +345,36 @@ The packaging script will:
 
 If validation fails, the script will report the errors and exit without creating a package. Fix any validation errors and run the packaging command again.
 
-### Step 6: Iterate
+### Step 6: Register the Skill in AGENTS.md
+
+After successfully packaging the skill, register it in the project's AGENTS.md file to enable quick invocation.
+
+Add an entry to the "Skill Triggers" section following this format:
+
+```markdown
+- **"Hello [trigger]"** → Activates `[skill-name]` skill
+  - Use for [brief description of what the skill does]
+```
+
+**Examples:**
+
+```markdown
+- **"Hello qa"** → Activates `qa-automation` skill
+  - Use for e2e testing with Playwright, writing tests, debugging test failures
+
+- **"Hello architect"** → Activates `electron-architecture` skill
+  - Use for Electron application architecture guidance and best practices
+```
+
+**Guidelines:**
+- Choose a short, memorable trigger word (1-2 words)
+- Keep the description concise but clear about the skill's purpose
+- Add the entry in alphabetical order or logical grouping
+- Update the note at the bottom if the pattern changes
+
+This step enables users to easily discover and invoke the skill using the "Hello [trigger]" pattern.
+
+### Step 7: Iterate
 
 After testing the skill, users may request improvements. Often this happens right after using the skill, with fresh context of how the skill performed.
 
