@@ -13,7 +13,6 @@ async function buildPreload() {
       entryPoints: [resolve(rootDir, 'src/preload/index.ts')],
       bundle: true,
       platform: 'node',
-      target: 'node25',
       format: 'cjs',
       outfile: resolve(rootDir, 'dist/preload/index.cjs'),
       external: ['electron'],

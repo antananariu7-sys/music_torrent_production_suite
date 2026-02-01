@@ -13,7 +13,6 @@ async function buildMain() {
       entryPoints: [resolve(rootDir, 'src/main/index.ts')],
       bundle: true,
       platform: 'node',
-      target: 'node25',
       format: 'cjs',
       outfile: resolve(rootDir, 'dist/main/main/index.cjs'),
       external: ['electron'],
