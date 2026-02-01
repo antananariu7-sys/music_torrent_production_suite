@@ -12,6 +12,7 @@ This document contains essential rules and conventions for AI agents working on 
 → **[.architecture/](.architecture/)** - Detailed architecture documents
 
 The architecture documentation covers:
+
 - Application components and data flow
 - IPC communication patterns
 - Security architecture
@@ -40,6 +41,9 @@ This project uses custom skill triggers for specialized AI capabilities. Use the
 
 - **"Hello qa"** → Activates `qa-automation` skill
   - Use for e2e testing with Playwright, writing tests, debugging test failures
+
+- **"Hello designer"** → Activates `frontend-design` skill
+  - Use designing user interface
 
 ### Usage
 
@@ -73,6 +77,7 @@ Additional paragraphs separated by blank lines.
 **Length**: Maximum 50 characters
 **Capitalization**: First word must be capitalized
 **Mood**: Use imperative present tense
+
 - ✅ "Add feature to handle user auth"
 - ✅ "Fix bug in payment processing"
 - ✅ "Update documentation for API"
@@ -89,11 +94,13 @@ Additional paragraphs separated by blank lines.
 **Line Length**: Wrap body text at 72 characters
 
 **Content**: Answer these questions:
+
 - What motivated this change?
 - How does it differ from the previous implementation?
 - What problem does it solve?
 
 **Formatting**:
+
 - Use bullet points when appropriate
 - Separate paragraphs with blank lines
 - Use hanging indents for continuation lines
@@ -101,6 +108,7 @@ Additional paragraphs separated by blank lines.
 ### Commit Best Practices
 
 #### Scope
+
 - **One logical change per commit** - Bundle related changes together
 - **Separate unrelated changes** - Different fixes go in different commits
 - **Atomic commits** - Each commit should be a complete, working change
@@ -108,6 +116,7 @@ Additional paragraphs separated by blank lines.
 #### Examples
 
 **Good Commit:**
+
 ```
 Add user authentication middleware
 
@@ -122,21 +131,25 @@ scalability with multiple server instances.
 ```
 
 **Bad Commit:**
+
 ```
 fixed stuff and added some features
 ```
 
 #### Frequency
+
 - **Small, frequent commits** are better than large, infrequent ones
 - Commit each logical step rather than all changes at once
 - Makes code review easier and history more useful
 
 #### Readiness
+
 - **Only commit completed work** - Don't commit half-finished features
 - **Test before committing** - Ensure code works as expected
 - **Lint before committing** - Fix code quality issues first
 
 #### What NOT to Commit
+
 - ❌ Commented-out code (delete it; Git preserves history)
 - ❌ Debug logs and console statements
 - ❌ Temporary files or build artifacts
@@ -159,6 +172,7 @@ For additional clarity, prefix commits with a type:
 - **ci**: CI/CD configuration changes
 
 **Example with type:**
+
 ```
 feat: Add user authentication middleware
 
@@ -170,6 +184,7 @@ Implement JWT-based authentication to secure API endpoints.
 ## Code Quality Rules
 
 ### General Principles
+
 - **Write clean, readable code** - Code is read more often than written
 - **Follow existing patterns** - Consistency trumps personal preference
 - **Comment complex logic** - Explain why, not what
@@ -177,12 +192,14 @@ Implement JWT-based authentication to secure API endpoints.
 - **Avoid premature optimization** - Make it work, then make it fast
 
 ### TypeScript/JavaScript Specific
+
 - **Use TypeScript** - Prefer type safety over vanilla JavaScript
 - **Explicit types** - Define types rather than relying on inference for public APIs
 - **Avoid `any`** - Use proper types or `unknown` if type is truly unknown
 - **Destructure imports** - `import { specific } from 'module'` not `import *`
 
 ### Error Handling
+
 - **Never swallow errors silently** - At minimum, log them
 - **Validate input** - Check parameters at system boundaries
 - **Provide context** - Error messages should help debugging
@@ -193,12 +210,14 @@ Implement JWT-based authentication to secure API endpoints.
 ## Documentation Rules
 
 ### Code Documentation
+
 - **Document public APIs** - Every exported function, class, interface
 - **Update docs when code changes** - Stale docs are worse than no docs
 - **Use JSDoc/TSDoc** - Standard documentation format
 - **Include examples** - Show how to use complex functionality
 
 ### README.md
+
 - **Keep updated** - README should reflect current state
 - **Include setup instructions** - New developers should be able to start
 - **Document dependencies** - List required tools and versions
@@ -209,12 +228,14 @@ Implement JWT-based authentication to secure API endpoints.
 ## Testing Rules
 
 ### Test Requirements
+
 - **Test new features** - Every new feature needs tests
 - **Test bug fixes** - Add test to prevent regression
 - **Test edge cases** - Don't just test the happy path
 - **Keep tests maintainable** - Tests should be readable and simple
 
 ### Test Organization
+
 - **Mirror source structure** - Tests should follow src/ organization
 - **Descriptive test names** - Test name should describe what it tests
 - **One assertion per test** - Or at least one logical concept
@@ -225,6 +246,7 @@ Implement JWT-based authentication to secure API endpoints.
 ## Security Rules
 
 ### General Security
+
 - **Never commit secrets** - Use environment variables
 - **Validate all input** - Don't trust user data or external APIs
 - **Sanitize output** - Prevent XSS, injection attacks
@@ -232,6 +254,7 @@ Implement JWT-based authentication to secure API endpoints.
 - **Keep dependencies updated** - Patch known vulnerabilities
 
 ### Electron-Specific Security
+
 - **Enable context isolation** - Always set `contextIsolation: true`
 - **Disable node integration** - Set `nodeIntegration: false` in renderer
 - **Use preload scripts** - Only expose needed APIs via `contextBridge`
@@ -243,6 +266,7 @@ Implement JWT-based authentication to secure API endpoints.
 ## File Organization Rules
 
 ### Naming Conventions
+
 - **Files**: `camelCase.ts` for utilities, `PascalCase.tsx` for components
 - **Directories**: `kebab-case/` or `camelCase/` (be consistent)
 - **Constants**: `UPPER_SNAKE_CASE`
@@ -250,6 +274,7 @@ Implement JWT-based authentication to secure API endpoints.
 - **Functions/Variables**: `camelCase`
 
 ### Project Structure
+
 - **Group by feature** - Not by file type
 - **Colocate related files** - Keep components, tests, styles together
 - **Separate concerns** - UI, business logic, data access in different layers
@@ -260,6 +285,7 @@ Implement JWT-based authentication to secure API endpoints.
 ## Review & Iteration
 
 These rules are living guidelines. They should:
+
 - **Evolve with the project** - Update as needs change
 - **Be discussed** - Question rules that don't make sense
 - **Be enforced** - Use linters, pre-commit hooks, CI checks
