@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react'
 import { Box, Spinner, VStack, Text } from '@chakra-ui/react'
 import type { AppInfo } from '../shared/types/app.types'
 import Welcome from './pages/Welcome'
+import Settings from './pages/Settings'
+import { useThemeStore } from './store/useThemeStore'
+
+type Page = 'welcome' | 'settings'
 
 function App() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState<Page>('welcome')
+  const mode = useThemeStore((state) => state.mode)
 
   useEffect(() => {
     // Get app info on mount
@@ -23,10 +29,10 @@ function App() {
 
   if (loading) {
     return (
-      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center" bg="gray.900">
+      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center" bg="bg.canvas">
         <VStack gap={4}>
           <Spinner size="xl" color="brand.500" />
-          <Text fontSize="xl" color="gray.400">
+          <Text fontSize="xl" color="text.secondary">
             Loading...
           </Text>
         </VStack>
@@ -34,7 +40,14 @@ function App() {
     )
   }
 
-  return <Welcome appInfo={appInfo} />
+  return (
+    <Box data-theme={mode}>
+      {currentPage === 'welcome' && (
+        <Welcome appInfo={appInfo} onOpenSettings={() => setCurrentPage('settings')} />
+      )}
+      {currentPage === 'settings' && <Settings onBack={() => setCurrentPage('welcome')} />}
+    </Box>
+  )
 }
 
 export default App
