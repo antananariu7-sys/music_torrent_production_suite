@@ -55,14 +55,22 @@ A project-based music production suite with three integrated components:
 
 ```json
 {
-  "electron": "^28.0.0",
-  "react": "^18.2.0",
-  "zustand": "^4.5.0",
-  "puppeteer-core": "^21.0.0",
-  "webtorrent": "^2.3.0",
-  "typescript": "^5.3.0"
+  "electron": "40.1.0",
+  "react": "18.3.1",
+  "react-router-dom": "6.30.3",
+  "@chakra-ui/react": "3.31.0",
+  "zustand": "4.5.7",
+  "puppeteer-core": "21.11.0",
+  "webtorrent": "2.8.5",
+  "typescript": "5.9.3",
+  "vite": "5.4.21",
+  "esbuild": "0.27.2"
 }
 ```
+
+**Package Manager**: Yarn (exact versions locked)
+**Node.js Requirement**: >=25.0.0
+**Module System**: ES Modules (`"type": "module"`)
 
 ### Component Flow
 

@@ -55,6 +55,7 @@ This document covers the application overview and component architecture.
 
 ### Technical Requirements
 - **Platform Support**: Windows 10/11, macOS 10.13+
+- **Runtime Environment**: Node.js >=25.0.0, ES Modules
 - **Performance**:
   - Handle batch searches efficiently
   - Concurrent torrent downloads (5-10 simultaneous)
@@ -77,6 +78,38 @@ This document covers the application overview and component architecture.
   - Support large lists of search strings (100+ items)
   - Manage hundreds of downloaded files per project
   - Handle multiple active projects
+
+### Build System & Tooling
+
+**Package Manager**: Yarn (exact version locking)
+
+**Build Tools**:
+- **Vite 5.4.21**: Renderer process build tool
+  - Fast HMR (Hot Module Replacement) in development
+  - Optimized production builds with code splitting
+  - Target: `esnext` for modern JavaScript features
+  - Dev server on port 5173
+  - Path aliases: `@/` → `src/renderer/`, `@shared/` → `src/shared/`
+
+- **esbuild 0.27.2**: Main/preload process bundler
+  - Fast TypeScript compilation
+  - Main process: Bundled as CommonJS (`format: 'cjs'`)
+  - Preload process: Bundled as CommonJS for Electron compatibility
+  - Sourcemaps in development, minification in production
+  - External modules: `electron` (not bundled)
+
+**Development Workflow**:
+```bash
+yarn dev          # Build main+preload, start Vite dev server, launch Electron
+yarn build        # Production build (renderer → vite, main+preload → esbuild)
+yarn package      # Build + electron-builder packaging
+```
+
+**TypeScript Configuration**:
+- Strict type checking enabled
+- Separate `tsconfig.json` for main/renderer/preload processes
+- ES Modules with `"type": "module"` in package.json
+- Node.js 25+ target for latest ECMAScript features
 
 ## 1.1 Component Architecture
 

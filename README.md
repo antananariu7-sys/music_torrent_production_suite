@@ -21,78 +21,83 @@ A project-based music production suite with three integrated components:
 
 ## Tech Stack
 
-- **Electron** ^28.0.0 - Desktop application framework
-- **React** ^18.2.0 - UI framework
-- **TypeScript** ^5.3.0 - Type safety
-- **Zustand** ^4.5.0 - State management
-- **Vite** ^5.0.0 - Build tool
-- **Puppeteer Core** ^21.0.0 - Web automation
-- **WebTorrent** ^2.3.0 - Torrent client
-- **Zod** ^3.22.0 - Schema validation
+- **Electron** 40.1.0 - Desktop application framework
+- **React** 18.3.1 - UI framework
+- **Chakra UI** 3.31.0 - Component library with theming
+- **TypeScript** 5.9.3 - Type safety
+- **Zustand** 4.5.7 - State management
+- **Vite** 5.4.21 - Renderer build tool
+- **esbuild** 0.27.2 - Main/preload bundler
+- **Puppeteer Core** 21.11.0 - Web automation
+- **WebTorrent** 2.8.5 - Torrent client
+- **Zod** 3.25.76 - Schema validation
+- **React Router** 6.30.3 - Client-side routing
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ and npm
-- Git
+- **Node.js** 25.0.0 or higher
+- **Yarn** package manager
+- **Git**
 
 ### Installation
 
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd misha
+cd music-production-suite
 ```
 
 2. Install dependencies:
 ```bash
-npm install
+yarn install
 ```
 
 ### Development
 
 Start the development server:
 ```bash
-npm run dev
+yarn dev
 ```
 
 This will:
-- Start Vite dev server for the renderer process (port 5173)
-- Compile and run the Electron main process with debugging enabled
+- Build main and preload processes with esbuild
+- Start Vite dev server for renderer process (port 5173)
+- Launch Electron in development mode with hot reload
 
 ### Building
 
 Build the application:
 ```bash
-npm run build
+yarn build
 ```
 
 Package for distribution:
 ```bash
-npm run package        # Package for current platform
-npm run package:win    # Windows
-npm run package:mac    # macOS
+yarn package        # Package for current platform
+yarn package:win    # Windows (NSIS installer)
+yarn package:mac    # macOS (DMG)
 ```
 
 ### Testing
 
 Run unit tests:
 ```bash
-npm test
+yarn test
 ```
 
 Run E2E tests:
 ```bash
-npm run test:e2e
+yarn test:e2e
 ```
 
 ### Linting
 
 ```bash
-npm run lint           # Check for issues
-npm run lint:fix       # Auto-fix issues
-npm run typecheck      # TypeScript type checking
+yarn lint           # Check for issues
+yarn lint:fix       # Auto-fix issues
+yarn typecheck      # TypeScript type checking
 ```
 
 ## Project Structure
@@ -105,24 +110,46 @@ src/
 │   ├── ipc/                 # IPC handlers
 │   └── services/            # Business logic
 │
-├── renderer/                # Renderer process (React)
+├── renderer/                # Renderer process (React + Chakra UI)
 │   ├── index.html           # HTML entry
-│   ├── index.tsx            # React entry
+│   ├── index.tsx            # React entry with ChakraProvider
 │   ├── App.tsx              # Root component
 │   ├── pages/               # Page components
+│   │   └── Welcome.tsx      # Welcome/landing page
 │   ├── components/          # UI components
+│   ├── theme/               # Chakra UI theme
+│   │   └── index.ts         # Custom theme (dark mode, brand colors)
 │   ├── hooks/               # Custom hooks
 │   ├── store/               # Zustand stores
 │   └── styles/              # Global styles
+│       └── global.css       # Base CSS reset
 │
 ├── preload/                 # Preload scripts
-│   └── index.ts             # Main preload with context bridge
+│   ├── index.ts             # Main preload with context bridge
+│   └── types.ts             # Type definitions for window.api
 │
 └── shared/                  # Shared code
     ├── types/               # TypeScript types
     ├── schemas/             # Zod schemas
     └── constants.ts         # App constants
+
+scripts/                     # Build scripts
+├── build-main.mjs           # esbuild config for main process
+└── build-preload.mjs        # esbuild config for preload
+
+dist/                        # Build output (gitignored)
+├── main/                    # Compiled main process (CommonJS)
+├── preload/                 # Compiled preload script (CommonJS)
+└── renderer/                # Built renderer (Vite output)
 ```
+
+### Build System
+
+- **Renderer Process**: Built with Vite (fast HMR, optimized production builds)
+- **Main Process**: Bundled with esbuild to CommonJS
+- **Preload Script**: Bundled with esbuild to CommonJS
+- **Type Checking**: Strict TypeScript with separate configs per process
+- **Module System**: ES Modules with Node.js 25+
 
 ## Architecture
 
@@ -144,6 +171,29 @@ This project follows a project-based workflow similar to DAWs:
 4. Mix and edit audio
 5. Export final output
 
+## UI Design
+
+**Component Library**: Chakra UI v3 with custom theming
+
+**Theme**:
+- **Color Scheme**: Dark mode by default (gray.900 background)
+- **Brand Colors**: Purple/violet palette (50-900 shades)
+- **Accent Colors**: Indigo palette for highlights
+- **Typography**: Built-in Chakra UI font system
+- **Responsive**: Adaptive layouts with Chakra's responsive props
+
+**Styling Approach**:
+- Emotion CSS-in-JS (required by Chakra UI)
+- Component-based styling with Chakra's sx prop
+- Global styles for base resets
+- Theme tokens for consistent spacing, colors, typography
+
+**Benefits**:
+- Pre-built accessible components (Button, Modal, Input, etc.)
+- Built-in dark mode support
+- TypeScript-first design
+- Consistent design system
+
 ## Security
 
 - Context isolation enabled
@@ -151,6 +201,7 @@ This project follows a project-based workflow similar to DAWs:
 - Sandbox mode enabled
 - Zod validation for all IPC messages
 - Secure credential storage using electron-store
+- Preload script with minimal exposed APIs via contextBridge
 
 ## Contributing
 
