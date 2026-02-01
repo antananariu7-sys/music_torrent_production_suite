@@ -1,0 +1,61 @@
+# Set default behavior to automatically normalize line endings to LF
+* text=auto eol=lf
+
+# Explicitly declare text files you want to always be normalized and converted to LF
+*.md text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Source code
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.jsx text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+*.xml text eol=lf
+*.py text eol=lf
+
+# Scripts
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Configuration files
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.editorconfig text eol=lf
+.eslintrc* text eol=lf
+.prettierrc* text eol=lf
+tsconfig*.json text eol=lf
+package.json text eol=lf
+package-lock.json text eol=lf
+
+# Documentation
+README* text eol=lf
+LICENSE* text eol=lf
+AGENTS.md text eol=lf
+
+# Windows-specific files should use CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary files - don't normalize
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.tar binary
+*.skill binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
