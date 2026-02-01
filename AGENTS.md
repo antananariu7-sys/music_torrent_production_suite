@@ -4,6 +4,25 @@ This document contains essential rules and conventions for AI agents working on 
 
 ---
 
+## Architecture Documentation
+
+**📐 For complete application architecture and design specifications**, see:
+
+→ **[ARCHITECTURE.md](ARCHITECTURE.md)** - Main architecture index
+→ **[.architecture/](.architecture/)** - Detailed architecture documents
+
+The architecture documentation covers:
+- Application components and data flow
+- IPC communication patterns
+- Security architecture
+- Development roadmap
+- TypeScript data models
+- Implementation guides
+
+**Important**: Review the architecture before making significant changes to ensure alignment with the overall design.
+
+---
+
 ## Git Commit Rules
 
 ### Commit Message Structure
