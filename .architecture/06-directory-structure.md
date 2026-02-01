@@ -164,10 +164,18 @@ electron-app/
 ├── dist/                        # Build output
 ├── release/                     # Release builds
 │
-├── tests/                       # Tests
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
+├── tests/                       # Integration & E2E tests only
+│   ├── integration/            # Cross-module integration tests
+│   │   ├── ipc/
+│   │   ├── features/
+│   │   └── services/
+│   └── e2e/                    # End-to-end Playwright tests
+│       ├── tests/
+│       └── fixtures/
+│
+│   # Note: Unit tests are colocated with source files
+│   # Example: src/renderer/components/Button.tsx
+│   #          src/renderer/components/Button.test.tsx
 │
 ├── package.json
 ├── tsconfig.json

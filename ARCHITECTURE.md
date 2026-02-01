@@ -47,6 +47,13 @@ A project-based music production suite with three integrated components:
 | [**11-risks-and-success.md**](.architecture/11-risks-and-success.md) | Technical risks, success criteria |
 | [**12-implementation-guide.md**](.architecture/12-implementation-guide.md) | RuTracker-specific code examples |
 
+### Guidelines & Best Practices
+
+| Document | Description |
+|----------|-------------|
+| [**13-testing-guidelines.md**](.architecture/13-testing-guidelines.md) | Testing standards, data-testid locators, test patterns |
+| [**14-development-guidelines.md**](.architecture/14-development-guidelines.md) | Code quality, architecture patterns, security practices |
+
 ---
 
 ## 🚀 Quick Start
@@ -112,9 +119,12 @@ For coding standards, commit message format, and development best practices, see
 
 ## 📝 Document Status
 
-- **Version**: 1.0
-- **Last Updated**: 2026-01-31
-- **Status**: Initial architecture design complete
+- **Version**: 1.1
+- **Last Updated**: 2026-02-01
+- **Status**: Architecture design complete + Guidelines added
+- **Recent Updates**:
+  - Added comprehensive testing guidelines with data-testid standards
+  - Added development guidelines with code quality and security practices
 - **Next Steps**: Begin Phase 1 implementation
 
 ---
