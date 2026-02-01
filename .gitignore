@@ -54,5 +54,9 @@ ENV/
 coverage/
 .nyc_output/
 
+# Claude settings (local user preferences)
+.claude/settings.local.json
+.claude/settings.json
+
 # Editor configs (keep these committed for team consistency)
 !.editorconfig

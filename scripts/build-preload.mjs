@@ -16,6 +16,10 @@ async function buildPreload() {
       format: 'cjs',
       outfile: resolve(rootDir, 'dist/preload/index.cjs'),
       external: ['electron'],
+      alias: {
+        '@shared': resolve(rootDir, 'src/shared')
+      },
+      target: 'node25',
       sourcemap: process.env.NODE_ENV === 'development',
       minify: process.env.NODE_ENV === 'production',
     })

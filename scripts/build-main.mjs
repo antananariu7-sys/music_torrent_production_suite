@@ -14,8 +14,21 @@ async function buildMain() {
       bundle: true,
       platform: 'node',
       format: 'cjs',
-      outfile: resolve(rootDir, 'dist/main/main/index.cjs'),
-      external: ['electron'],
+      outfile: resolve(rootDir, 'dist/main/index.cjs'),
+      external: [
+        'electron',
+        'electron-store',
+        'puppeteer-core',
+        'cheerio',
+        'music-metadata',
+        'webtorrent',
+        'csv-stringify',
+        'uuid'
+      ],
+      alias: {
+        '@shared': resolve(rootDir, 'src/shared')
+      },
+      target: 'node25',
       sourcemap: process.env.NODE_ENV === 'development',
       minify: process.env.NODE_ENV === 'production',
     })

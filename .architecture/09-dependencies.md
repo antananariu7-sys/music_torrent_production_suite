@@ -84,8 +84,14 @@ This document lists all main and development dependencies for the application.
 ```
 
 **Build & Development Tools:**
-- `vite`: Fast build tool for renderer process (dev server + production builds)
-- `esbuild`: Fast bundler for main/preload processes (ESM support)
+- `vite`: Fast build tool for renderer process (dev server on port 5173 + production builds)
+- `esbuild`: Fast bundler for main/preload processes
+  - Bundles main process to `dist/main/index.cjs` (CommonJS format)
+  - Bundles preload to `dist/preload/index.cjs` (CommonJS format)
+  - Externalizes runtime dependencies (electron, puppeteer-core, cheerio, webtorrent, music-metadata, electron-store, csv-stringify, uuid)
+  - Supports path aliases (`@shared` → `src/shared/`)
+  - Target: `node25` for modern JavaScript features
+  - Custom build scripts: `scripts/build-main.mjs`, `scripts/build-preload.mjs`
 - `electron-builder`: Package and distribute Electron apps (NSIS/DMG installers)
 - `concurrently`: Run multiple dev scripts in parallel
 - `cross-env`: Cross-platform environment variables

@@ -145,11 +145,35 @@ dist/                        # Build output (gitignored)
 
 ### Build System
 
-- **Renderer Process**: Built with Vite (fast HMR, optimized production builds)
-- **Main Process**: Bundled with esbuild to CommonJS
-- **Preload Script**: Bundled with esbuild to CommonJS
-- **Type Checking**: Strict TypeScript with separate configs per process
-- **Module System**: ES Modules with Node.js 25+
+**Renderer Process** (Vite):
+- Fast HMR during development on port 5173
+- Optimized production builds with code splitting
+- Path aliases: `@/` → `src/renderer/`, `@shared/` → `src/shared/`
+- Target: ESNext for modern JavaScript features
+
+**Main Process** (esbuild):
+- Custom build script: `scripts/build-main.mjs`
+- Bundles to `dist/main/index.cjs` (CommonJS format)
+- Target: `node25` matching engine requirement
+- Externalizes runtime dependencies: electron, puppeteer-core, cheerio, webtorrent, music-metadata, electron-store, csv-stringify, uuid
+- Path aliases: `@shared` → `src/shared/`
+- Sourcemaps in development, minification in production
+
+**Preload Script** (esbuild):
+- Custom build script: `scripts/build-preload.mjs`
+- Bundles to `dist/preload/index.cjs` (CommonJS format)
+- Target: `node25`
+- Externalizes only electron (all other dependencies bundled)
+- Path aliases: `@shared` → `src/shared/`
+- Sourcemaps in development, minification in production
+
+**Type Checking**:
+- Strict TypeScript with separate configs per process
+- `tsconfig.main.json` - Main process (CommonJS, Node types)
+- `tsconfig.preload.json` - Preload (CommonJS, Node + DOM types)
+- `tsconfig.renderer.json` - Renderer (ESNext, React JSX)
+
+**Module System**: ES Modules with Node.js 25+
 
 ## Architecture
 
@@ -202,6 +226,35 @@ This project follows a project-based workflow similar to DAWs:
 - Zod validation for all IPC messages
 - Secure credential storage using electron-store
 - Preload script with minimal exposed APIs via contextBridge
+
+## Troubleshooting
+
+### Build Issues
+
+**Module resolution errors:**
+- Ensure Node.js >= 25.0.0 is installed: `node --version`
+- Clear dependencies and reinstall: `rm -rf node_modules yarn.lock && yarn install`
+- Check that `"type": "module"` is set in package.json
+
+**esbuild bundling errors:**
+- Verify all runtime dependencies are listed in the `external` array in build scripts
+- Check that path aliases match in both tsconfig and build scripts
+- Ensure target platform is set to `node25`
+
+**Electron fails to start:**
+- Build main and preload first: `yarn build:main && yarn build:preload`
+- Check that output files exist: `dist/main/index.cjs`, `dist/preload/index.cjs`
+- Verify Vite dev server is running on port 5173 in development mode
+
+**TypeScript errors in IDE:**
+- Ensure correct tsconfig is active for the file you're editing
+- Restart TypeScript server in your IDE
+- Check that path aliases are configured in the appropriate tsconfig file
+
+**Preload script not found:**
+- Verify preload path in [window.ts:19](src/main/window.ts#L19): `join(__dirname, '../preload/index.cjs')`
+- Ensure preload script is built: `yarn build:preload`
+- Check file exists at `dist/preload/index.cjs`
 
 ## Contributing
 

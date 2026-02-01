@@ -3,7 +3,6 @@ import { APP_CONFIG } from '../shared/constants'
 import { createWindow } from './window'
 import { registerIpcHandlers } from './ipc'
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let mainWindow: BrowserWindow | null = null
 
 // This method will be called when Electron has finished initialization
@@ -35,5 +34,8 @@ app.on('window-all-closed', () => {
 // Clean up before quitting
 app.on('before-quit', () => {
   console.log('Application shutting down...')
+  if (mainWindow) {
+    mainWindow.destroy()
+  }
   // TODO: Clean up services, close connections, etc.
 })

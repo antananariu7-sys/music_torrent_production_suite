@@ -92,11 +92,14 @@ This document covers the application overview and component architecture.
   - Path aliases: `@/` → `src/renderer/`, `@shared/` → `src/shared/`
 
 - **esbuild 0.27.2**: Main/preload process bundler
-  - Fast TypeScript compilation
-  - Main process: Bundled as CommonJS (`format: 'cjs'`)
-  - Preload process: Bundled as CommonJS for Electron compatibility
-  - Sourcemaps in development, minification in production
-  - External modules: `electron` (not bundled)
+  - Fast TypeScript compilation and bundling
+  - Main process: Bundled as CommonJS (`format: 'cjs'`) to `dist/main/index.cjs`
+  - Preload process: Bundled as CommonJS to `dist/preload/index.cjs`
+  - Target: `node25` matching engine requirement
+  - Path aliases: `@shared` → `src/shared/`
+  - External dependencies: All runtime modules kept external (electron, puppeteer-core, cheerio, webtorrent, music-metadata, electron-store, csv-stringify, uuid)
+  - Sourcemaps enabled in development, minification in production
+  - Custom build scripts: `scripts/build-main.mjs`, `scripts/build-preload.mjs`
 
 **Development Workflow**:
 ```bash
