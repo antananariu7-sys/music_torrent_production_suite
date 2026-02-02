@@ -1,6 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import { IPC_CHANNELS } from '../shared/constants'
-import type { AppInfo, AppSettings } from '../shared/types/app.types'
+import { IPC_CHANNELS } from '@shared/constants'
+import type { AppInfo, AppSettings } from '@shared/types/app.types'
+import type {
+  CreateProjectRequest,
+  OpenProjectRequest,
+  Project,
+  RecentProject,
+} from '@shared/types/project.types'
+
+// API response wrapper
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+}
 
 // Define the API that will be exposed to the renderer process
 const api = {
@@ -13,10 +26,14 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, settings),
 
   // Project methods
-  createProject: (data: { name: string; description?: string }) =>
-    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CREATE, data),
-  loadProject: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LOAD, id),
-  listProjects: () => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LIST),
+  createProject: (request: CreateProjectRequest): Promise<ApiResponse<Project>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CREATE, request),
+
+  openProject: (request: OpenProjectRequest): Promise<ApiResponse<Project>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LOAD, request),
+
+  getRecentProjects: (): Promise<ApiResponse<RecentProject[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LIST),
 
   // File operations
   selectDirectory: (): Promise<string | null> =>

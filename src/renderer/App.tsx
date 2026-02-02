@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Box, Spinner, VStack, Text } from '@chakra-ui/react'
-import type { AppInfo } from '../shared/types/app.types'
-import Welcome from './pages/Welcome'
-import Settings from './pages/Settings'
-import { useThemeStore } from './store/useThemeStore'
+import type { AppInfo } from '@shared/types/app.types'
+import ProjectLauncher from '@/pages/ProjectLauncher'
+import Settings from '@/pages/Settings'
+import { useThemeStore } from '@/store/useThemeStore'
 
 function AppContent() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
@@ -45,7 +45,7 @@ function AppContent() {
 
   return (
     <Routes>
-      <Route path="/" element={<Welcome appInfo={appInfo} />} />
+      <Route path="/" element={<ProjectLauncher appInfo={appInfo} />} />
       <Route path="/settings" element={<Settings />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
