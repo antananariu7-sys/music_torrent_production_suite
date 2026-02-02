@@ -148,6 +148,11 @@ Consult `references/best-practices.md` for:
 - Virtual scrolling for long lists
 - Debouncing user input
 
+**Project Conventions:**
+- Always use `yarn` as the package manager (not npm)
+- Use absolute imports when necessary for cleaner imports
+- Components used in pages should be moved to `components/common/` folder
+
 ### 4. Use Templates
 
 Templates are located in `templates/` directory. Replace placeholders (e.g., `{{SERVICE_NAME}}`) with actual values:
