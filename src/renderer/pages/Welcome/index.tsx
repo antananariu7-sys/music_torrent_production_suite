@@ -13,15 +13,14 @@ import {
 } from '@chakra-ui/react'
 import { useNavigate } from 'react-router-dom'
 import type { AppInfo } from '../../../shared/types/app.types'
-import Layout from '../../components/common/Layout'
-import { Waveform, FrequencyBars } from './components'
+import { Layout, Waveform, FrequencyBars } from '../../components/common'
 import { welcomeStyles } from './Welcome.styles'
 
 interface WelcomeProps {
   appInfo: AppInfo | null
 }
 
-function Welcome({ appInfo }: WelcomeProps) {
+function Welcome({ appInfo }: WelcomeProps): JSX.Element {
   const navigate = useNavigate()
 
   return (
@@ -47,6 +46,7 @@ function Welcome({ appInfo }: WelcomeProps) {
           {/* Header with Settings Button */}
           <HStack justify="flex-end" mb={8}>
             <IconButton
+              data-testid="welcome-button-settings"
               aria-label="Open settings"
               onClick={() => navigate('/settings')}
               variant="ghost"
@@ -72,6 +72,7 @@ function Welcome({ appInfo }: WelcomeProps) {
             >
               <Box>
                 <Text
+                  data-testid="welcome-text-version"
                   fontSize="sm"
                   fontWeight="bold"
                   letterSpacing="widest"
@@ -84,6 +85,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                   // PRODUCTION SUITE V2.0
                 </Text>
                 <Heading
+                  data-testid="welcome-heading-main"
                   as="h1"
                   fontSize={{ base: '4xl', md: '6xl', lg: '7xl' }}
                   fontWeight="900"
@@ -123,6 +125,7 @@ function Welcome({ appInfo }: WelcomeProps) {
               </Box>
 
               <Text
+                data-testid="welcome-text-description"
                 fontSize={{ base: 'lg', md: 'xl' }}
                 color="text.secondary"
                 maxW="600px"
@@ -135,6 +138,7 @@ function Welcome({ appInfo }: WelcomeProps) {
 
               <HStack gap={3} mt={4}>
                 <Box
+                  data-testid="welcome-badge-online"
                   px={4}
                   py={2}
                   bg="brand.500"
@@ -148,6 +152,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                   ● ONLINE
                 </Box>
                 <Box
+                  data-testid="welcome-badge-modules"
                   px={4}
                   py={2}
                   borderWidth="2px"
@@ -166,6 +171,7 @@ function Welcome({ appInfo }: WelcomeProps) {
             {/* Right: Waveform visualization */}
             <Box flex="1" position="relative" className="hero-right">
               <Box
+                data-testid="welcome-section-spectrum"
                 p={8}
                 bg="bg.card"
                 borderWidth="2px"
@@ -217,6 +223,7 @@ function Welcome({ appInfo }: WelcomeProps) {
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} gap={6} mb={12}>
             {/* Card 1: Torrent Search */}
             <Card.Root
+              data-testid="welcome-card-torrent-search"
               bg="bg.card"
               borderWidth="2px"
               borderColor="border.base"
@@ -233,6 +240,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                     </Box>
                     <VStack align="start" gap={0}>
                       <Heading
+                        data-testid="welcome-heading-torrent-search"
                         size="xl"
                         color="text.primary"
                         fontWeight="800"
@@ -245,7 +253,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                       </Text>
                     </VStack>
                   </HStack>
-                  <Text color="text.secondary" lineHeight="1.7" fontSize="md">
+                  <Text data-testid="welcome-text-torrent-search" color="text.secondary" lineHeight="1.7" fontSize="md">
                     Automated RuTracker search with batch processing and real-time progress
                     tracking. Lightning-fast indexing.
                   </Text>
@@ -269,6 +277,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                     </Badge>
                   </HStack>
                   <Button
+                    data-testid="welcome-button-torrent-search"
                     colorPalette="accent"
                     size="lg"
                     w="full"
@@ -285,6 +294,7 @@ function Welcome({ appInfo }: WelcomeProps) {
 
             {/* Card 2: Download Manager */}
             <Card.Root
+              data-testid="welcome-card-download-manager"
               bg="bg.card"
               borderWidth="2px"
               borderColor="border.base"
@@ -301,6 +311,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                     </Box>
                     <VStack align="start" gap={0}>
                       <Heading
+                        data-testid="welcome-heading-download-manager"
                         size="xl"
                         color="text.primary"
                         fontWeight="800"
@@ -313,7 +324,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                       </Text>
                     </VStack>
                   </HStack>
-                  <Text color="text.secondary" lineHeight="1.7" fontSize="md">
+                  <Text data-testid="welcome-text-download-manager" color="text.secondary" lineHeight="1.7" fontSize="md">
                     WebTorrent-based downloads with intelligent queue management and configurable
                     seeding protocols.
                   </Text>
@@ -337,6 +348,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                     </Badge>
                   </HStack>
                   <Button
+                    data-testid="welcome-button-download-manager"
                     colorPalette="brand"
                     size="lg"
                     w="full"
@@ -353,6 +365,7 @@ function Welcome({ appInfo }: WelcomeProps) {
 
             {/* Card 3: Music Mixer */}
             <Card.Root
+              data-testid="welcome-card-mixer"
               bg="bg.card"
               borderWidth="2px"
               borderColor="border.base"
@@ -369,6 +382,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                     </Box>
                     <VStack align="start" gap={0}>
                       <Heading
+                        data-testid="welcome-heading-mixer"
                         size="xl"
                         color="text.primary"
                         fontWeight="800"
@@ -381,7 +395,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                       </Text>
                     </VStack>
                   </HStack>
-                  <Text color="text.secondary" lineHeight="1.7" fontSize="md">
+                  <Text data-testid="welcome-text-mixer" color="text.secondary" lineHeight="1.7" fontSize="md">
                     Professional audio mixing and editing interface with multi-track support and
                     effects processing.
                   </Text>
@@ -405,6 +419,7 @@ function Welcome({ appInfo }: WelcomeProps) {
                     </Badge>
                   </HStack>
                   <Button
+                    data-testid="welcome-button-mixer"
                     colorPalette="purple"
                     size="lg"
                     w="full"
@@ -423,6 +438,7 @@ function Welcome({ appInfo }: WelcomeProps) {
           {/* App Info Footer - Technical display */}
           {appInfo && (
             <Box
+              data-testid="welcome-footer-info"
               textAlign="center"
               pt={12}
               pb={6}
@@ -441,14 +457,14 @@ function Welcome({ appInfo }: WelcomeProps) {
                 >
                   <HStack gap={2}>
                     <Box w="2" h="2" bg="green.400" borderRadius="full" />
-                    <Text>VERSION {appInfo.version}</Text>
+                    <Text data-testid="welcome-text-app-version">VERSION {appInfo.version}</Text>
                   </HStack>
                   <Text color="border.base">|</Text>
-                  <Text>
+                  <Text data-testid="welcome-text-platform">
                     {appInfo.platform.toUpperCase()} / {appInfo.arch.toUpperCase()}
                   </Text>
                 </HStack>
-                <Text fontSize="xs" color="text.muted" fontFamily="monospace">
+                <Text data-testid="welcome-text-copyright" fontSize="xs" color="text.muted" fontFamily="monospace">
                   © 2026 Music Production Suite. Built with Electron + React.
                 </Text>
               </VStack>

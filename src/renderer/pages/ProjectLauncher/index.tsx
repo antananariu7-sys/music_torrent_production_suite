@@ -17,15 +17,14 @@ import {
 import { FiFolder, FiPlus, FiClock, FiMusic } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
 import type { AppInfo } from '@shared/types/app.types'
-import Layout from '@/components/common/Layout'
-import { FrequencyBars } from '@/pages/Welcome/components'
+import { Layout, FrequencyBars } from '@/components/common'
 import { projectLauncherStyles } from './ProjectLauncher.styles'
 
 interface ProjectLauncherProps {
   appInfo: AppInfo | null
 }
 
-export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
+export default function ProjectLauncher({ appInfo }: ProjectLauncherProps): JSX.Element {
   const {
     currentProject,
     recentProjects,
@@ -51,7 +50,6 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
     // Navigate to main app when project is loaded
     if (currentProject) {
       // TODO: Navigate to main project view
-      console.log('Project loaded:', currentProject)
     }
   }, [currentProject])
 
@@ -119,6 +117,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
         <Box className="header-section" mb={12}>
           <Box textAlign="center">
             <Text
+              data-testid="launcher-text-system"
               fontSize="sm"
               fontWeight="bold"
               letterSpacing="widest"
@@ -131,6 +130,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
               // PROJECT SYSTEM
             </Text>
             <Heading
+              data-testid="launcher-heading-main"
               as="h1"
               fontSize={{ base: '4xl', md: '6xl', lg: '7xl' }}
               fontWeight="900"
@@ -168,6 +168,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
               </Box>
             </Heading>
             <Text
+              data-testid="launcher-text-description"
               fontSize={{ base: 'lg', md: 'xl' }}
               color="text.secondary"
               maxW="700px"
@@ -183,6 +184,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
         {/* Error Message */}
         {error && (
           <Box
+            data-testid="launcher-error-box"
             mb={8}
             p={6}
             bg="red.900/20"
@@ -207,11 +209,12 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                     ERROR
                   </Text>
                 </HStack>
-                <Text color="red.200" fontWeight="500">
+                <Text data-testid="launcher-text-error" color="red.200" fontWeight="500">
                   {error}
                 </Text>
               </VStack>
               <IconButton
+                data-testid="launcher-button-close-error"
                 aria-label="Close error"
                 onClick={clearError}
                 variant="ghost"
@@ -226,10 +229,11 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
 
         {/* Loading State */}
         {isLoading && (
-          <Box textAlign="center" py={16} className="action-section">
+          <Box data-testid="launcher-section-loading" textAlign="center" py={16} className="action-section">
             <VStack gap={4}>
-              <Spinner size="xl" color="brand.500" borderWidth="3px" />
+              <Spinner data-testid="launcher-spinner" size="xl" color="brand.500" borderWidth="3px" />
               <Text
+                data-testid="launcher-text-loading"
                 fontSize="sm"
                 fontFamily="monospace"
                 color="text.secondary"
@@ -247,6 +251,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
             <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
               {/* Create New Project Card */}
               <Card.Root
+                data-testid="launcher-card-create"
                 bg="bg.card"
                 borderWidth="2px"
                 borderColor="border.base"
@@ -263,6 +268,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                       </Box>
                       <VStack align="start" gap={0}>
                         <Heading
+                          data-testid="launcher-heading-create"
                           size="xl"
                           color="text.primary"
                           fontWeight="800"
@@ -283,7 +289,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
 
                     {!showCreateForm ? (
                       <>
-                        <Text color="text.secondary" lineHeight="1.7" fontSize="md">
+                        <Text data-testid="launcher-text-create-description" color="text.secondary" lineHeight="1.7" fontSize="md">
                           Start a fresh project with organized folder structure and automatic
                           configuration.
                         </Text>
@@ -296,6 +302,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                           }}
                         />
                         <Button
+                          data-testid="launcher-button-create"
                           colorPalette="brand"
                           size="lg"
                           w="full"
@@ -324,6 +331,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                             PROJECT NAME *
                           </Text>
                           <Input
+                            data-testid="launcher-input-project-name"
                             placeholder="My Awesome Mix"
                             value={projectName}
                             onChange={(e) => setProjectName(e.target.value)}
@@ -344,6 +352,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                             DESCRIPTION (OPTIONAL)
                           </Text>
                           <Textarea
+                            data-testid="launcher-textarea-project-description"
                             placeholder="Brief description of your project..."
                             value={projectDescription}
                             onChange={(e) => setProjectDescription(e.target.value)}
@@ -365,6 +374,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                           </Text>
                           <HStack>
                             <Input
+                              data-testid="launcher-input-project-location"
                               placeholder="Select folder..."
                               value={projectLocation}
                               readOnly
@@ -372,7 +382,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                               fontFamily="monospace"
                               fontSize="sm"
                             />
-                            <Button onClick={handleSelectLocation} colorPalette="accent">
+                            <Button data-testid="launcher-button-browse-location" onClick={handleSelectLocation} colorPalette="accent">
                               <FiFolder />
                             </Button>
                           </HStack>
@@ -389,6 +399,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
 
                         <HStack justify="flex-end" gap={3}>
                           <Button
+                            data-testid="launcher-button-cancel"
                             variant="ghost"
                             onClick={() => {
                               setShowCreateForm(false)
@@ -403,6 +414,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                             Cancel
                           </Button>
                           <Button
+                            data-testid="launcher-button-submit-create"
                             colorPalette="brand"
                             onClick={handleCreateProject}
                             disabled={!projectName.trim() || !projectLocation}
@@ -421,6 +433,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
 
               {/* Open Existing Project Card */}
               <Card.Root
+                data-testid="launcher-card-open"
                 bg="bg.card"
                 borderWidth="2px"
                 borderColor="border.base"
@@ -437,6 +450,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                       </Box>
                       <VStack align="start" gap={0}>
                         <Heading
+                          data-testid="launcher-heading-open"
                           size="xl"
                           color="text.primary"
                           fontWeight="800"
@@ -455,7 +469,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                       </VStack>
                     </HStack>
 
-                    <Text color="text.secondary" lineHeight="1.7" fontSize="md">
+                    <Text data-testid="launcher-text-open-description" color="text.secondary" lineHeight="1.7" fontSize="md">
                       Browse for a project folder containing a project.json file to continue
                       working.
                     </Text>
@@ -470,6 +484,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                     />
 
                     <Button
+                      data-testid="launcher-button-browse"
                       colorPalette="accent"
                       size="lg"
                       w="full"
@@ -492,13 +507,13 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
 
         {/* Recent Projects */}
         {!isLoading && recentProjects.length > 0 && (
-          <Box className="recent-section" mb={12}>
+          <Box data-testid="launcher-section-recent" className="recent-section" mb={12}>
             <HStack mb={6} gap={3}>
               <Box fontSize="2xl">
                 <FiClock />
               </Box>
               <VStack align="start" gap={0}>
-                <Heading size="lg" fontWeight="800" letterSpacing="-0.01em">
+                <Heading data-testid="launcher-heading-recent" size="lg" fontWeight="800" letterSpacing="-0.01em">
                   Recent Projects
                 </Heading>
                 <Text fontSize="xs" fontFamily="monospace" color="accent.400" fontWeight="bold">
@@ -511,6 +526,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
               {recentProjects.map((project) => (
                 <Card.Root
                   key={project.projectId}
+                  data-testid={`launcher-card-recent-${project.projectId}`}
                   bg="bg.card"
                   borderWidth="2px"
                   borderColor="border.base"
@@ -526,6 +542,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                       <HStack justify="space-between" align="start">
                         <VStack align="start" gap={1} flex="1">
                           <Heading
+                            data-testid="launcher-text-project-name"
                             size="md"
                             fontWeight="700"
                             overflow="hidden"
@@ -535,6 +552,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                             {project.projectName}
                           </Heading>
                           <Text
+                            data-testid="launcher-text-project-directory"
                             fontSize="xs"
                             fontFamily="monospace"
                             color="text.muted"
@@ -546,7 +564,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
                           </Text>
                         </VStack>
                         {project.songCount > 0 && (
-                          <Badge colorPalette="brand" size="sm">
+                          <Badge data-testid="launcher-badge-song-count" colorPalette="brand" size="sm">
                             <HStack gap={1}>
                               <FiMusic />
                               <Text fontWeight="bold">{project.songCount}</Text>
@@ -566,7 +584,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
 
                       <HStack justify="space-between" fontSize="xs" fontFamily="monospace">
                         <Text color="text.muted">LAST OPENED</Text>
-                        <Text color="brand.400" fontWeight="bold">
+                        <Text data-testid="launcher-text-last-opened" color="brand.400" fontWeight="bold">
                           {formatDate(project.lastOpened)}
                         </Text>
                       </HStack>
@@ -581,6 +599,7 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
         {/* Footer */}
         {appInfo && (
           <Box
+            data-testid="launcher-footer-info"
             textAlign="center"
             pt={12}
             pb={6}
@@ -597,10 +616,10 @@ export default function ProjectLauncher({ appInfo }: ProjectLauncherProps) {
             >
               <HStack gap={2}>
                 <Box w="2" h="2" bg="green.400" borderRadius="full" />
-                <Text>VERSION {appInfo.version}</Text>
+                <Text data-testid="launcher-text-version">VERSION {appInfo.version}</Text>
               </HStack>
               <Text color="border.base">|</Text>
-              <Text>
+              <Text data-testid="launcher-text-platform">
                 {appInfo.platform.toUpperCase()} / {appInfo.arch.toUpperCase()}
               </Text>
             </HStack>

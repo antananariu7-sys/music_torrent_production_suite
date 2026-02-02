@@ -16,7 +16,12 @@ jest.mock('react-router-dom', () => ({
 
 // Wrapper for Chakra UI and Router
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
-  <MemoryRouter>
+  <MemoryRouter
+    future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    }}
+  >
     <ChakraProvider value={system}>{children}</ChakraProvider>
   </MemoryRouter>
 )

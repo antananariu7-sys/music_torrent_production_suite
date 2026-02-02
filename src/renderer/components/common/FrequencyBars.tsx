@@ -18,7 +18,10 @@ export function FrequencyBars() {
             bg="brand.400"
             transformOrigin="bottom"
             style={{
-              animation: `freq-bounce ${0.5 + Math.random() * 0.8}s ease-in-out infinite`,
+              animationName: 'freq-bounce',
+              animationDuration: `${0.5 + Math.random() * 0.8}s`,
+              animationTimingFunction: 'ease-in-out',
+              animationIterationCount: 'infinite',
               animationDelay: `${i * 0.02}s`,
             }}
           />
