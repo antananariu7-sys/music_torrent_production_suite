@@ -198,6 +198,13 @@ Implement JWT-based authentication to secure API endpoints.
 - **Avoid `any`** - Use proper types or `unknown` if type is truly unknown
 - **Destructure imports** - `import { specific } from 'module'` not `import *`
 
+### React/Component Specific
+
+- **Keep components small** - Maximum 400-500 lines per component
+- **Split large components** - Extract logical sections into smaller sub-components
+- **Single responsibility** - Each component should have one clear purpose
+- **Reusable components** - Move common UI patterns to shared components
+
 ### Error Handling
 
 - **Never swallow errors silently** - At minimum, log them
