@@ -160,8 +160,11 @@ screen.getByTestId('submit-button')
 
 **Testing Library Setup**:
 ```tsx
-import { render, screen, act } from '@testing-library/react'
+// Jest globals (describe, it, expect, beforeEach, etc.) are available without import
+import { render, screen } from '@testing-library/react'
 import { userEvent } from '@testing-library/user-event'
+import { ChakraProvider } from '@chakra-ui/react'
+import { system } from '../../theme'
 ```
 
 **Test Template**:
@@ -189,9 +192,18 @@ describe('ComponentName', () => {
 ```
 
 **Wrapper Pattern for Providers**:
+
+**IMPORTANT**: All component tests require wrapping with `ChakraProvider` because the application uses Chakra UI components throughout.
+
 ```tsx
+// TestWrapper for Chakra UI and Router
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
-  <MemoryRouter>
+  <MemoryRouter
+    future={{
+      v7_startTransition: true,
+      v7_relativeSplatPath: true,
+    }}
+  >
     <ChakraProvider value={system}>
       {children}
     </ChakraProvider>
@@ -205,6 +217,8 @@ render(
   </TestWrapper>
 )
 ```
+
+**See Example**: [src/renderer/pages/Welcome/Welcome.test.tsx](src/renderer/pages/Welcome/Welcome.test.tsx) for a complete example of the TestWrapper pattern with Chakra provider and router setup.
 
 ### Zustand Store Testing
 

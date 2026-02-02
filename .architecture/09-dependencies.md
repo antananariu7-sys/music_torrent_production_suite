@@ -72,9 +72,10 @@ This document lists all main and development dependencies for the application.
   "@typescript-eslint/parser": "6.21.0",
   "eslint-plugin-react": "7.37.5",
   "eslint-plugin-react-hooks": "4.6.2",
-  "vitest": "1.6.1",
+  "jest": "29.7.0",
   "@testing-library/react": "14.3.1",
   "@testing-library/jest-dom": "6.9.1",
+  "@testing-library/user-event": "14.5.2",
   "playwright": "1.58.1",
   "@types/node": "20.19.30",
   "@types/react": "18.3.27",
@@ -100,8 +101,10 @@ This document lists all main and development dependencies for the application.
 **Code Quality & Testing:**
 - `typescript`: Type safety and better developer experience
 - `eslint` + plugins: Code linting for TypeScript and React
-- `vitest`: Fast unit testing framework
+- `jest`: JavaScript testing framework for unit and integration tests
 - `@testing-library/react`: React component testing utilities
+- `@testing-library/user-event`: User interaction simulation for tests
+- `@testing-library/jest-dom`: Custom Jest matchers for DOM assertions
 - `playwright`: End-to-end testing for Electron apps
 
 **Type Definitions:**
