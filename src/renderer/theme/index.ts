@@ -5,6 +5,11 @@ const config = defineConfig({
     light: '[data-theme=light] &',
     dark: '[data-theme=dark] &',
   },
+  globalCss: {
+    'input, textarea': {
+      paddingLeft: '10px !important',
+    },
+  },
   theme: {
     tokens: {
       colors: {
