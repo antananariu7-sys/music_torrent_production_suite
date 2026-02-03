@@ -1,7 +1,8 @@
-import { Box, HStack, IconButton } from '@chakra-ui/react'
+import { Box, HStack, IconButton, Text, VStack } from '@chakra-ui/react'
 import { ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import type { AppInfo } from '@shared/types/app.types'
+import { useAuthStore } from '@/store/useAuthStore'
 import Layout from './Layout'
 import { FrequencyBars } from './FrequencyBars'
 import { Footer } from './Footer'
@@ -43,6 +44,7 @@ export function PageLayout({
 }: PageLayoutProps): JSX.Element {
   const navigate = useNavigate()
   const location = useLocation()
+  const { isLoggedIn, username, isAuthenticated } = useAuthStore()
 
   // Determine if we're on the home page
   const isHomePage = location.pathname === '/'
@@ -50,6 +52,18 @@ export function PageLayout({
   return (
     <>
       {customStyles && <style>{customStyles}</style>}
+
+      {/* Auth indicator pulse animation */}
+      <style>{`
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.5;
+          }
+        }
+      `}</style>
 
       {/* Frequency visualization at bottom - only if enabled */}
       {showFrequencyBars && (
@@ -69,8 +83,44 @@ export function PageLayout({
       )}
 
       <Layout maxW={maxW}>
-        {/* Header with Navigation Button */}
-        <HStack justify="flex-end" mb={8}>
+        {/* Header with Navigation Button and Auth Status */}
+        <HStack justify="space-between" mb={8}>
+          {/* Auth Status Indicator */}
+          {isLoggedIn && isAuthenticated() && (
+            <HStack
+              gap={2}
+              px={4}
+              py={2}
+              borderRadius="full"
+              bg="green.500/10"
+              borderWidth="1px"
+              borderColor="green.500/30"
+              data-testid="auth-status-indicator"
+            >
+              <Box
+                w="2"
+                h="2"
+                bg="green.400"
+                borderRadius="full"
+                animation="pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite"
+              />
+              <Text
+                fontSize="xs"
+                fontWeight="bold"
+                color="green.400"
+                fontFamily="monospace"
+                textTransform="uppercase"
+                letterSpacing="wider"
+              >
+                {username}
+              </Text>
+            </HStack>
+          )}
+
+          {/* Spacer when not logged in */}
+          {!isLoggedIn && <Box />}
+
+          {/* Navigation Button */}
           {isHomePage ? (
             <IconButton
               data-testid="page-button-settings"

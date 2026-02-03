@@ -4,12 +4,15 @@ import { ProjectService } from '../services/ProjectService'
 import { ConfigService } from '../services/ConfigService'
 import { FileSystemService } from '../services/FileSystemService'
 import { LockService } from '../services/LockService'
+import { AuthService } from '../services/AuthService'
 import type { CreateProjectRequest, OpenProjectRequest } from '@shared/types/project.types'
+import type { LoginCredentials } from '@shared/types/auth.types'
 
 // Initialize services
 const fileSystemService = new FileSystemService()
 const configService = new ConfigService()
 const lockService = new LockService()
+const authService = new AuthService()
 const projectService = new ProjectService(
   fileSystemService,
   configService,
@@ -45,6 +48,46 @@ export function registerIpcHandlers(): void {
     // TODO: Implement settings service
     console.log('Settings updated:', settings)
     return settings
+  })
+
+  // Authentication handlers
+  ipcMain.handle(IPC_CHANNELS.AUTH_LOGIN, async (_event, credentials: LoginCredentials) => {
+    try {
+      const result = await authService.login(credentials)
+      return result
+    } catch (error) {
+      console.error('Auth login failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Login failed',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AUTH_LOGOUT, async () => {
+    try {
+      await authService.logout()
+      return { success: true }
+    } catch (error) {
+      console.error('Auth logout failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Logout failed',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.AUTH_STATUS, async () => {
+    try {
+      const authState = authService.getAuthStatus()
+      return { success: true, data: authState }
+    } catch (error) {
+      console.error('Get auth status failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get auth status',
+      }
+    }
   })
 
   // Project handlers

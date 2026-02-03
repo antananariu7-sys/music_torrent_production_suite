@@ -7,6 +7,7 @@ import type {
   Project,
   RecentProject,
 } from '@shared/types/project.types'
+import type { LoginCredentials, LoginResult, AuthState } from '@shared/types/auth.types'
 
 // API response wrapper
 interface ApiResponse<T> {
@@ -41,6 +42,18 @@ const api = {
   // File operations
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.FILE_SELECT_DIRECTORY),
+
+  // Authentication methods
+  auth: {
+    login: (credentials: LoginCredentials): Promise<LoginResult> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGIN, credentials),
+
+    logout: (): Promise<void> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGOUT),
+
+    getStatus: (): Promise<ApiResponse<AuthState>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_STATUS),
+  },
 }
 
 // Expose the API to the renderer process

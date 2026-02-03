@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   Box,
   Heading,
@@ -9,8 +10,10 @@ import {
 import { Switch } from '@chakra-ui/react'
 import type { AppInfo } from '@shared/types/app.types'
 import { useThemeStore } from '@/store/useThemeStore'
+import { useAuthStore } from '@/store/useAuthStore'
 import { PageLayout } from '@/components/common'
 import { settingsStyles } from './Settings.styles'
+import { RuTrackerAuthCard } from './components/RuTrackerAuthCard'
 
 interface SettingsProps {
   appInfo: AppInfo | null
@@ -18,6 +21,45 @@ interface SettingsProps {
 
 function Settings({ appInfo }: SettingsProps) {
   const { mode, toggleMode } = useThemeStore()
+  const { login, logout, isLoggedIn, username, sessionExpiry, isAuthenticated } = useAuthStore()
+  const [isAuthLoading, setIsAuthLoading] = useState(false)
+
+  const handleLogin = async (username: string, password: string, remember: boolean) => {
+    console.log('[Settings] 🔐 Login attempt:', { username, remember })
+    setIsAuthLoading(true)
+    try {
+      const result = await window.api.auth.login({ username, password, remember })
+      console.log('[Settings] Login result:', result)
+
+      if (result.success) {
+        login(username)
+        console.log('[Settings] ✅ Store updated, user logged in:', username)
+      } else {
+        console.error('[Settings] ❌ Login failed:', result.error)
+        throw new Error(result.error || 'Login failed')
+      }
+    } catch (error) {
+      console.error('[Settings] Login exception:', error)
+      throw error
+    } finally {
+      setIsAuthLoading(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    console.log('[Settings] 🚪 Logout attempt')
+    setIsAuthLoading(true)
+    try {
+      await window.api.auth.logout()
+      logout()
+      console.log('[Settings] ✅ Logout successful, store cleared')
+    } catch (error) {
+      console.error('[Settings] Logout exception:', error)
+      throw error
+    } finally {
+      setIsAuthLoading(false)
+    }
+  }
 
   return (
     <PageLayout appInfo={appInfo} maxW="container.md" customStyles={settingsStyles} showFrequencyBars={false}>
@@ -243,67 +285,97 @@ function Settings({ appInfo }: SettingsProps) {
               </Card.Body>
             </Card.Root>
 
-            {/* General Section */}
+            {/* RuTracker Authentication Section */}
+            <RuTrackerAuthCard
+              onLogin={handleLogin}
+              onLogout={handleLogout}
+              isLoading={isAuthLoading}
+            />
+
+            {/* Debug: Auth State Display */}
             <Card.Root
               bg="bg.card"
               borderWidth="2px"
-              borderColor="border.base"
+              borderColor="purple.500"
               borderRadius="xl"
               overflow="hidden"
-              data-testid="general-section"
-              className="settings-card settings-card-2"
+              data-testid="auth-debug-section"
+              className="settings-card"
             >
               <Card.Header
                 p={6}
                 borderBottomWidth="1px"
                 borderBottomColor="border.base"
-                bg="bg.surface"
+                bg="purple.900/20"
               >
                 <HStack justify="space-between">
                   <VStack align="start" gap={1}>
                     <Heading
                       size="lg"
                       color="text.primary"
-                      data-testid="general-heading"
                       fontWeight="800"
                       letterSpacing="-0.01em"
                     >
-                      General
+                      Debug: Auth State
                     </Heading>
-                    <Text fontSize="xs" fontFamily="monospace" color="accent.400" fontWeight="bold">
-                      SECTION_02
+                    <Text fontSize="xs" fontFamily="monospace" color="purple.400" fontWeight="bold">
+                      DEV_DEBUG
                     </Text>
                   </VStack>
-                  <Text fontSize="3xl">⚡</Text>
+                  <Text fontSize="3xl">🐛</Text>
                 </HStack>
               </Card.Header>
               <Card.Body p={6}>
-                <VStack align="start" gap={3}>
+                <VStack align="stretch" gap={4}>
                   <Box
-                    w="full"
                     p={4}
                     borderRadius="lg"
                     bg="bg.surface"
                     borderWidth="1px"
                     borderColor="border.base"
-                    borderStyle="dashed"
+                    fontFamily="monospace"
                   >
-                    <Text
-                      fontSize="sm"
-                      color="text.muted"
-                      fontStyle="italic"
-                      data-testid="general-placeholder"
-                      fontFamily="monospace"
-                    >
-                      → More settings will be added here...
-                    </Text>
+                    <VStack align="start" gap={2}>
+                      <HStack justify="space-between" w="full">
+                        <Text fontSize="sm" color="text.muted">isLoggedIn:</Text>
+                        <Text
+                          fontSize="sm"
+                          fontWeight="bold"
+                          color={isLoggedIn ? 'green.400' : 'red.400'}
+                        >
+                          {String(isLoggedIn)}
+                        </Text>
+                      </HStack>
+                      <HStack justify="space-between" w="full">
+                        <Text fontSize="sm" color="text.muted">username:</Text>
+                        <Text fontSize="sm" fontWeight="bold" color="brand.400">
+                          {username || 'null'}
+                        </Text>
+                      </HStack>
+                      <HStack justify="space-between" w="full">
+                        <Text fontSize="sm" color="text.muted">sessionExpiry:</Text>
+                        <Text fontSize="sm" fontWeight="bold" color="accent.400">
+                          {sessionExpiry
+                            ? new Date(sessionExpiry).toLocaleString()
+                            : 'null'}
+                        </Text>
+                      </HStack>
+                      <HStack justify="space-between" w="full">
+                        <Text fontSize="sm" color="text.muted">isAuthenticated():</Text>
+                        <Text
+                          fontSize="sm"
+                          fontWeight="bold"
+                          color={isAuthenticated() ? 'green.400' : 'red.400'}
+                        >
+                          {String(isAuthenticated())}
+                        </Text>
+                      </HStack>
+                    </VStack>
                   </Box>
-                  <HStack gap={2} fontSize="xs" fontFamily="monospace" color="text.muted">
-                    <Text>STATUS:</Text>
-                    <Text color="yellow.500" fontWeight="bold">
-                      DEVELOPMENT
-                    </Text>
-                  </HStack>
+                  <Text fontSize="xs" color="text.muted" fontStyle="italic">
+                    This debug panel shows the current authentication state in real-time.
+                    It will be removed in production.
+                  </Text>
                 </VStack>
               </Card.Body>
             </Card.Root>
