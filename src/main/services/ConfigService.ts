@@ -5,8 +5,8 @@ import { RecentProject } from '../../shared/types/project.types'
  * Schema for electron-store
  */
 interface StoreSchema {
-  recentProjects: any[]
-  [key: string]: any
+  recentProjects: RecentProject[]
+  [key: string]: unknown
 }
 
 /**
@@ -38,7 +38,7 @@ export class ConfigService {
    * @returns Array of recent projects
    */
   getRecentProjects(): RecentProject[] {
-    const projects = this.store.get(ConfigService.RECENT_PROJECTS_KEY, []) as any[]
+    const projects = this.store.get(ConfigService.RECENT_PROJECTS_KEY, []) as RecentProject[]
 
     // Convert date strings back to Date objects and sort
     const recentProjects = projects.map((p) => ({
@@ -101,7 +101,7 @@ export class ConfigService {
    * @param defaultValue - Default value if setting doesn't exist
    * @returns Setting value or default value
    */
-  getSetting<T = any>(key: string, defaultValue?: T): T | undefined {
+  getSetting<T = unknown>(key: string, defaultValue?: T): T | undefined {
     return this.store.get(key, defaultValue) as T | undefined
   }
 
@@ -111,7 +111,7 @@ export class ConfigService {
    * @param key - Setting key
    * @param value - Setting value
    */
-  setSetting<T = any>(key: string, value: T): void {
+  setSetting<T = unknown>(key: string, value: T): void {
     this.store.set(key, value)
   }
 

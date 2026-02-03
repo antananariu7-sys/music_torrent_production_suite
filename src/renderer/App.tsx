@@ -46,7 +46,7 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/" element={<ProjectLauncher appInfo={appInfo} />} />
-      <Route path="/settings" element={<Settings />} />
+      <Route path="/settings" element={<Settings appInfo={appInfo} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )

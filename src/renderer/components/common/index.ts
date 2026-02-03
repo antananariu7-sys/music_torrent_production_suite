@@ -1,3 +1,6 @@
 export { default as Layout } from './Layout'
+export { PageLayout } from './PageLayout'
+export { Footer } from './Footer'
 export { Waveform } from './Waveform'
 export { FrequencyBars } from './FrequencyBars'
+export { ErrorAlert } from './ErrorAlert'

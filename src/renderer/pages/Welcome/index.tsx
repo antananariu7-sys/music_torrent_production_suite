@@ -8,12 +8,10 @@ import {
   VStack,
   HStack,
   Badge,
-  IconButton,
   Stack,
 } from '@chakra-ui/react'
-import { useNavigate } from 'react-router-dom'
-import type { AppInfo } from '../../../shared/types/app.types'
-import { Layout, Waveform, FrequencyBars } from '../../components/common'
+import type { AppInfo } from '@shared/types/app.types'
+import { PageLayout, Waveform } from '@/components/common'
 import { welcomeStyles } from './Welcome.styles'
 
 interface WelcomeProps {
@@ -21,44 +19,8 @@ interface WelcomeProps {
 }
 
 function Welcome({ appInfo }: WelcomeProps): JSX.Element {
-  const navigate = useNavigate()
-
   return (
-    <>
-      <style>{welcomeStyles}</style>
-
-      {/* Frequency visualization at bottom - absolute positioned */}
-      <Box
-        position="fixed"
-        bottom="0"
-        left="0"
-        right="0"
-        height="120px"
-        overflow="hidden"
-        opacity="0.15"
-        pointerEvents="none"
-        zIndex="0"
-      >
-        <FrequencyBars />
-      </Box>
-
-      <Layout maxW="container.xl">
-          {/* Header with Settings Button */}
-          <HStack justify="flex-end" mb={8}>
-            <IconButton
-              data-testid="welcome-button-settings"
-              aria-label="Open settings"
-              onClick={() => navigate('/settings')}
-              variant="ghost"
-              size="lg"
-              colorPalette="brand"
-              fontSize="2xl"
-              className="settings-icon"
-              style={{ transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}
-            >
-              ⚙️
-            </IconButton>
-          </HStack>
+    <PageLayout appInfo={appInfo} maxW="container.xl" showCopyright customStyles={welcomeStyles} showFrequencyBars>
 
           {/* Hero Section - Bold asymmetric layout */}
           <Stack direction={{ base: 'column', lg: 'row' }} gap={12} mb={20} align="center">
@@ -82,7 +44,7 @@ function Welcome({ appInfo }: WelcomeProps): JSX.Element {
                   mb={4}
                   className="version-glow"
                 >
-                  // PRODUCTION SUITE V2.0
+                  PRODUCTION SUITE V2.0
                 </Text>
                 <Heading
                   data-testid="welcome-heading-main"
@@ -435,43 +397,7 @@ function Welcome({ appInfo }: WelcomeProps): JSX.Element {
             </Card.Root>
           </SimpleGrid>
 
-          {/* App Info Footer - Technical display */}
-          {appInfo && (
-            <Box
-              data-testid="welcome-footer-info"
-              textAlign="center"
-              pt={12}
-              pb={6}
-              borderTopWidth="1px"
-              borderTopColor="border.base"
-              className="footer-fade"
-            >
-              <VStack gap={3}>
-                <HStack
-                  justify="center"
-                  gap={4}
-                  color="text.muted"
-                  fontSize="sm"
-                  fontFamily="monospace"
-                  fontWeight="500"
-                >
-                  <HStack gap={2}>
-                    <Box w="2" h="2" bg="green.400" borderRadius="full" />
-                    <Text data-testid="welcome-text-app-version">VERSION {appInfo.version}</Text>
-                  </HStack>
-                  <Text color="border.base">|</Text>
-                  <Text data-testid="welcome-text-platform">
-                    {appInfo.platform.toUpperCase()} / {appInfo.arch.toUpperCase()}
-                  </Text>
-                </HStack>
-                <Text data-testid="welcome-text-copyright" fontSize="xs" color="text.muted" fontFamily="monospace">
-                  © 2026 Music Production Suite. Built with Electron + React.
-                </Text>
-              </VStack>
-            </Box>
-          )}
-      </Layout>
-    </>
+    </PageLayout>
   )
 }
 

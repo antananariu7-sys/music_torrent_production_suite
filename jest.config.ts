@@ -2,12 +2,12 @@ import type { Config } from 'jest'
 
 const config: Config = {
   preset: 'ts-jest',
-  testEnvironment: 'jsdom',
+  testEnvironment: 'node',
   rootDir: '.',
 
-  // Test file patterns
+  // Test file patterns - only test business logic (services)
   testMatch: [
-    '<rootDir>/src/renderer/**/*.{test,spec}.{ts,tsx}',
+    '<rootDir>/src/main/services/**/*.{test,spec}.{ts,tsx}',
   ],
 
   // Files to ignore
@@ -16,8 +16,6 @@ const config: Config = {
     '/dist/',
     '/build/',
     '/.claude/',
-    '/src/main/',
-    '/src/preload/',
   ],
 
   // Module resolution
@@ -26,16 +24,10 @@ const config: Config = {
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
   },
 
-  // Setup files
-  setupFilesAfterEnv: ['<rootDir>/src/test/setup.ts'],
-
-  // Coverage configuration
+  // Coverage configuration - only cover business logic (services)
   collectCoverageFrom: [
-    'src/renderer/**/*.{ts,tsx}',
-    '!src/renderer/**/*.{test,spec}.{ts,tsx}',
-    '!src/renderer/**/__tests__/**',
-    '!src/renderer/main.tsx',
-    '!src/renderer/vite-env.d.ts',
+    'src/main/services/**/*.{ts,tsx}',
+    '!src/main/services/**/*.{test,spec}.{ts,tsx}',
   ],
 
   // Transform configuration

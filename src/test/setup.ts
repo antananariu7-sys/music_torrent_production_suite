@@ -2,7 +2,7 @@ import '@testing-library/jest-dom'
 
 // Polyfill for structuredClone (not available in jsdom)
 if (typeof global.structuredClone === 'undefined') {
-  global.structuredClone = (obj: any) => {
+  global.structuredClone = (obj: unknown) => {
     // Handle primitive values and undefined
     if (obj === null || obj === undefined || typeof obj !== 'object') {
       return obj
@@ -40,6 +40,6 @@ Object.defineProperty(global, 'localStorage', {
 
 // Mock window.api for Electron IPC (if needed in renderer tests)
 if (typeof window !== 'undefined') {
-  // @ts-ignore - window.api doesn't exist in jsdom by default
+  // @ts-expect-error - window.api doesn't exist in jsdom by default
   window.api = {}
 }

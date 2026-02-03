@@ -125,7 +125,7 @@ export class FileSystemService {
    * @returns Parsed JSON object
    * @throws Error if file doesn't exist or contains invalid JSON
    */
-  async readJsonFile<T = any>(filePath: string): Promise<T> {
+  async readJsonFile<T = unknown>(filePath: string): Promise<T> {
     if (!await fs.pathExists(filePath)) {
       throw new Error(`File does not exist: ${filePath}`)
     }
@@ -145,7 +145,7 @@ export class FileSystemService {
    * @param filePath - Path to JSON file
    * @param data - Data to write
    */
-  async writeJsonFile(filePath: string, data: any): Promise<void> {
+  async writeJsonFile(filePath: string, data: unknown): Promise<void> {
     // Ensure directory exists
     const dir = path.dirname(filePath)
     await fs.ensureDir(dir)

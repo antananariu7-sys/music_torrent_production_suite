@@ -8,12 +8,12 @@ import * as os from 'os'
 // Mock electron-store
 jest.mock('electron-store', () => {
   return jest.fn().mockImplementation(() => {
-    let store: Record<string, any> = {}
+    let store: Record<string, unknown> = {}
     return {
-      get: jest.fn((key: string, defaultValue?: any) => {
+      get: jest.fn((key: string, defaultValue?: unknown) => {
         return store[key] !== undefined ? store[key] : defaultValue
       }),
-      set: jest.fn((key: string, value: any) => {
+      set: jest.fn((key: string, value: unknown) => {
         store[key] = value
       }),
       delete: jest.fn((key: string) => {

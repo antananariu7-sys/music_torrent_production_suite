@@ -5,35 +5,24 @@ import {
   HStack,
   Text,
   Card,
-  Button,
 } from '@chakra-ui/react'
 import { Switch } from '@chakra-ui/react'
-import { useNavigate } from 'react-router-dom'
-import { useThemeStore } from '../../store/useThemeStore'
-import { Layout } from '../../components/common'
+import type { AppInfo } from '@shared/types/app.types'
+import { useThemeStore } from '@/store/useThemeStore'
+import { PageLayout } from '@/components/common'
 import { settingsStyles } from './Settings.styles'
 
-function Settings() {
+interface SettingsProps {
+  appInfo: AppInfo | null
+}
+
+function Settings({ appInfo }: SettingsProps) {
   const { mode, toggleMode } = useThemeStore()
-  const navigate = useNavigate()
 
   return (
-    <>
-      <style>{settingsStyles}</style>
-
-      <Layout maxW="container.md">
-          {/* Header */}
-          <VStack gap={8} mb={12} align="start" className="settings-header">
-            <Button
-              onClick={() => navigate('/')}
-              variant="ghost"
-              colorPalette="brand"
-              data-testid="back-button"
-              size="lg"
-              className="back-button"
-            >
-              ← Back to Home
-            </Button>
+    <PageLayout appInfo={appInfo} maxW="container.md" customStyles={settingsStyles} showFrequencyBars={false}>
+      {/* Header */}
+      <VStack gap={8} mb={12} align="start" className="settings-header">
 
             <Box w="full">
               <Text
@@ -45,7 +34,7 @@ function Settings() {
                 fontFamily="monospace"
                 mb={3}
               >
-                // SYSTEM CONFIGURATION
+                SYSTEM CONFIGURATION
               </Text>
               <Heading
                 as="h1"
@@ -385,20 +374,7 @@ function Settings() {
             </Card.Root>
           </VStack>
 
-          {/* Footer info */}
-          <Box mt={12} pt={8} borderTopWidth="1px" borderTopColor="border.base">
-            <VStack gap={2}>
-              <Text fontSize="xs" color="text.muted" fontFamily="monospace" textAlign="center">
-                CONFIGURATION INTERFACE v1.0.0
-              </Text>
-              <HStack gap={2} fontSize="xs" fontFamily="monospace" color="text.muted">
-                <Box w="2" h="2" bg="green.400" borderRadius="full" />
-                <Text>SYSTEM READY</Text>
-              </HStack>
-            </VStack>
-          </Box>
-      </Layout>
-    </>
+    </PageLayout>
   )
 }
 
