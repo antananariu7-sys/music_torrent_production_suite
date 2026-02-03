@@ -12,8 +12,10 @@
   },
   "scripts": {
     "dev": "yarn build:main && yarn build:preload && concurrently \"yarn dev:renderer\" \"yarn start:dev\"",
+    "dev:debug": "yarn build:main && yarn build:preload && concurrently \"yarn dev:renderer\" \"yarn start:debug\"",
     "dev:renderer": "vite",
     "start:dev": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
+    "start:debug": "wait-on http://localhost:5173 && cross-env NODE_ENV=development DEBUG_BROWSER=true electron .",
     "build": "yarn build:renderer && yarn build:main && yarn build:preload",
     "build:renderer": "vite build",
     "build:main": "node scripts/build-main.mjs",

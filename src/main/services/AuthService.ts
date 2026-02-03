@@ -79,11 +79,13 @@ export class AuthService {
     }
 
     const executablePath = this.findChromePath()
-    console.log(`[AuthService] Launching browser with executable: ${executablePath}`)
+    // Use DEBUG_BROWSER env var to control headless mode
+    const headless = process.env.DEBUG_BROWSER !== 'true'
+    console.log(`[AuthService] Launching browser (headless: ${headless})`)
 
     this.browser = await puppeteer.launch({
       executablePath,
-      headless: false, // Set to true for production, false for debugging
+      headless,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -320,4 +322,16 @@ export class AuthService {
       username: undefined,
     }
   }
+
+  /**
+   * Get session cookies for reuse in other services
+   *
+   * @returns Array of session cookies
+   */
+  getSessionCookies(): SessionCookie[] {
+    return [...this.sessionCookies]
+  }
 }
+
+// Export SessionCookie type
+export type { SessionCookie }

@@ -5,14 +5,17 @@ import { ConfigService } from '../services/ConfigService'
 import { FileSystemService } from '../services/FileSystemService'
 import { LockService } from '../services/LockService'
 import { AuthService } from '../services/AuthService'
+import { RuTrackerSearchService } from '../services/RuTrackerSearchService'
 import type { CreateProjectRequest, OpenProjectRequest } from '@shared/types/project.types'
 import type { LoginCredentials } from '@shared/types/auth.types'
+import type { SearchRequest } from '@shared/types/search.types'
 
 // Initialize services
 const fileSystemService = new FileSystemService()
 const configService = new ConfigService()
 const lockService = new LockService()
 const authService = new AuthService()
+const searchService = new RuTrackerSearchService(authService)
 const projectService = new ProjectService(
   fileSystemService,
   configService,
@@ -86,6 +89,20 @@ export function registerIpcHandlers(): void {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Failed to get auth status',
+      }
+    }
+  })
+
+  // Search handlers
+  ipcMain.handle(IPC_CHANNELS.SEARCH_START, async (_event, request: SearchRequest) => {
+    try {
+      const response = await searchService.search(request)
+      return response
+    } catch (error) {
+      console.error('Search failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Search failed',
       }
     }
   })

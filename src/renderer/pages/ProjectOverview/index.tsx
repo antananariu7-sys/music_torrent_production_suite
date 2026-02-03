@@ -9,6 +9,7 @@ import { ProjectHeader } from './components/ProjectHeader'
 import { StatsGrid } from './components/StatsGrid'
 import { MetadataSection } from './components/MetadataSection'
 import { SongsList } from './components/SongsList'
+import { SearchSection } from './components/SearchSection'
 import {
   calculateTotalDuration,
   calculateTotalSize,
@@ -66,6 +67,9 @@ export default function ProjectOverview({ appInfo }: ProjectOverviewProps): JSX.
           tags={currentProject.mixMetadata?.tags || []}
           directory={currentProject.projectDirectory}
         />
+
+        {/* Search Section */}
+        <SearchSection />
 
         {/* Songs List */}
         <SongsList songs={currentProject.songs} maxDisplay={10} />

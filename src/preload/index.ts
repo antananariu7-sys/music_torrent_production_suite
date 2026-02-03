@@ -8,6 +8,7 @@ import type {
   RecentProject,
 } from '@shared/types/project.types'
 import type { LoginCredentials, LoginResult, AuthState } from '@shared/types/auth.types'
+import type { SearchRequest, SearchResponse } from '@shared/types/search.types'
 
 // API response wrapper
 interface ApiResponse<T> {
@@ -53,6 +54,12 @@ const api = {
 
     getStatus: (): Promise<ApiResponse<AuthState>> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUTH_STATUS),
+  },
+
+  // Search methods
+  search: {
+    start: (request: SearchRequest): Promise<SearchResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SEARCH_START, request),
   },
 }
 
