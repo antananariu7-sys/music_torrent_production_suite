@@ -135,16 +135,23 @@ export class RuTrackerSearchService {
       const sessionCookies = this.authService.getSessionCookies()
       console.log(`[RuTrackerSearchService] Got ${sessionCookies.length} session cookies`)
 
-      // Temporarily set browser to non-headless mode for viewing
-      const originalHeadless = this.browserOptions.headless
-      this.browserOptions.headless = false
+      // Launch a separate browser instance for viewing (not reusing this.browser)
+      // This prevents interfering with the search browser instance
+      const executablePath = this.findChromePath()
+      console.log('[RuTrackerSearchService] Launching separate browser instance for viewing')
 
-      // Initialize browser in visible mode
-      const browser = await this.initBrowser()
-      const page = await browser.newPage()
+      const viewingBrowser = await puppeteer.launch({
+        executablePath,
+        headless: false, // Always visible for viewing
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-web-security',
+          '--disable-features=IsolateOrigins,site-per-process',
+        ],
+      })
 
-      // Restore original headless setting
-      this.browserOptions.headless = originalHeadless
+      const page = await viewingBrowser.newPage()
 
       // Set viewport
       await page.setViewport({ width: 1280, height: 800 })
