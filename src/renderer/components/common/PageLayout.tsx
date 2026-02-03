@@ -1,4 +1,4 @@
-import { Box, HStack, IconButton, Text, VStack } from '@chakra-ui/react'
+import { Box, HStack, IconButton, Text } from '@chakra-ui/react'
 import { ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import type { AppInfo } from '@shared/types/app.types'

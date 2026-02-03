@@ -162,31 +162,22 @@ export class RuTrackerSearchService {
         })))
       }
 
-      // Navigate to RuTracker search page
-      const searchUrl = `https://rutracker.org/forum/tracker.php`
+      // Navigate directly to RuTracker search results using URL parameter
+      // Format: https://rutracker.org/forum/tracker.php?nm=<SEARCH_TERM>
+      const encodedQuery = encodeURIComponent(request.query)
+      const searchUrl = `https://rutracker.org/forum/tracker.php?nm=${encodedQuery}`
       console.log(`[RuTrackerSearchService] Navigating to ${searchUrl}`)
+
       await page.goto(searchUrl, {
         waitUntil: 'networkidle2',
         timeout: 30000,
       })
 
-      // Wait for search input to be visible
-      console.log('[RuTrackerSearchService] Waiting for search input')
-      const searchInputSelector = '#search-text'
-      await page.waitForSelector(searchInputSelector, { visible: true, timeout: 10000 })
+      // Wait for results table to load (using correct ID: tor-tbl)
+      console.log('[RuTrackerSearchService] Waiting for results table to appear')
+      await page.waitForSelector('#tor-tbl', { visible: true, timeout: 10000 })
 
-      // Type the search query
-      console.log(`[RuTrackerSearchService] Typing search query: "${request.query}"`)
-      await page.type(searchInputSelector, request.query)
-
-      // Submit the search form
-      console.log('[RuTrackerSearchService] Submitting search form')
-      await page.keyboard.press('Enter')
-
-      // Wait for navigation to search results
-      await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 })
-
-      // Wait a bit for results to load
+      // Wait a bit for results to fully render
       await new Promise(resolve => setTimeout(resolve, 2000))
 
       // Parse search results
@@ -233,49 +224,88 @@ export class RuTrackerSearchService {
    */
   private async parseSearchResults(page: Page): Promise<SearchResult[]> {
     try {
-      // RuTracker search results are in a table with class 'forumline'
+      // RuTracker search results are in a table with ID 'tor-tbl'
       // Each result is a row <tr> with torrent data
       const results = await page.evaluate(() => {
-        const resultsArray: SearchResult[] = []
+        const resultsArray: Array<{
+          id: string
+          title: string
+          author: string
+          size: string
+          seeders: number
+          leechers: number
+          url: string
+        }> = []
 
-        // Find the results table - usually has class 'forumline tablesorter'
-        const table = document.querySelector('table.forumline')
+        // Find the results table using the correct ID
+        const table = document.querySelector('#tor-tbl')
+        console.log('[Browser] Looking for table with ID tor-tbl')
+
         if (!table) {
-          console.log('No results table found')
+          console.log('[Browser] No results table found with ID tor-tbl')
+          // Try to find any table as fallback
+          const allTables = document.querySelectorAll('table')
+          console.log(`[Browser] Found ${allTables.length} total tables on page`)
           return resultsArray
         }
 
-        // Get all result rows (skip header row)
+        console.log('[Browser] Found tor-tbl table')
+
+        // Get all rows in the table
+        const allRows = table.querySelectorAll('tr')
+        console.log(`[Browser] Total rows in table: ${allRows.length}`)
+
+        // Get all result rows - look for rows with data-topic_id attribute
         const rows = table.querySelectorAll('tr[data-topic_id]')
-        console.log(`Found ${rows.length} result rows`)
+        console.log(`[Browser] Found ${rows.length} result rows with data-topic_id`)
+
+        // If no rows with data-topic_id, try tbody tr as fallback
+        if (rows.length === 0) {
+          const tbodyRows = table.querySelectorAll('tbody tr')
+          console.log(`[Browser] Trying tbody tr fallback: ${tbodyRows.length} rows`)
+        }
 
         rows.forEach((row, index) => {
           try {
             // Extract topic ID from data attribute
-            const topicId = row.getAttribute('data-topic_id') || ''
+            const topicId = row.getAttribute('data-topic_id') || `unknown-${index}`
 
-            // Title is in the cell with class 't-title'
-            const titleCell = row.querySelector('.t-title a.tLink')
+            // Title - try multiple selectors
+            const titleCell = row.querySelector('.t-title a.tLink') ||
+                            row.querySelector('.t-title a') ||
+                            row.querySelector('a.tLink')
             const title = titleCell?.textContent?.trim() || 'Unknown Title'
-            const url = titleCell ? `https://rutracker.org/forum/${titleCell.getAttribute('href')}` : ''
+            const href = titleCell?.getAttribute('href') || ''
+            const url = href ? `https://rutracker.org/forum/${href}` : ''
 
-            // Author is in the cell with class 'u-name'
-            const authorCell = row.querySelector('.u-name a')
+            // Author - try multiple selectors
+            const authorCell = row.querySelector('.u-name a') ||
+                              row.querySelector('td:nth-child(6) a')
             const author = authorCell?.textContent?.trim() || 'Unknown Author'
 
-            // Size is in the cell with data-ts_text attribute (file size)
-            const sizeCell = row.querySelector('.tor-size[data-ts_text]')
-            const size = sizeCell?.getAttribute('data-ts_text') || '0'
+            // Size - try multiple selectors
+            const sizeCell = row.querySelector('.tor-size[data-ts_text]') ||
+                           row.querySelector('.tor-size') ||
+                           row.querySelector('td:nth-child(5)')
+            const size = sizeCell?.getAttribute('data-ts_text') ||
+                        sizeCell?.textContent?.trim() ||
+                        '0'
 
-            // Seeders - cell with class 'seedmed' or 'seed'
-            const seedersCell = row.querySelector('.seedmed, .seed')
+            // Seeders - try multiple selectors
+            const seedersCell = row.querySelector('.seedmed') ||
+                               row.querySelector('.seed') ||
+                               row.querySelector('td:nth-child(7)')
             const seedersText = seedersCell?.textContent?.trim() || '0'
-            const seeders = parseInt(seedersText) || 0
+            const seeders = parseInt(seedersText.replace(/[^0-9]/g, '')) || 0
 
-            // Leechers - cell with class 'leechmed' or 'leech'
-            const leechersCell = row.querySelector('.leechmed, .leech')
+            // Leechers - try multiple selectors
+            const leechersCell = row.querySelector('.leechmed') ||
+                                row.querySelector('.leech') ||
+                                row.querySelector('td:nth-child(8)')
             const leechersText = leechersCell?.textContent?.trim() || '0'
-            const leechers = parseInt(leechersText) || 0
+            const leechers = parseInt(leechersText.replace(/[^0-9]/g, '')) || 0
+
+            console.log(`[Browser] Parsed row ${index}: ${title} (S:${seeders} L:${leechers})`)
 
             resultsArray.push({
               id: topicId,
@@ -287,12 +317,20 @@ export class RuTrackerSearchService {
               url,
             })
           } catch (error) {
-            console.error(`Error parsing row ${index}:`, error)
+            console.error(`[Browser] Error parsing row ${index}:`, error)
           }
         })
 
+        console.log(`[Browser] Successfully parsed ${resultsArray.length} results`)
         return resultsArray
       })
+
+      console.log(`[RuTrackerSearchService] Parser returned ${results.length} results`)
+
+      // Log first result for debugging
+      if (results.length > 0) {
+        console.log('[RuTrackerSearchService] Sample result:', JSON.stringify(results[0], null, 2))
+      }
 
       return results
     } catch (error) {

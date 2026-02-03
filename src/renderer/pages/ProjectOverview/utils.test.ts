@@ -24,7 +24,7 @@ describe('ProjectOverview Utils', () => {
 
     it('should handle undefined gracefully', () => {
       expect(formatDuration(undefined)).toBe('--:--')
-      expect(formatDuration(null as any)).toBe('--:--')
+      expect(formatDuration(null as unknown as number)).toBe('--:--')
       expect(formatDuration(NaN)).toBe('--:--')
     })
 
@@ -45,8 +45,8 @@ describe('ProjectOverview Utils', () => {
     })
 
     it('should handle invalid dates gracefully', () => {
-      expect(formatDate(null as any)).toBe('Unknown')
-      expect(formatDate(undefined as any)).toBe('Unknown')
+      expect(formatDate(null as unknown as Date)).toBe('Unknown')
+      expect(formatDate(undefined as unknown as Date)).toBe('Unknown')
       expect(formatDate(new Date('invalid'))).toBe('Unknown')
     })
   })
@@ -77,7 +77,7 @@ describe('ProjectOverview Utils', () => {
 
     it('should handle undefined gracefully', () => {
       expect(formatFileSize(undefined)).toBe('Unknown')
-      expect(formatFileSize(null as any)).toBe('Unknown')
+      expect(formatFileSize(null as unknown as number)).toBe('Unknown')
       expect(formatFileSize(NaN)).toBe('Unknown')
     })
   })
@@ -122,8 +122,8 @@ describe('ProjectOverview Utils', () => {
     })
 
     it('should handle undefined input gracefully', () => {
-      expect(getUniqueFormats(null as any)).toEqual([])
-      expect(getUniqueFormats(undefined as any)).toEqual([])
+      expect(getUniqueFormats(null as unknown as Song[])).toEqual([])
+      expect(getUniqueFormats(undefined as unknown as Song[])).toEqual([])
     })
   })
 
@@ -152,8 +152,8 @@ describe('ProjectOverview Utils', () => {
     })
 
     it('should handle undefined input gracefully', () => {
-      expect(calculateTotalDuration(null as any)).toBe(0)
-      expect(calculateTotalDuration(undefined as any)).toBe(0)
+      expect(calculateTotalDuration(null as unknown as Song[])).toBe(0)
+      expect(calculateTotalDuration(undefined as unknown as Song[])).toBe(0)
     })
 
     it('should handle all songs without duration', () => {
@@ -187,8 +187,8 @@ describe('ProjectOverview Utils', () => {
     })
 
     it('should handle undefined input gracefully', () => {
-      expect(calculateTotalSize(null as any)).toBe(0)
-      expect(calculateTotalSize(undefined as any)).toBe(0)
+      expect(calculateTotalSize(null as unknown as Song[])).toBe(0)
+      expect(calculateTotalSize(undefined as unknown as Song[])).toBe(0)
     })
 
     it('should handle all songs without fileSize', () => {

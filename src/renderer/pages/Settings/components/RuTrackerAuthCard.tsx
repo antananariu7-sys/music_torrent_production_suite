@@ -23,7 +23,7 @@ export function RuTrackerAuthCard({
   onLogout,
   isLoading = false,
 }: RuTrackerAuthCardProps): JSX.Element {
-  const { isLoggedIn, username } = useAuthStore()
+  const { isLoggedIn, username, isSessionRestored } = useAuthStore()
   const [loginUsername, setLoginUsername] = useState('')
   const [password, setPassword] = useState('')
   const [rememberMe, setRememberMe] = useState(false)
@@ -170,20 +170,20 @@ export function RuTrackerAuthCard({
               />
             </Box>
 
-            <Checkbox.Root
-              data-testid="rutracker-checkbox-remember"
-              checked={rememberMe}
-              onCheckedChange={(e) => setRememberMe(e.checked === true)}
-              disabled={isLoading}
-            >
-              <Checkbox.HiddenInput />
-              <Checkbox.Control />
-              <Checkbox.Label>
-                <Text fontSize="sm" fontWeight="500" color="text.primary">
-                  Remember my credentials
-                </Text>
-              </Checkbox.Label>
-            </Checkbox.Root>
+            <HStack gap={2}>
+              <Checkbox.Root
+                data-testid="rutracker-checkbox-remember"
+                checked={rememberMe}
+                onCheckedChange={(e: { checked: boolean | 'indeterminate' }) => setRememberMe(e.checked === true)}
+                disabled={isLoading}
+              >
+                <Checkbox.HiddenInput />
+                <Checkbox.Control />
+              </Checkbox.Root>
+              <Text fontSize="sm" fontWeight="500" color="text.primary">
+                Remember my credentials
+              </Text>
+            </HStack>
 
             {error && (
               <Box
@@ -261,8 +261,31 @@ export function RuTrackerAuthCard({
               </HStack>
             </Box>
 
+            {isSessionRestored && (
+              <Box
+                p={4}
+                borderRadius="lg"
+                bg="blue.500/10"
+                borderWidth="1px"
+                borderColor="blue.500/30"
+                data-testid="rutracker-session-restored-indicator"
+              >
+                <HStack gap={2}>
+                  <Text fontSize="lg">🔄</Text>
+                  <VStack align="start" gap={0}>
+                    <Text fontSize="sm" color="blue.500" fontWeight="bold">
+                      Session Restored
+                    </Text>
+                    <Text fontSize="xs" color="text.secondary">
+                      Your previous login session is active and being monitored
+                    </Text>
+                  </VStack>
+                </HStack>
+              </Box>
+            )}
+
             <Text color="text.secondary" fontSize="sm" lineHeight="1.7">
-              You're successfully authenticated. You can now search and download music from RuTracker.
+              You&apos;re successfully authenticated. You can now search and download music from RuTracker.
             </Text>
 
             <Box
