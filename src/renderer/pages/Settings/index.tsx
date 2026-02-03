@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Heading,
@@ -21,8 +21,9 @@ interface SettingsProps {
 
 function Settings({ appInfo }: SettingsProps) {
   const { mode, toggleMode } = useThemeStore()
-  const { login, logout, isLoggedIn, username, sessionExpiry, isAuthenticated } = useAuthStore()
+  const { login, logout, isLoggedIn, username, sessionExpiry, isAuthenticated, isSessionRestored } = useAuthStore()
   const [isAuthLoading, setIsAuthLoading] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<{ cookies: Array<{ name: string; value: string; domain: string; path: string; expires: number }>; cookieCount: number } | null>(null)
 
   const handleLogin = async (username: string, password: string, remember: boolean) => {
     console.log('[Settings] 🔐 Login attempt:', { username, remember })
@@ -60,6 +61,26 @@ function Settings({ appInfo }: SettingsProps) {
       setIsAuthLoading(false)
     }
   }
+
+  // Load debug info when logged in
+  useEffect(() => {
+    const loadDebugInfo = async () => {
+      if (isLoggedIn) {
+        try {
+          const response = await window.api.auth.getDebugInfo()
+          if (response.success && response.data) {
+            setDebugInfo(response.data)
+          }
+        } catch (error) {
+          console.error('[Settings] Failed to load debug info:', error)
+        }
+      } else {
+        setDebugInfo(null)
+      }
+    }
+
+    loadDebugInfo()
+  }, [isLoggedIn])
 
   return (
     <PageLayout appInfo={appInfo} maxW="container.md" customStyles={settingsStyles} showFrequencyBars={false}>
@@ -361,6 +382,16 @@ function Settings({ appInfo }: SettingsProps) {
                         </Text>
                       </HStack>
                       <HStack justify="space-between" w="full">
+                        <Text fontSize="sm" color="text.muted">isSessionRestored:</Text>
+                        <Text
+                          fontSize="sm"
+                          fontWeight="bold"
+                          color={isSessionRestored ? 'blue.400' : 'gray.400'}
+                        >
+                          {String(isSessionRestored)}
+                        </Text>
+                      </HStack>
+                      <HStack justify="space-between" w="full">
                         <Text fontSize="sm" color="text.muted">isAuthenticated():</Text>
                         <Text
                           fontSize="sm"
@@ -372,6 +403,95 @@ function Settings({ appInfo }: SettingsProps) {
                       </HStack>
                     </VStack>
                   </Box>
+
+                  {/* Cookies Section */}
+                  {debugInfo && debugInfo.cookieCount > 0 && (
+                    <Box
+                      p={4}
+                      borderRadius="lg"
+                      bg="bg.surface"
+                      borderWidth="1px"
+                      borderColor="border.base"
+                    >
+                      <VStack align="start" gap={3}>
+                        <HStack justify="space-between" w="full">
+                          <Text
+                            fontSize="xs"
+                            fontFamily="monospace"
+                            color="purple.400"
+                            fontWeight="bold"
+                          >
+                            SESSION COOKIES
+                          </Text>
+                          <Text
+                            fontSize="xs"
+                            fontFamily="monospace"
+                            color="text.muted"
+                          >
+                            {debugInfo.cookieCount} cookie(s)
+                          </Text>
+                        </HStack>
+                        <Box
+                          w="full"
+                          maxH="300px"
+                          overflowY="auto"
+                          borderRadius="md"
+                          bg="bg.canvas"
+                          p={3}
+                        >
+                          <VStack align="stretch" gap={2}>
+                            {debugInfo.cookies.map((cookie, index) => (
+                              <Box
+                                key={index}
+                                p={3}
+                                borderRadius="md"
+                                bg="bg.surface"
+                                borderWidth="1px"
+                                borderColor="border.base"
+                                fontFamily="monospace"
+                                fontSize="xs"
+                              >
+                                <VStack align="start" gap={1}>
+                                  <HStack>
+                                    <Text color="text.muted" minW="60px">name:</Text>
+                                    <Text color="brand.400" fontWeight="bold">{cookie.name}</Text>
+                                  </HStack>
+                                  <HStack>
+                                    <Text color="text.muted" minW="60px">value:</Text>
+                                    <Text
+                                      color="text.primary"
+                                      wordBreak="break-all"
+                                      lineClamp={1}
+                                      title={cookie.value}
+                                    >
+                                      {cookie.value.length > 40
+                                        ? `${cookie.value.substring(0, 40)}...`
+                                        : cookie.value}
+                                    </Text>
+                                  </HStack>
+                                  <HStack>
+                                    <Text color="text.muted" minW="60px">domain:</Text>
+                                    <Text color="accent.400">{cookie.domain}</Text>
+                                  </HStack>
+                                  <HStack>
+                                    <Text color="text.muted" minW="60px">path:</Text>
+                                    <Text color="text.secondary">{cookie.path}</Text>
+                                  </HStack>
+                                  <HStack>
+                                    <Text color="text.muted" minW="60px">expires:</Text>
+                                    <Text color="text.secondary">
+                                      {new Date(cookie.expires * 1000).toLocaleString()}
+                                    </Text>
+                                  </HStack>
+                                </VStack>
+                              </Box>
+                            ))}
+                          </VStack>
+                        </Box>
+                      </VStack>
+                    </Box>
+                  )}
+
                   <Text fontSize="xs" color="text.muted" fontStyle="italic">
                     This debug panel shows the current authentication state in real-time.
                     It will be removed in production.

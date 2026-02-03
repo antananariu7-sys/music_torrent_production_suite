@@ -54,12 +54,18 @@ const api = {
 
     getStatus: (): Promise<ApiResponse<AuthState>> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUTH_STATUS),
+
+    getDebugInfo: (): Promise<ApiResponse<{ cookies: Array<{ name: string; value: string; domain: string; path: string; expires: number }>; cookieCount: number }>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUTH_DEBUG),
   },
 
   // Search methods
   search: {
     start: (request: SearchRequest): Promise<SearchResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SEARCH_START, request),
+
+    openUrl: (url: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SEARCH_OPEN_URL, url),
   },
 }
 

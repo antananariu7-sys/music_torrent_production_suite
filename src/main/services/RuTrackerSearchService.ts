@@ -112,6 +112,79 @@ export class RuTrackerSearchService {
   }
 
   /**
+   * Open a RuTracker URL in browser with authenticated session
+   * Useful for viewing torrent details while maintaining login
+   *
+   * @param url - RuTracker URL to open
+   * @returns Success status
+   */
+  async openUrlWithSession(url: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Check if user is logged in
+      const authState = this.authService.getAuthStatus()
+      if (!authState.isLoggedIn) {
+        return {
+          success: false,
+          error: 'User is not logged in. Please login first.',
+        }
+      }
+
+      console.log(`[RuTrackerSearchService] Opening URL with session: ${url}`)
+
+      // Get session cookies from AuthService
+      const sessionCookies = this.authService.getSessionCookies()
+      console.log(`[RuTrackerSearchService] Got ${sessionCookies.length} session cookies`)
+
+      // Initialize browser
+      const browser = await this.initBrowser()
+      const page = await browser.newPage()
+
+      // Set viewport
+      await page.setViewport({ width: 1280, height: 800 })
+
+      // Navigate to RuTracker homepage first to set cookies
+      console.log('[RuTrackerSearchService] Navigating to RuTracker homepage to set cookies')
+      await page.goto('https://rutracker.org/forum/', {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      })
+
+      // Restore session cookies
+      if (sessionCookies.length > 0) {
+        console.log('[RuTrackerSearchService] Restoring session cookies')
+        await page.setCookie(...sessionCookies.map(cookie => ({
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain,
+          path: cookie.path,
+          expires: cookie.expires,
+        })))
+      }
+
+      // Navigate to the requested URL
+      console.log(`[RuTrackerSearchService] Navigating to: ${url}`)
+      await page.goto(url, {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      })
+
+      console.log('[RuTrackerSearchService] ✅ URL opened successfully with session')
+      console.log('[RuTrackerSearchService] Browser left open for user interaction')
+
+      // Don't close the browser - leave it open for user to interact
+      return {
+        success: true,
+      }
+    } catch (error) {
+      console.error('[RuTrackerSearchService] Failed to open URL:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to open URL',
+      }
+    }
+  }
+
+  /**
    * Search RuTracker for torrents
    *
    * @param request - Search request with query and optional category

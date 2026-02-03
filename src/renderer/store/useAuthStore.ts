@@ -12,6 +12,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   isLoggedIn: false,
   username: undefined,
   sessionExpiry: undefined,
+  isSessionRestored: false,
 
   setAuthState: (state) => set(state),
 
@@ -20,6 +21,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       isLoggedIn: true,
       username,
       sessionExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      isSessionRestored: false,
     }),
 
   logout: () =>
@@ -27,6 +29,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       isLoggedIn: false,
       username: undefined,
       sessionExpiry: undefined,
+      isSessionRestored: false,
     }),
 
   isAuthenticated: () => {

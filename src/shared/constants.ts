@@ -18,6 +18,7 @@ export const IPC_CHANNELS = {
   AUTH_LOGIN: 'auth:login',
   AUTH_LOGOUT: 'auth:logout',
   AUTH_STATUS: 'auth:status',
+  AUTH_DEBUG: 'auth:debug',
 
   // Search
   SEARCH_START: 'search:start',
@@ -25,6 +26,7 @@ export const IPC_CHANNELS = {
   SEARCH_PROGRESS: 'search:progress',
   SEARCH_RESULTS: 'search:results',
   SEARCH_ERROR: 'search:error',
+  SEARCH_OPEN_URL: 'search:open-url',
 
   // Torrent operations
   TORRENT_ADD: 'torrent:add',

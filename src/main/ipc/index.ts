@@ -93,6 +93,19 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle(IPC_CHANNELS.AUTH_DEBUG, async () => {
+    try {
+      const debugInfo = authService.getDebugInfo()
+      return { success: true, data: debugInfo }
+    } catch (error) {
+      console.error('Get auth debug info failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get debug info',
+      }
+    }
+  })
+
   // Search handlers
   ipcMain.handle(IPC_CHANNELS.SEARCH_START, async (_event, request: SearchRequest) => {
     try {
@@ -103,6 +116,19 @@ export function registerIpcHandlers(): void {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Search failed',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SEARCH_OPEN_URL, async (_event, url: string) => {
+    try {
+      const response = await searchService.openUrlWithSession(url)
+      return response
+    } catch (error) {
+      console.error('Failed to open URL:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to open URL',
       }
     }
   })

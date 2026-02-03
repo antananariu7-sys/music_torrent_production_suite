@@ -581,6 +581,18 @@ export class AuthService {
   getSessionCookies(): SessionCookie[] {
     return [...this.sessionCookies]
   }
+
+  /**
+   * Get debug info including cookies (for development/troubleshooting)
+   *
+   * @returns Debug information with cookies
+   */
+  getDebugInfo(): { cookies: SessionCookie[]; cookieCount: number } {
+    return {
+      cookies: [...this.sessionCookies],
+      cookieCount: this.sessionCookies.length,
+    }
+  }
 }
 
 // Export SessionCookie type

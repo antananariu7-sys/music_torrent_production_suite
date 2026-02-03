@@ -75,6 +75,23 @@ export function SearchSection(): JSX.Element {
     }
   }
 
+  const handleViewTorrent = async (url: string) => {
+    try {
+      console.log('[SearchSection] Opening torrent URL with session:', url)
+      const response = await window.api.search.openUrl(url)
+
+      if (!response.success) {
+        console.error('[SearchSection] Failed to open URL:', response.error)
+        setError(response.error || 'Failed to open torrent page')
+      } else {
+        console.log('[SearchSection] ✅ Torrent page opened successfully')
+      }
+    } catch (error) {
+      console.error('[SearchSection] Error opening URL:', error)
+      setError(error instanceof Error ? error.message : 'Failed to open torrent page')
+    }
+  }
+
   return (
     <Box>
       {/* Search Input Section */}
@@ -192,11 +209,14 @@ export function SearchSection(): JSX.Element {
                         </Text>
                       </Table.Cell>
                       <Table.Cell>
-                        <a href={result.url} target="_blank" rel="noopener noreferrer">
-                          <Text color="blue.500" fontSize="sm" textDecoration="underline">
-                            View
-                          </Text>
-                        </a>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          colorPalette="blue"
+                          onClick={() => handleViewTorrent(result.url)}
+                        >
+                          View
+                        </Button>
                       </Table.Cell>
                     </Table.Row>
                   ))}
