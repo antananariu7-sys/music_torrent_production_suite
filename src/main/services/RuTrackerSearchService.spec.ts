@@ -60,16 +60,16 @@ describe('RuTrackerSearchService', () => {
     jest.clearAllMocks()
 
     // Setup puppeteer mock
-    ;(puppeteer.launch as jest.Mock).mockResolvedValue(mockBrowser)
-    ;(mockBrowser.newPage as jest.Mock).mockResolvedValue(mockPage)
+    ;(puppeteer.launch as jest.Mock<typeof puppeteer.launch>).mockResolvedValue(mockBrowser as any)
+    ;(mockBrowser.newPage as jest.Mock<any>).mockResolvedValue(mockPage as any)
 
     // Setup default mock implementations
-    ;(mockAuthService.getAuthStatus as jest.Mock).mockReturnValue({
+    ;(mockAuthService.getAuthStatus as jest.Mock<any>).mockReturnValue({
       isLoggedIn: true,
       username: 'testuser',
       sessionExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000),
     })
-    ;(mockAuthService.getSessionCookies as jest.Mock).mockReturnValue([
+    ;(mockAuthService.getSessionCookies as jest.Mock<any>).mockReturnValue([
       {
         name: 'bb_session',
         value: 'test-session-id',
@@ -80,11 +80,11 @@ describe('RuTrackerSearchService', () => {
     ])
 
     // Reset page mocks
-    ;(mockPage.goto as jest.Mock).mockResolvedValue(null)
-    ;(mockPage.setViewport as jest.Mock).mockResolvedValue(null)
-    ;(mockPage.setCookie as jest.Mock).mockResolvedValue(null)
-    ;(mockPage.waitForSelector as jest.Mock).mockResolvedValue(null)
-    ;(mockPage.evaluate as jest.Mock).mockResolvedValue([])
+    ;(mockPage.goto as jest.Mock<any>).mockResolvedValue(null as any)
+    ;(mockPage.setViewport as jest.Mock<any>).mockResolvedValue(null as any)
+    ;(mockPage.setCookie as jest.Mock<any>).mockResolvedValue(null as any)
+    ;(mockPage.waitForSelector as jest.Mock<any>).mockResolvedValue(null as any)
+    ;(mockPage.evaluate as jest.Mock<any>).mockResolvedValue([] as any)
 
     // Create service instance
     searchService = new RuTrackerSearchService(mockAuthService, {
@@ -148,7 +148,7 @@ describe('RuTrackerSearchService', () => {
     ]
 
     beforeEach(() => {
-      ;(mockPage.evaluate as jest.Mock).mockResolvedValue(mockSearchResults)
+      (mockPage.evaluate as jest.Mock<any>).mockResolvedValue(mockSearchResults as any)
     })
 
     it('should perform search successfully', async () => {
@@ -166,7 +166,7 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should return error if user is not logged in', async () => {
-      ;(mockAuthService.getAuthStatus as jest.Mock).mockReturnValue({
+      (mockAuthService.getAuthStatus as jest.Mock<any>).mockReturnValue({
         isLoggedIn: false,
       })
 
@@ -253,7 +253,7 @@ describe('RuTrackerSearchService', () => {
 
     it('should handle search errors gracefully', async () => {
       const error = new Error('Network timeout')
-      ;(mockPage.goto as jest.Mock).mockRejectedValue(error)
+      ;(mockPage.goto as jest.Mock<any>).mockRejectedValue(error as any)
 
       const response = await searchService.search(mockSearchRequest)
 
@@ -263,7 +263,7 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should close browser on error in headless mode', async () => {
-      ;(mockPage.goto as jest.Mock).mockRejectedValue(new Error('Test error'))
+      (mockPage.goto as jest.Mock<any>).mockRejectedValue(new Error('Test error') as any)
 
       await searchService.search(mockSearchRequest)
 
@@ -271,7 +271,7 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should handle empty search results', async () => {
-      ;(mockPage.evaluate as jest.Mock).mockResolvedValue([])
+      (mockPage.evaluate as jest.Mock<any>).mockResolvedValue([] as any)
 
       const response = await searchService.search(mockSearchRequest)
 
@@ -306,7 +306,7 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should return error if user is not logged in', async () => {
-      ;(mockAuthService.getAuthStatus as jest.Mock).mockReturnValue({
+      (mockAuthService.getAuthStatus as jest.Mock<any>).mockReturnValue({
         isLoggedIn: false,
       })
 
@@ -382,7 +382,7 @@ describe('RuTrackerSearchService', () => {
 
     it('should handle errors gracefully', async () => {
       const error = new Error('Failed to navigate')
-      ;(mockPage.goto as jest.Mock).mockRejectedValue(error)
+      ;(mockPage.goto as jest.Mock<any>).mockRejectedValue(error as any)
 
       const response = await searchService.openUrlWithSession(testUrl)
 
@@ -424,7 +424,7 @@ describe('RuTrackerSearchService', () => {
       const searchRequest: SearchRequest = { query: 'test' }
       const testUrl = 'https://rutracker.org/forum/viewtopic.php?t=123'
 
-      ;(mockPage.evaluate as jest.Mock).mockResolvedValue([
+      ;(mockPage.evaluate as jest.Mock<any>).mockResolvedValue([
         {
           id: '123',
           title: 'Test',
@@ -434,7 +434,7 @@ describe('RuTrackerSearchService', () => {
           leechers: 1,
           url: testUrl,
         },
-      ])
+      ] as any)
 
       const searchResponse = await searchService.search(searchRequest)
       expect(searchResponse.success).toBe(true)
@@ -445,7 +445,7 @@ describe('RuTrackerSearchService', () => {
 
     it('should handle empty cookie list', async () => {
       const request: SearchRequest = { query: 'test' }
-      ;(mockAuthService.getSessionCookies as jest.Mock).mockReturnValue([])
+      ;(mockAuthService.getSessionCookies as jest.Mock<any>).mockReturnValue([])
 
       const response = await searchService.search(request)
 
@@ -456,8 +456,8 @@ describe('RuTrackerSearchService', () => {
 
   describe('error handling', () => {
     it('should handle browser launch failure', async () => {
-      ;(puppeteer.launch as jest.Mock).mockRejectedValueOnce(
-        new Error('Chrome not found')
+      (puppeteer.launch as jest.Mock<any>).mockRejectedValueOnce(
+        new Error('Chrome not found') as any
       )
 
       const request: SearchRequest = { query: 'test' }
@@ -468,8 +468,8 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should handle page navigation timeout', async () => {
-      ;(mockPage.goto as jest.Mock).mockRejectedValue(
-        new Error('Navigation timeout')
+      (mockPage.goto as jest.Mock<any>).mockRejectedValue(
+        new Error('Navigation timeout') as any
       )
 
       const request: SearchRequest = { query: 'test' }
@@ -480,9 +480,9 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should handle selector timeout', async () => {
-      ;(mockPage.goto as jest.Mock).mockResolvedValue(null)
-      ;(mockPage.waitForSelector as jest.Mock).mockRejectedValue(
-        new Error('Timeout waiting for selector')
+      (mockPage.goto as jest.Mock<any>).mockResolvedValue(null as any)
+      ;(mockPage.waitForSelector as jest.Mock<any>).mockRejectedValue(
+        new Error('Timeout waiting for selector') as any
       )
 
       const request: SearchRequest = { query: 'test' }
@@ -493,10 +493,10 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should handle page evaluation error', async () => {
-      ;(mockPage.goto as jest.Mock).mockResolvedValue(null)
-      ;(mockPage.waitForSelector as jest.Mock).mockResolvedValue(null)
-      ;(mockPage.evaluate as jest.Mock).mockRejectedValue(
-        new Error('Evaluation failed')
+      (mockPage.goto as jest.Mock<any>).mockResolvedValue(null as any)
+      ;(mockPage.waitForSelector as jest.Mock<any>).mockResolvedValue(null as any)
+      ;(mockPage.evaluate as jest.Mock<any>).mockRejectedValue(
+        new Error('Evaluation failed') as any
       )
 
       const request: SearchRequest = { query: 'test' }
