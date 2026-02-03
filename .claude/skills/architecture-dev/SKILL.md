@@ -78,45 +78,41 @@ Before implementing any feature, consult `references/architecture-overview.md` t
 
 ### 2. Choose Your Workflow
 
-#### For TDD (Recommended)
+#### Pragmatic Testing Approach (Recommended)
 
-Follow the TDD workflow from `examples/tdd-workflow-example.md`:
+**Core Principle**: Write tests for business logic only; skip UI tests unless necessary.
 
-1. **Write service test first** (RED)
-   - Define expected behavior
+**Implementation workflow**:
+
+1. **Define types and schemas**
+   - Define types in `src/shared/types/`
+   - Create Zod schemas in `src/shared/schemas/`
+
+2. **Implement service with tests** (Business Logic)
+   - Write service test first for complex business logic
+   - Implement service in `src/main/services/`
+   - Use templates from `templates/service.template.ts`
    - Use templates from `templates/unit-test.template.ts`
 
-2. **Implement service** (GREEN)
-   - Write minimal code to pass tests
-   - Use templates from `templates/service.template.ts`
-
-3. **Refactor** while tests stay green
-
-4. **Write IPC test** (RED)
-   - Test handler integration
-   - Use templates from `templates/integration-test.template.ts`
-
-5. **Implement IPC handler** (GREEN)
+3. **Create IPC handlers**
+   - Implement IPC handler in `src/main/ipc/`
+   - Test only if handler has complex logic
    - Use templates from `templates/ipc-handler.template.ts`
 
-6. **Write component test** (RED)
-   - Test React component behavior
-
-7. **Implement component** (GREEN)
+4. **Build UI layer (minimal/no tests)**
+   - Expose API in `src/preload/index.ts`
+   - Create Zustand store (skip tests unless complex logic)
+   - Build React component (skip tests unless critical)
    - Use templates from `templates/react-component.template.tsx`
 
-#### For Non-TDD Implementation
+#### For TDD Workflow (Optional)
 
-Follow the complete feature example from `examples/complete-feature-example.md`:
+If you prefer TDD for complex business logic:
 
-1. Define types in `src/shared/types/`
-2. Create Zod schemas in `src/shared/schemas/`
-3. Implement service in `src/main/services/`
-4. Create IPC handlers in `src/main/ipc/`
-5. Expose API in `src/preload/index.ts`
-6. Create Zustand store in `src/renderer/store/`
-7. Build React component in `src/renderer/components/`
-8. Write tests
+1. **RED**: Write service test first
+2. **GREEN**: Implement minimal code to pass
+3. **REFACTOR**: Clean up while tests stay green
+4. **Skip UI tests**: Don't write tests for components/stores unless necessary
 
 ### 3. Apply Best Practices
 
@@ -256,22 +252,30 @@ const result = await window.api.featureAction(data)
 
 ### 7. Testing Strategy
 
-Follow the testing pyramid (see `references/tdd-guide.md`):
+**Pragmatic Testing**: Focus on business logic, skip UI tests unless necessary.
 
-**Unit Tests (70%):** Services, utilities, pure functions
-- Fast feedback
-- Test business logic in isolation
+**Unit Tests (Business Logic Only):**
+- Test services with complex business logic
+- Test utilities and validators
+- Test complex algorithms
 - Mock dependencies
+- Skip simple components and stores
 
-**Integration Tests (20%):** IPC handlers, service interactions
-- Test IPC channel registration
-- Verify service integration
-- Check event emission
+**Integration Tests (Selective):**
+- Test complex IPC channels only
+- Skip simple request-response handlers
+- Test when multiple services interact
 
-**E2E Tests (10%):** Critical user flows
-- Test complete user journeys
-- Use Playwright for Electron
-- Run before commits
+**E2E Tests (Rare):**
+- Only test critical user workflows
+- Minimal coverage for high-risk paths
+- Use Playwright sparingly
+
+**What NOT to Test:**
+- Simple React components
+- Basic Zustand stores (getters/setters)
+- UI interactions without business logic
+- Presentational components
 
 ### 8. Common Patterns
 
@@ -345,19 +349,24 @@ The complete architecture documentation is located in `.architecture/` directory
 
 ✅ Types defined in `shared/types/`
 ✅ Zod schemas in `shared/schemas/`
-✅ Service with tests
+✅ Service implemented (with tests for business logic)
 ✅ IPC handler with validation
 ✅ API exposed in preload
-✅ Zustand store created
-✅ React component implemented
-✅ All tests passing
+✅ Zustand store created (skip tests unless complex)
+✅ React component implemented (skip tests unless critical)
+✅ Business logic tests passing
 
-### TDD Cycle
+### Testing Approach
 
-1. RED - Write failing test
-2. GREEN - Write minimal code to pass
+**For Business Logic:**
+1. RED - Write failing test for service
+2. GREEN - Implement minimal code to pass
 3. REFACTOR - Improve code while tests stay green
-4. REPEAT - Move to next layer
+
+**For UI Layer:**
+1. Implement directly without tests (unless critical)
+2. Manually verify functionality
+3. Only add tests if business-critical
 
 ## Summary
 

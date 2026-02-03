@@ -1,30 +1,55 @@
-# TDD Guide for Electron Applications
+# Pragmatic Testing Guide for Electron Applications
 
-This guide outlines Test-Driven Development practices specifically for Electron applications with React.
+This guide outlines pragmatic testing practices for Electron applications, focusing on business logic only.
 
-## Testing Strategy
+## Testing Philosophy
 
-### Testing Pyramid
+### Core Principle: Test Business Logic Only
+
+**⚠️ IMPORTANT**: This project follows a pragmatic testing approach:
+- ✅ **Test business logic** in services, utilities, and core algorithms
+- ❌ **Skip UI tests** for components and stores (unless critical)
+- ⚠️ **Test selectively** - only when it provides real value
+
+### Testing Focus
 
 ```
          /\
-        /E2E\        <- Few (critical user journeys)
+        /E2E\        <- Rare (only critical workflows)
        /------\
-      /  INT   \     <- Some (IPC, service interactions)
+      /  INT   \     <- Selective (complex IPC only)
      /----------\
-    /    UNIT    \   <- Many (pure logic, utilities)
+    /   LOGIC   \    <- Business logic only
    /--------------\
 ```
 
-**Unit Tests (70%)**: Pure functions, utilities, business logic
-**Integration Tests (20%)**: IPC handlers, service interactions
-**E2E Tests (10%)**: Critical user flows
+**Unit Tests (Business Logic)**: Services, utilities, complex algorithms
+**Integration Tests (Selective)**: Complex IPC handlers only
+**E2E Tests (Rare)**: Critical user workflows only
 
-## TDD Workflow
+## When to Use TDD
+
+**TDD is optional** and should be used selectively:
+
+### Use TDD For:
+- ✅ Complex business logic in services
+- ✅ Critical algorithms and calculations
+- ✅ Complex data transformations
+- ✅ Utilities with edge cases
+
+### Skip TDD For:
+- ❌ UI components and pages
+- ❌ Simple Zustand stores
+- ❌ Basic IPC handlers
+- ❌ Presentational components
+
+## TDD Workflow (Optional)
 
 ### Red-Green-Refactor Cycle
 
-1. **Red**: Write a failing test first
+**Use this only for business logic:**
+
+1. **Red**: Write a failing test for business logic
 2. **Green**: Write minimal code to make it pass
 3. **Refactor**: Clean up while keeping tests green
 
@@ -138,93 +163,22 @@ export class SearchService {
 
 After tests pass, refactor if needed while keeping tests green.
 
-### Testing React Components
+### Testing React Components (Skip Unless Critical)
 
-#### Example: ResultsTable TDD
+**⚠️ IMPORTANT**: Skip component tests unless they contain critical business logic.
 
-**Step 1: Write the test (Red)**
+**Don't test:**
+- Simple presentational components
+- Components that just display data
+- Basic UI interactions
+- Layout components
 
-```typescript
-// tests/unit/components/ResultsTable.test.tsx
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
-import { ResultsTable } from '../../../src/renderer/components/features/SearchResults/ResultsTable'
-import type { SearchResult } from '../../../src/shared/types/search.types'
+**Only test if:**
+- Component has complex business logic
+- Component has critical state management
+- Failure would cause major issues
 
-describe('ResultsTable', () => {
-  it('should render empty state when no results', () => {
-    render(<ResultsTable results={[]} />)
-    expect(screen.getByText(/no results/i)).toBeInTheDocument()
-  })
-
-  it('should render all results', () => {
-    const results: SearchResult[] = [
-      { id: '1', title: 'Track 1', url: 'http://ex.com/1', torrentUrl: 'magnet:1' },
-      { id: '2', title: 'Track 2', url: 'http://ex.com/2', torrentUrl: 'magnet:2' }
-    ]
-
-    render(<ResultsTable results={results} />)
-
-    expect(screen.getByText('Track 1')).toBeInTheDocument()
-    expect(screen.getByText('Track 2')).toBeInTheDocument()
-  })
-
-  it('should call onDownload when download button clicked', async () => {
-    const results: SearchResult[] = [
-      { id: '1', title: 'Track 1', url: 'http://ex.com/1', torrentUrl: 'magnet:1' }
-    ]
-    const onDownload = vi.fn()
-
-    render(<ResultsTable results={results} onDownload={onDownload} />)
-
-    const downloadBtn = screen.getByRole('button', { name: /download/i })
-    await userEvent.click(downloadBtn)
-
-    expect(onDownload).toHaveBeenCalledWith(results[0])
-  })
-})
-```
-
-**Step 2: Implement component (Green)**
-
-```typescript
-// src/renderer/components/features/SearchResults/ResultsTable.tsx
-import type { SearchResult } from '../../../../shared/types/search.types'
-
-interface ResultsTableProps {
-  results: SearchResult[]
-  onDownload?: (result: SearchResult) => void
-}
-
-export function ResultsTable({ results, onDownload }: ResultsTableProps) {
-  if (results.length === 0) {
-    return <div>No results found</div>
-  }
-
-  return (
-    <table>
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {results.map((result) => (
-          <tr key={result.id}>
-            <td>{result.title}</td>
-            <td>
-              <button onClick={() => onDownload?.(result)}>
-                Download
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-```
+If you must test a component, follow the pattern in the testing guidelines document.
 
 ## Integration Testing
 
@@ -497,24 +451,27 @@ export * from '@testing-library/react'
 export { render }
 ```
 
-## TDD Best Practices
+## Testing Best Practices
 
-1. **Write tests first**: Always write the test before implementation
-2. **One test, one concept**: Each test should verify one specific behavior
-3. **Arrange-Act-Assert**: Structure tests clearly with AAA pattern
-4. **Don't test implementation details**: Test behavior, not internal structure
-5. **Keep tests independent**: Each test should run in isolation
-6. **Use descriptive names**: Test names should describe what they verify
-7. **Test edge cases**: Don't just test the happy path
-8. **Mock external dependencies**: Isolate the unit under test
-9. **Fast feedback**: Unit tests should run quickly (<1s each)
-10. **Maintain tests**: Refactor tests when refactoring code
+1. **Test business logic only**: Focus on services, utilities, algorithms
+2. **Skip UI tests**: Don't test simple components or stores
+3. **One test, one concept**: Each test should verify one specific behavior
+4. **Arrange-Act-Assert**: Structure tests clearly with AAA pattern
+5. **Test behavior, not implementation**: Focus on what, not how
+6. **Keep tests independent**: Each test should run in isolation
+7. **Use descriptive names**: Test names should describe what they verify
+8. **Test edge cases**: Don't just test the happy path
+9. **Mock external dependencies**: Isolate the unit under test
+10. **Fast feedback**: Tests should run quickly (<1s each)
 
 ## Test Coverage Goals
 
-- **Unit tests**: Aim for 80%+ coverage
-- **Integration tests**: Cover all IPC channels and service interactions
-- **E2E tests**: Cover critical user journeys
+**Don't chase coverage percentages** - focus on testing what matters.
+
+- **Services/Business Logic**: Aim for 70-80% coverage
+- **UI Components**: 0-20% coverage (only critical components)
+- **Integration tests**: Test complex IPC channels only
+- **E2E tests**: Only critical user workflows
 
 ## Running Tests
 

@@ -1,32 +1,71 @@
 # Testing Guidelines
 
-This document provides comprehensive testing guidelines for the Music Production Suite, including testing strategies, best practices, and standards for unit, integration, and end-to-end tests.
+This document provides pragmatic testing guidelines for the Music Production Suite, focusing on testing business logic where it matters most.
+
+---
+
+## Testing Philosophy
+
+### Core Principles
+
+1. **Test Business Logic Only**: Write tests for services, utilities, and core algorithms
+2. **Skip UI Tests Unless Necessary**: Don't test simple presentational components
+3. **Pragmatic Approach**: Test only when it provides real value
+4. **Efficiency**: Minimize test maintenance burden
+5. **Focus on Risk**: Test critical paths and complex logic
+
+### When to Write Tests
+
+**✅ Always Test:**
+- Business logic in services
+- Data transformation and processing
+- Complex algorithms and calculations
+- Utilities and validators
+- Critical IPC handlers with complex logic
+
+**⚠️ Sometimes Test:**
+- Zustand stores with complex business logic
+- Components with critical business rules
+- Complex form validation
+- Integration points with multiple services
+
+**❌ Don't Test:**
+- Simple presentational components
+- Basic UI layouts
+- Simple state setters/getters
+- Trivial utility functions
+- Type definitions
 
 ---
 
 ## Testing Strategy Overview
 
-### Test Pyramid
+### Pragmatic Testing Approach
+
+**Core Principle**: Write tests for business logic; UI tests only when necessary.
+
+### Test Focus
+
 ```
         /\
-       /  \      E2E Tests (Few)
-      /----\     - Critical user workflows
-     /      \    - Cross-process integration
-    /--------\   Integration Tests (Some)
-   /          \  - IPC communication
+       /  \      E2E Tests (Rare)
+      /----\     - Critical user workflows only
+     /      \
+    /--------\   Integration Tests (Selective)
+   /          \  - IPC communication when complex
   /------------\ - Service layer interactions
- /______________\ Unit Tests (Many)
-                 - Components, stores, utilities
-                 - Business logic
-                 - Pure functions
+ /______________\ Unit Tests (Business Logic Only)
+                 - Services and business logic
+                 - Utilities and pure functions
+                 - Complex algorithms
 ```
 
 ### Testing Goals
-1. **Reliability**: Ensure application behaves correctly across all scenarios
-2. **Confidence**: Safe refactoring and feature additions
-3. **Documentation**: Tests serve as living documentation
-4. **Speed**: Fast feedback loop for developers
-5. **Maintainability**: Tests should be easy to read and update
+1. **Pragmatic Coverage**: Test what matters - business logic and critical paths
+2. **Efficiency**: Don't waste time testing simple UI components
+3. **Maintainability**: Less test code to maintain means faster iteration
+4. **Confidence**: Tests where they provide the most value
+5. **Speed**: Fast test suite focusing on core functionality
 
 ---
 
@@ -150,15 +189,43 @@ screen.getByTestId('submit-button')
 
 ## Unit Testing
 
-### Unit Test Scope
-- **React Components**: Rendering, user interactions, conditional logic
-- **Zustand Stores**: State management, actions, selectors
-- **Utilities**: Pure functions, helpers, validators
-- **Services** (Main Process): Business logic, data transformations
+### Unit Test Scope - Business Logic Only
 
-### React Component Testing
+**Test These:**
+- **Services** (Main Process): Business logic, data transformations, calculations
+- **Utilities**: Pure functions, helpers, validators, formatters
+- **Complex Algorithms**: Data processing, parsing, transformation logic
+- **Zustand Stores**: Only when they contain complex business logic
 
-**Testing Library Setup**:
+**Skip These (unless necessary):**
+- **Simple React Components**: Presentational components, basic UI
+- **Simple Zustand Stores**: Basic state setters and getters
+- **UI Interactions**: Button clicks, form inputs (unless critical business logic)
+- **Styling and Layout**: Visual presentation
+
+**When UI Testing IS Necessary:**
+- Complex state management logic in components
+- Critical user workflows with business implications
+- Complex form validation with multiple rules
+- Dynamic UI behavior based on complex conditions
+
+### React Component Testing (When Necessary)
+
+**⚠️ IMPORTANT**: Only write component tests when they contain business logic or critical workflows.
+
+**Skip component tests for:**
+- Simple presentational components
+- Components that just display data
+- Basic layout components
+- Simple forms without complex validation
+
+**Write component tests only when:**
+- Component contains complex business logic
+- Component has critical state management
+- Component has complex conditional rendering based on business rules
+- Testing prevents high-risk bugs
+
+**Testing Library Setup** (when needed):
 ```tsx
 // Jest globals (describe, it, expect, beforeEach, etc.) are available without import
 import { render, screen } from '@testing-library/react'
@@ -167,22 +234,14 @@ import { ChakraProvider } from '@chakra-ui/react'
 import { system } from '../../theme'
 ```
 
-**Test Template**:
+**Minimal Test Template**:
 ```tsx
 describe('ComponentName', () => {
-  beforeEach(() => {
-    // Setup: Reset mocks, stores, etc.
-  })
-
-  it('should render with required props', () => {
-    render(<ComponentName requiredProp="value" />)
-    expect(screen.getByTestId('component-container')).toBeInTheDocument()
-  })
-
-  it('should handle user interaction', async () => {
+  it('should handle critical business logic', async () => {
     const user = userEvent.setup()
-    render(<ComponentName />)
+    render(<ComponentName criticalProp="value" />)
 
+    // Test only the critical business logic
     const button = screen.getByTestId('action-button')
     await user.click(button)
 
@@ -191,50 +250,36 @@ describe('ComponentName', () => {
 })
 ```
 
-**Wrapper Pattern for Providers**:
+**Note**: If you need component tests, wrap with `ChakraProvider` and use the TestWrapper pattern. See [src/renderer/pages/Welcome/Welcome.test.tsx](src/renderer/pages/Welcome/Welcome.test.tsx) for reference.
 
-**IMPORTANT**: All component tests require wrapping with `ChakraProvider` because the application uses Chakra UI components throughout.
+### Zustand Store Testing (Optional)
 
+**⚠️ Skip store tests unless they contain complex business logic.**
+
+Simple stores with basic getters/setters don't need tests:
 ```tsx
-// TestWrapper for Chakra UI and Router
-const TestWrapper = ({ children }: { children: React.ReactNode }) => (
-  <MemoryRouter
-    future={{
-      v7_startTransition: true,
-      v7_relativeSplatPath: true,
-    }}
-  >
-    <ChakraProvider value={system}>
-      {children}
-    </ChakraProvider>
-  </MemoryRouter>
-)
-
-// Usage
-render(
-  <TestWrapper>
-    <ComponentUnderTest />
-  </TestWrapper>
-)
+// ❌ Don't test this - too simple
+set({ theme: 'dark' })
+set({ count: count + 1 })
 ```
 
-**See Example**: [src/renderer/pages/Welcome/Welcome.test.tsx](src/renderer/pages/Welcome/Welcome.test.tsx) for a complete example of the TestWrapper pattern with Chakra provider and router setup.
+**Only test stores with:**
+- Complex computed values or derived state
+- Business logic in actions
+- Complex state transformations
+- Side effects
 
-### Zustand Store Testing
-
-**Direct State Testing**:
+**Example of store worth testing**:
 ```tsx
-import { useThemeStore } from './useThemeStore'
+import { useCalculationStore } from './useCalculationStore'
 
-describe('useThemeStore', () => {
-  beforeEach(() => {
-    useThemeStore.setState({ mode: 'dark' })
-  })
+describe('useCalculationStore', () => {
+  it('should calculate complex derived values correctly', () => {
+    const { setValues, calculateResult } = useCalculationStore.getState()
+    setValues({ a: 10, b: 20, c: 30 })
 
-  it('should toggle mode', () => {
-    const { toggleMode } = useThemeStore.getState()
-    toggleMode()
-    expect(useThemeStore.getState().mode).toBe('light')
+    const result = calculateResult() // Complex business logic
+    expect(result).toBe(/* expected complex calculation */)
   })
 })
 ```
@@ -456,23 +501,30 @@ tests/
 ```
 
 ### File Naming Convention
-- **Unit tests**: `ComponentName.test.tsx` or `serviceName.test.ts` (colocated)
-- **Integration tests**: `feature-name.integration.test.ts` (in `tests/integration/`)
-- **E2E tests**: `workflow-name.spec.ts` (in `tests/e2e/`)
+- **Unit tests**: `serviceName.test.ts` or `serviceName.spec.ts` (colocated with business logic)
+- **Integration tests**: `feature-name.integration.test.ts` (in `tests/integration/` - only when necessary)
+- **E2E tests**: `workflow-name.spec.ts` (in `tests/e2e/` - rare)
 
-### Why Colocate Unit Tests?
+### Test File Organization
 
-**Benefits of colocated tests**:
-1. **Easy to Find**: Test is always next to the code it tests
-2. **Move Together**: Refactoring components automatically includes tests
-3. **Delete Together**: Removing a component won't leave orphaned tests
-4. **Clear Ownership**: Obvious which test belongs to which component
-5. **Faster Development**: No context switching between distant directories
+**Colocate tests with business logic**:
+- Place test files next to the services/utilities they test
+- Makes tests easy to find and maintain
+- Tests move and delete with the code they test
 
-**Why separate integration/e2e tests?**:
-- Integration tests span multiple modules (no single owner)
-- E2E tests test entire workflows (cross-cutting concerns)
-- Centralized location makes them easier to run as a suite
+**Example**:
+```
+src/main/services/
+├── ConfigService.ts
+├── ConfigService.spec.ts       ✅ Test next to service
+├── ProjectService.ts
+└── ProjectService.spec.ts      ✅ Test next to service
+```
+
+**Skip creating test files for**:
+- Simple React components in `src/renderer/components/`
+- Simple Zustand stores in `src/renderer/store/`
+- Basic utilities unless they have complex logic
 
 ### Test Naming Convention
 ```tsx
@@ -641,22 +693,30 @@ it('should show data when loaded', () => {
 
 ## Code Coverage Goals
 
-### Target Coverage
-- **Unit Tests**: 80%+ coverage for business logic
-- **Integration Tests**: Cover all IPC channels
-- **E2E Tests**: Cover critical user workflows (login, search, download)
+### Pragmatic Coverage Approach
 
-### What to Prioritize
-1. **Business Logic**: Services, utilities, validators
-2. **Complex Components**: Multi-state components, forms
-3. **Critical Paths**: Authentication, project management, search
-4. **Error Handling**: Error states, validation, edge cases
+**Don't chase coverage percentages** - focus on testing what matters.
 
-### What to Skip
-- Third-party library code
+### What to Test (High Priority)
+1. **Business Logic**: Services, utilities, validators, calculations
+2. **Critical Services**: Authentication, data processing, file operations
+3. **Complex Algorithms**: Data transformations, parsing, computations
+4. **Error Handling**: Error states in business logic, validation rules
+
+### What to Skip (Low/No Priority)
 - Simple presentational components
+- Basic UI components without logic
+- Simple Zustand stores (getters/setters)
 - Generated/boilerplate code
 - Type definitions
+- Third-party library code
+- Trivial utility functions
+
+### Coverage Targets
+- **Services/Business Logic**: Aim for 70-80% coverage
+- **UI Components**: 0-20% coverage (only when necessary)
+- **Integration Tests**: Test complex IPC channels only
+- **E2E Tests**: Only critical user workflows
 
 ---
 

@@ -400,12 +400,21 @@ export function VirtualResultsList({ results }: { results: SearchResult[] }) {
 
 ## Testing Patterns
 
-### Main Process Testing
+### Pragmatic Testing Approach
+
+**⚠️ IMPORTANT**: This project follows a pragmatic testing approach:
+- ✅ **Test business logic** in services and utilities
+- ❌ **Skip UI tests** for components (unless critical)
+- ⚠️ **Test selectively** - only when it provides real value
+
+### Main Process Testing (Business Logic)
+
+**Always test services with business logic:**
 
 ```typescript
-// tests/unit/services/search.service.test.ts
+// src/main/services/search.service.spec.ts
 import { describe, it, expect, vi } from 'vitest'
-import { SearchService } from '../../../src/main/services/search.service'
+import { SearchService } from './search.service'
 
 describe('SearchService', () => {
   it('should execute search and return results', async () => {
@@ -434,28 +443,11 @@ describe('SearchService', () => {
 })
 ```
 
-### Renderer Testing with React Testing Library
+### Renderer Testing (Skip Unless Critical)
 
-```typescript
-// tests/unit/components/SearchResults.test.tsx
-import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
-import { ResultsTable } from '../../../src/renderer/components/features/SearchResults/ResultsTable'
+**Skip component tests unless they contain critical business logic.**
 
-describe('ResultsTable', () => {
-  it('should render search results', () => {
-    const results = [
-      { id: '1', title: 'Test 1', url: 'http://test.com/1' },
-      { id: '2', title: 'Test 2', url: 'http://test.com/2' }
-    ]
-
-    render(<ResultsTable results={results} />)
-
-    expect(screen.getByText('Test 1')).toBeInTheDocument()
-    expect(screen.getByText('Test 2')).toBeInTheDocument()
-  })
-})
-```
+If you must test a component, refer to the testing guidelines for the pattern.
 
 ## Summary
 
@@ -464,4 +456,4 @@ describe('ResultsTable', () => {
 - **Separation of concerns**: Service layer in main, Zustand stores in renderer
 - **Error handling**: Give users control over retries and error recovery
 - **Performance**: Use pagination and virtual scrolling for large datasets
-- **Testing**: Unit test services, integration test IPC, e2e test user flows
+- **Testing**: Only test business logic in services; skip UI tests unless critical

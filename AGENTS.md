@@ -234,18 +234,29 @@ Implement JWT-based authentication to secure API endpoints.
 
 ## Testing Rules
 
-### Test Requirements
+### Pragmatic Testing Approach
 
-- **Test new features** - Every new feature needs tests
-- **Test bug fixes** - Add test to prevent regression
-- **Test edge cases** - Don't just test the happy path
-- **Keep tests maintainable** - Tests should be readable and simple
+**Core Principle**: Write tests for business logic only; skip UI tests unless necessary.
+
+### What to Test
+
+- **Business logic** - Services, utilities, complex algorithms
+- **Critical paths** - Authentication, data processing, file operations
+- **Edge cases** - In business logic only
+- **Bug fixes** - Add test to prevent regression (for business logic)
+
+### What NOT to Test
+
+- **UI Components** - Skip simple presentational components
+- **Zustand Stores** - Skip unless they contain complex business logic
+- **Simple utilities** - Skip trivial helper functions
+- **Type definitions** - No need to test types
 
 ### Test Organization
 
-- **Mirror source structure** - Tests should follow src/ organization
+- **Colocate with source** - Place tests next to the code they test
 - **Descriptive test names** - Test name should describe what it tests
-- **One assertion per test** - Or at least one logical concept
+- **One concept per test** - Each test verifies one specific behavior
 - **Setup and teardown** - Clean up after tests
 
 ---
