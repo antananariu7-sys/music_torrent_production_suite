@@ -37,22 +37,28 @@ In the **Debug: Auth State** panel, you should see:
 
 **In the RuTracker Authentication section:**
 
-1. Enter any username (e.g., `testuser`)
-2. Enter any password (e.g., `password123`)
+1. Enter your actual RuTracker username
+2. Enter your actual RuTracker password
 3. Optionally check "Remember my credentials"
 4. Click **LOGIN TO RUTRACKER**
 
 **What to expect:**
-- Button shows loading state for ~1 second
-- After loading completes, the UI switches to "logged in" state
+- Button shows loading state
+- A Chrome browser window will open automatically
+- You'll see the browser navigate to https://rutracker.org/forum/index.php
+- The browser will click "Вход" button
+- Login form will be filled automatically
+- After successful login, the browser will close
+- The UI switches to "logged in" state
 - You should see:
   - Green checkmark ✅
-  - "LOGGED IN AS: testuser"
+  - "LOGGED IN AS: [your username]"
   - A logout button
+  - Global auth indicator in top-left corner (green badge with pulsing dot)
 
 **Debug panel should update to:**
 - `isLoggedIn: true`
-- `username: testuser`
+- `username: [your username]`
 - `sessionExpiry: [timestamp 24 hours from now]`
 - `isAuthenticated(): true`
 
@@ -62,14 +68,23 @@ In the **Debug: Auth State** panel, you should see:
 
 **In the Console tab**, you should see logs like:
 ```
-[Settings] 🔐 Login attempt: { username: 'testuser', remember: true }
-[AuthService] Login attempt for user: testuser
-[AuthService] Stored credentials for user: testuser
-[AuthService] ✅ Login successful for user: testuser
-[AuthService] Session ID: session_1738583647123
+[Settings] 🔐 Login attempt: { username: 'youruser', remember: true }
+[AuthService] Login attempt for user: youruser
+[AuthService] Found Chrome at: C:\Program Files\Google\Chrome\Application\chrome.exe
+[AuthService] Launching browser with executable: C:\Program Files\Google\Chrome\Application\chrome.exe
+[AuthService] Navigating to https://rutracker.org/forum/index.php
+[AuthService] Clicking "Вход" button
+[AuthService] Waiting for login form #top-login-box
+[AuthService] Filling username field
+[AuthService] Filling password field
+[AuthService] Submitting login form
+[AuthService] Extracted 5 session cookies
+[AuthService] Stored credentials for user: youruser
+[AuthService] ✅ Login successful for user: youruser
+[AuthService] Session ID: bb_session_xxxxxxxxxxxxx
 [AuthService] Session expires: 2/4/2026, 10:30:47 AM
-[Settings] Login result: { success: true, username: 'testuser', sessionId: 'session_...' }
-[Settings] ✅ Store updated, user logged in: testuser
+[Settings] Login result: { success: true, username: 'youruser', sessionId: 'bb_session_...' }
+[Settings] ✅ Store updated, user logged in: youruser
 ```
 
 ### 6. Test Logout Flow
@@ -102,8 +117,8 @@ Try filling only username:
 ### 8. Test "Remember Me" Functionality
 
 1. Log in with "Remember my credentials" checked
-2. Check console logs - should see: `[AuthService] Stored credentials for user: testuser`
-3. Currently, credentials are stored in memory only (Phase 2 will add persistence)
+2. Check console logs - should see: `[AuthService] Stored credentials for user: youruser`
+3. Currently, credentials are stored in memory only (future enhancement will add persistence)
 
 ### 9. Test Session Expiry
 
@@ -144,24 +159,32 @@ The session is set to expire in 24 hours. To test expiry logic:
 - [ ] "Remember me" checkbox works
 - [ ] State persists during navigation
 
-## Current Limitations (Mock Implementation)
+## Current Implementation Status
 
-The current implementation is a **mock** that accepts any credentials:
-- ✅ Any username/password combination will work
-- ✅ No actual connection to RuTracker
-- ✅ Session stored in memory only
-- ❌ No actual Puppeteer automation yet
-- ❌ No credential persistence across app restarts
-- ❌ No CAPTCHA handling
+The current implementation uses **real Puppeteer automation** to authenticate with RuTracker:
 
-**Next Steps (Phase 2):**
-When you're ready to implement real RuTracker authentication, update [src/main/services/AuthService.ts](src/main/services/AuthService.ts):
-1. Replace mock implementation with Puppeteer
-2. Navigate to RuTracker login page
-3. Fill credentials and submit
-4. Extract and store session cookies
-5. Add error handling for failed logins
-6. Handle CAPTCHA if present
+✅ **Working:**
+- Real connection to RuTracker.org
+- Automated browser navigation with Puppeteer
+- Auto-detection of Chrome/Chromium executable
+- Login form interaction (click "Вход", fill fields, submit)
+- Session cookie extraction and storage
+- Error handling for invalid credentials
+- Browser cleanup after login
+
+⚠️ **Limitations:**
+- Browser opens in non-headless mode (visible window) for debugging
+- Session stored in memory only (not persisted across app restarts)
+- Username stored if "remember me" is checked (password never stored)
+- CAPTCHA challenges not handled (may require manual intervention)
+
+**Future Enhancements:**
+1. Add headless mode option for production
+2. Implement CAPTCHA detection and handling
+3. Add credential persistence with secure storage (electron-store + encryption)
+4. Add session cookie persistence across app restarts
+5. Add automatic session refresh before expiry
+6. Add proxy support for regions where RuTracker is blocked
 
 ## Troubleshooting
 
@@ -169,6 +192,19 @@ When you're ready to implement real RuTracker authentication, update [src/main/s
 1. Check DevTools Console for errors
 2. Check Terminal (where you ran `npm start`) for main process logs
 3. Verify all files built correctly: `npm run build`
+4. Make sure Google Chrome is installed on your system
+5. Check if RuTracker is accessible from your network
+
+**If browser doesn't open:**
+1. Check console for "Chrome/Chromium executable not found" error
+2. Install Google Chrome if not already installed
+3. Check if Chrome path is correct in AuthService.ts
+
+**If login fails with valid credentials:**
+1. RuTracker may be showing a CAPTCHA (check the browser window)
+2. Check if your account is blocked or requires verification
+3. Try logging in manually first at https://rutracker.org to verify credentials
+4. Check console logs for specific error messages
 
 **If debug panel doesn't update:**
 1. Make sure you're using the Zustand store hook correctly
@@ -179,6 +215,18 @@ When you're ready to implement real RuTracker authentication, update [src/main/s
 1. Make sure all type definitions are imported
 2. Run `npm run build` to check for type errors
 3. Check that `window.api.auth` types are properly defined in preload
+
+**If browser doesn't close after login:**
+1. This may indicate a login failure or timeout
+2. Check the browser window for error messages or CAPTCHA
+3. Manually close the browser and check console logs
+
+**If you see "Login button not found" error:**
+1. The RuTracker site structure may have changed
+2. Check the console logs for "Available links on page" output
+3. This shows all links found on the page - look for the login link
+4. If the structure changed, the AuthService.ts selectors may need updating
+5. Leave the browser window open to inspect the page manually
 
 ## Development Tips
 
