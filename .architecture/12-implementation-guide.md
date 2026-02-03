@@ -2,6 +2,14 @@
 
 This document provides specific implementation details for RuTracker integration.
 
+> **Note**: The code examples below are illustrative pseudocode for planning purposes. For the actual working implementation, see:
+> - **Authentication**: [src/main/services/AuthService.ts](../src/main/services/AuthService.ts)
+> - **Search**: [src/main/services/RuTrackerSearchService.ts](../src/main/services/RuTrackerSearchService.ts)
+> - **IPC Handlers**: [src/main/ipc/index.ts](../src/main/ipc/index.ts)
+> - **Type Definitions**: [src/shared/types/auth.types.ts](../src/shared/types/auth.types.ts), [src/shared/types/search.types.ts](../src/shared/types/search.types.ts)
+>
+> See [04-web-automation.md](04-web-automation.md) for detailed architecture documentation of the actual implementation.
+
 ## 20. RuTracker-Specific Implementation Guide
 
 ### Login Flow Implementation

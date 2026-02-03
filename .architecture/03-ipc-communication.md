@@ -9,19 +9,14 @@ This document describes the Inter-Process Communication (IPC) design between mai
 | Channel Name | Direction | Purpose | Data |
 |--------------|-----------|---------|------|
 | `app:get-version` | R→M | Get application version | `void` → `string` |
-| `auth:login` | R→M | Login to database website | `{username: string, password: string, remember: boolean}` → `LoginResult` |
-| `auth:logout` | R→M | Logout from database | `void` → `void` |
-| `auth:check-status` | R→M | Check if logged in | `void` → `{isLoggedIn: boolean, username?: string}` |
-| `auth:get-stored` | R→M | Get stored credentials | `void` → `{username?: string}` |
-| `search:start` | R→M | Start batch search | `{queries: string[], options?: SearchOptions}` → `{jobId: string}` |
-| `search:cancel` | R→M | Cancel ongoing search | `{jobId: string}` → `void` |
-| `search:get-results` | R→M | Get search results | `{jobId: string}` → `SearchResult[]` |
-| `search:export` | R→M | Export results to file | `{jobId: string, format: 'json'\|'csv'}` → `string` |
-| `search:progress` | M→R | Search progress update | `{jobId: string, current: number, total: number, status: string}` |
-| `search:log` | M→R | Real-time log message | `{jobId: string, level: 'info'\|'warn'\|'error', message: string, timestamp: Date}` |
-| `search:complete` | M→R | Search job completed | `{jobId: string, results: SearchResult[]}` |
-| `search:error` | M→R | Search error occurred | `{jobId: string, error: string, canRetry: boolean}` |
-| `search:error-choice` | R→M | User's error handling choice | `{jobId: string, action: 'retry'\|'skip'\|'abort'}` → `void` |
+| `auth:login` | R→M | Login to RuTracker | `LoginCredentials: {username: string, password: string, remember: boolean}` → `LoginResult: {success: boolean, username?: string, sessionId?: string, error?: string}` |
+| `auth:logout` | R→M | Logout from RuTracker | `void` → `{success: boolean, error?: string}` |
+| `auth:status` | R→M | Check authentication status | `void` → `{success: boolean, data?: AuthState}` |
+| `search:start` | R→M | Start RuTracker search | `SearchRequest: {query: string, category?: string}` → `SearchResponse: {success: boolean, results?: SearchResult[], error?: string, query?: string}` |
+| `search:stop` | R→M | Stop ongoing search (future) | `void` → `void` |
+| `search:progress` | M→R | Search progress update (future) | `{current: number, total: number, status: string}` |
+| `search:results` | M→R | Partial results update (future) | `{results: SearchResult[]}` |
+| `search:error` | M→R | Search error notification (future) | `{error: string}` |
 | `file:import-queries` | R→M | Import queries from file | `void` → `string[]` |
 | `file:export-results` | R→M | Show export dialog | `{results: SearchResult[]}` → `string` |
 | **Project Management** |  |  |  |

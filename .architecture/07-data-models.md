@@ -23,9 +23,61 @@ interface AuthState {
   isLoggedIn: boolean
   username?: string
   sessionExpiry?: Date
+  isSessionRestored?: boolean // Indicates session was restored from saved state
 }
 
-// Search Queries
+interface StoredCredentials {
+  username?: string
+  // Note: Password is NEVER stored, only username for convenience
+}
+
+interface SessionCookie {
+  name: string
+  value: string
+  domain: string
+  path: string
+  expires: number
+}
+
+interface PersistedSession {
+  cookies: SessionCookie[]
+  username: string
+  sessionExpiry: number
+  savedAt: number
+}
+
+// Search - Current Implementation
+interface SearchRequest {
+  query: string
+  category?: string // Optional category filter (not implemented yet)
+}
+
+interface SearchResult {
+  id: string // Topic ID from RuTracker
+  title: string
+  author: string
+  size: string
+  seeders: number
+  leechers: number
+  url: string // Full URL to topic page
+  category?: string
+}
+
+interface SearchResponse {
+  success: boolean
+  results?: SearchResult[]
+  error?: string
+  query?: string
+}
+
+interface SearchState {
+  isSearching: boolean
+  query: string
+  results: SearchResult[]
+  error?: string
+}
+
+// Search - Future Batch Implementation (TBD)
 interface SearchQuery {
   id: string
   query: string
@@ -51,28 +103,6 @@ interface SearchJob {
     total: number
     percentage: number
   }
-}
-
-// Search Results
-interface SearchResult {
-  queryId: string
-  query: string
-  pages: PageMatch[]
-  searchedAt: Date
-  executionTime: number
-  error?: string
-}
-
-interface PageMatch {
-  url: string
-  title: string
-  torrentUrl: string // Direct link to .torrent file
-  size?: string
-  seeders?: number
-  leechers?: number
-  uploadDate?: string
-  category?: string
-  metadata?: Record<string, any>
 }
 
 // User Settings

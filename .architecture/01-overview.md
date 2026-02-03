@@ -19,10 +19,11 @@ This document covers the application overview and component architecture.
 ### Application Components
 
 **Component 1: Torrent Search Engine**
-- Automated RuTracker search with batch processing
-- Authentication and session management
-- Paginated result extraction with torrent links
-- Real-time progress logging
+- Automated RuTracker search (single query, batch processing future)
+- Authentication with CAPTCHA support and session persistence
+- Session restoration across app restarts
+- Background session validation
+- Result extraction with torrent metadata (seeders, leechers, size)
 
 **Component 2: Torrent Download Manager**
 - Integrated torrent client (WebTorrent or similar)
@@ -138,13 +139,23 @@ yarn package      # Build + electron-builder packaging
 
 ### Component 1: Torrent Search Engine
 **Responsibilities**:
-- RuTracker authentication and session management
-- Batch torrent search with pagination
-- Result extraction (torrent links, metadata)
-- Search result storage within project
-- Export search results
+- RuTracker authentication with CAPTCHA support
+- Session persistence and automatic restoration
+- Background session validation (every 5 minutes)
+- Single-query torrent search (batch processing planned for future)
+- Result extraction (torrent links, metadata: seeders, leechers, size, author)
+- Search result storage within project (via Zustand store)
+- Direct URL navigation for efficient searching
 
-**Outputs**: List of torrent search results with download URLs
+**Outputs**: List of torrent search results with topic URLs and metadata
+
+**Current Implementation Status**:
+- ✅ Authentication with session persistence
+- ✅ Single-query search
+- ✅ Result parsing and display
+- ⏳ Batch search processing (planned)
+- ⏳ Pagination support (planned)
+- ⏳ Export search results (planned)
 
 ### Component 2: Torrent Download Manager
 **Responsibilities**:
