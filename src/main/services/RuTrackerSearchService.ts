@@ -135,9 +135,16 @@ export class RuTrackerSearchService {
       const sessionCookies = this.authService.getSessionCookies()
       console.log(`[RuTrackerSearchService] Got ${sessionCookies.length} session cookies`)
 
-      // Initialize browser
+      // Temporarily set browser to non-headless mode for viewing
+      const originalHeadless = this.browserOptions.headless
+      this.browserOptions.headless = false
+
+      // Initialize browser in visible mode
       const browser = await this.initBrowser()
       const page = await browser.newPage()
+
+      // Restore original headless setting
+      this.browserOptions.headless = originalHeadless
 
       // Set viewport
       await page.setViewport({ width: 1280, height: 800 })
