@@ -197,6 +197,7 @@ Implement JWT-based authentication to secure API endpoints.
 - **Explicit types** - Define types rather than relying on inference for public APIs
 - **Avoid `any`** - Use proper types or `unknown` if type is truly unknown
 - **Destructure imports** - `import { specific } from 'module'` not `import *`
+- **Prefer absolute imports** - Use absolute paths (e.g., `@/shared/types`) over relative paths when possible for better maintainability and refactoring
 
 ### React/Component Specific
 

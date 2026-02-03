@@ -146,7 +146,7 @@ Consult `references/best-practices.md` for:
 
 **Project Conventions:**
 - Always use `yarn` as the package manager (not npm)
-- Use absolute imports when necessary for cleaner imports
+- **Prefer absolute imports** (`@/shared/types`) over deep relative paths (`../../../shared/types`) for better maintainability and refactoring
 - Components used in pages should be moved to `components/common/` folder
 
 ### 4. Use Templates

@@ -223,6 +223,38 @@ export class DbStorageService implements IStorageService {
 }
 ```
 
+## Import Strategy
+
+### Absolute vs Relative Imports
+
+**Prefer absolute imports when possible** for better maintainability:
+
+```typescript
+// ✅ Good: Absolute imports (easier to refactor)
+import { User } from '@/shared/types/user'
+import { databaseService } from '@/main/services/database'
+import { Button } from '@/renderer/components/common/Button'
+
+// ⚠️ Acceptable: Relative imports for nearby files
+import { UserProfile } from './UserProfile'
+import { useAuth } from '../hooks/useAuth'
+
+// ❌ Bad: Deep relative imports (hard to maintain)
+import { User } from '../../../shared/types/user'
+import { Button } from '../../components/common/Button'
+```
+
+**Benefits of absolute imports**:
+- Files can be moved without updating imports
+- Clearer understanding of module location
+- Better IDE support for refactoring
+- More consistent across the codebase
+
+**When to use relative imports**:
+- Files in same directory (e.g., `./UserCard`)
+- Direct parent/child relationships (e.g., `../utils/format`)
+- Test files importing the file they test
+
 ## TypeScript Configuration
 
 ### Root tsconfig.json:
@@ -247,6 +279,8 @@ export class DbStorageService implements IStorageService {
   }
 }
 ```
+
+**Note**: The `paths` configuration enables absolute imports with `@/` prefix.
 
 ### Process-specific configs:
 

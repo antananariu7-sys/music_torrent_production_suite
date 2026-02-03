@@ -773,6 +773,36 @@ import { useProjectStore } from '../store/useProjectStore'
 import './styles.css'
 ```
 
+### Absolute vs Relative Imports
+
+**Prefer absolute imports when possible** for better maintainability:
+
+```typescript
+// ✅ Good: Absolute imports (easier to refactor and move files)
+import { Project } from '@/shared/types/project.types'
+import { projectService } from '@/main/services/project.service'
+import { SearchResults } from '@/renderer/components/common/SearchResults'
+
+// ⚠️ Acceptable: Relative imports for nearby files (same directory or parent)
+import { ProjectCard } from './ProjectCard'
+import { useProjectStore } from '../store/useProjectStore'
+
+// ❌ Bad: Deep relative imports (hard to maintain, breaks when refactoring)
+import { Project } from '../../../shared/types/project.types'
+import { Button } from '../../components/common/Button'
+```
+
+**Benefits of absolute imports**:
+- Files can be moved without updating imports
+- Easier to understand where dependencies come from
+- Better IDE autocomplete and refactoring support
+- Cleaner, more readable code
+
+**When to use relative imports**:
+- Files in the same directory (e.g., `./ProjectCard`)
+- Files in parent directory (e.g., `../store/useProjectStore`)
+- Component-specific files (tests, styles next to components)
+
 ### Naming Conventions
 
 **Files**:

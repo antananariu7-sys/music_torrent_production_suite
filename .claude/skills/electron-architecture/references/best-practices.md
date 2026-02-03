@@ -28,6 +28,7 @@
 - **TypeScript**: Use TypeScript for type safety and better tooling
 - **Consistent Patterns**: Follow consistent IPC patterns across the app
 - **Documentation**: Document architecture decisions and IPC contracts
+- **Absolute Imports**: Prefer absolute paths (e.g., `@/shared/types`) over deep relative paths for better refactoring and maintainability
 
 ## Common Anti-Patterns to Avoid
 
