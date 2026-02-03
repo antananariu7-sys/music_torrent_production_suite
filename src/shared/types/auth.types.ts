@@ -17,6 +17,7 @@ export interface AuthState {
   isLoggedIn: boolean
   username?: string
   sessionExpiry?: Date
+  isSessionRestored?: boolean
 }
 
 export interface StoredCredentials {

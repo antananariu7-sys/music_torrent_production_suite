@@ -1,6 +1,8 @@
 import puppeteer, { Browser, Page } from 'puppeteer-core'
 import { execSync } from 'child_process'
-import { existsSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs'
+import { join } from 'path'
+import { app } from 'electron'
 import type { LoginCredentials, LoginResult, AuthState, StoredCredentials } from '@shared/types/auth.types'
 
 interface SessionCookie {
@@ -11,11 +13,22 @@ interface SessionCookie {
   expires: number
 }
 
+interface PersistedSession {
+  cookies: SessionCookie[]
+  username: string
+  sessionExpiry: number
+  savedAt: number
+}
+
 /**
  * AuthService
  *
  * Handles authentication with RuTracker using Puppeteer.
  * Manages login, logout, session state, and credential storage.
+ * Features:
+ * - Session persistence across app restarts
+ * - Background session validation
+ * - CAPTCHA support (manual entry)
  */
 export class AuthService {
   private authState: AuthState = {
@@ -30,6 +43,208 @@ export class AuthService {
 
   private sessionCookies: SessionCookie[] = []
   private browser: Browser | null = null
+  private sessionValidationInterval: NodeJS.Timeout | null = null
+  private sessionFilePath: string
+  private isSessionRestored: boolean = false
+
+  constructor() {
+    // Set up session file path in userData directory
+    const userDataPath = app.getPath('userData')
+    const sessionDir = join(userDataPath, 'sessions')
+
+    // Create sessions directory if it doesn't exist
+    if (!existsSync(sessionDir)) {
+      mkdirSync(sessionDir, { recursive: true })
+    }
+
+    this.sessionFilePath = join(sessionDir, 'rutracker-session.json')
+    console.log(`[AuthService] Session file path: ${this.sessionFilePath}`)
+
+    // Try to restore session on initialization
+    this.restoreSession()
+
+    // Start background session validation (check every 5 minutes)
+    this.startSessionValidation()
+  }
+
+  /**
+   * Save session to file system for persistence
+   */
+  private saveSession(): void {
+    if (!this.authState.isLoggedIn || this.sessionCookies.length === 0) {
+      return
+    }
+
+    const session: PersistedSession = {
+      cookies: this.sessionCookies,
+      username: this.authState.username || '',
+      sessionExpiry: this.authState.sessionExpiry?.getTime() || Date.now() + 24 * 60 * 60 * 1000,
+      savedAt: Date.now(),
+    }
+
+    try {
+      writeFileSync(this.sessionFilePath, JSON.stringify(session, null, 2), 'utf-8')
+      console.log(`[AuthService] Session saved for user: ${session.username}`)
+    } catch (error) {
+      console.error('[AuthService] Failed to save session:', error)
+    }
+  }
+
+  /**
+   * Restore session from file system
+   */
+  private restoreSession(): void {
+    try {
+      if (!existsSync(this.sessionFilePath)) {
+        console.log('[AuthService] No saved session found')
+        return
+      }
+
+      const sessionData = readFileSync(this.sessionFilePath, 'utf-8')
+      const session: PersistedSession = JSON.parse(sessionData)
+
+      // Check if session is expired
+      const sessionExpiry = new Date(session.sessionExpiry)
+      if (new Date() > sessionExpiry) {
+        console.log('[AuthService] Saved session has expired')
+        this.clearSavedSession()
+        return
+      }
+
+      // Restore session state
+      this.sessionCookies = session.cookies
+      this.authState = {
+        isLoggedIn: true,
+        username: session.username,
+        sessionExpiry,
+        isSessionRestored: true,
+      }
+      this.isSessionRestored = true
+
+      console.log(`[AuthService] ✅ Session restored for user: ${session.username}`)
+      console.log(`[AuthService] Session expires: ${sessionExpiry.toLocaleString()}`)
+    } catch (error) {
+      console.error('[AuthService] Failed to restore session:', error)
+      this.clearSavedSession()
+    }
+  }
+
+  /**
+   * Clear saved session file
+   */
+  private clearSavedSession(): void {
+    try {
+      if (existsSync(this.sessionFilePath)) {
+        writeFileSync(this.sessionFilePath, '', 'utf-8')
+        console.log('[AuthService] Saved session cleared')
+      }
+    } catch (error) {
+      console.error('[AuthService] Failed to clear saved session:', error)
+    }
+  }
+
+  /**
+   * Start background session validation
+   * Checks session validity every 5 minutes
+   */
+  private startSessionValidation(): void {
+    // Check every 5 minutes
+    const VALIDATION_INTERVAL = 5 * 60 * 1000
+
+    this.sessionValidationInterval = setInterval(async () => {
+      if (!this.authState.isLoggedIn) {
+        return
+      }
+
+      console.log('[AuthService] Running background session validation...')
+      await this.validateSession()
+    }, VALIDATION_INTERVAL)
+
+    console.log('[AuthService] Background session validation started')
+  }
+
+  /**
+   * Stop background session validation
+   */
+  private stopSessionValidation(): void {
+    if (this.sessionValidationInterval) {
+      clearInterval(this.sessionValidationInterval)
+      this.sessionValidationInterval = null
+      console.log('[AuthService] Background session validation stopped')
+    }
+  }
+
+  /**
+   * Validate current session by checking if cookies are still valid
+   * Makes a lightweight request to RuTracker to verify session
+   */
+  private async validateSession(): Promise<boolean> {
+    if (!this.authState.isLoggedIn || this.sessionCookies.length === 0) {
+      return false
+    }
+
+    let page: Page | null = null
+
+    try {
+      console.log('[AuthService] Validating session...')
+
+      const browser = await this.initBrowser()
+      page = await browser.newPage()
+
+      // Set session cookies
+      await page.goto('https://rutracker.org/forum/', { waitUntil: 'domcontentloaded' })
+      await page.setCookie(...this.sessionCookies.map(cookie => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        expires: cookie.expires,
+      })))
+
+      // Navigate to a page that requires authentication
+      await page.goto('https://rutracker.org/forum/index.php', {
+        waitUntil: 'domcontentloaded',
+        timeout: 15000,
+      })
+
+      // Check if we're still logged in by looking for login form
+      const loginForm = await page.$('#login-form-full')
+
+      if (loginForm) {
+        // Login form present = session expired
+        console.log('[AuthService] ❌ Session validation failed - user logged out')
+        await page.close()
+
+        // Clear session
+        this.authState = {
+          isLoggedIn: false,
+          username: undefined,
+          sessionExpiry: undefined,
+        }
+        this.sessionCookies = []
+        this.clearSavedSession()
+
+        return false
+      }
+
+      await page.close()
+      console.log('[AuthService] ✅ Session validation successful')
+      return true
+    } catch (error) {
+      console.error('[AuthService] Session validation error:', error)
+      if (page) {
+        await page.close()
+      }
+      return false
+    }
+  }
+
+  /**
+   * Check if current session was restored from saved state
+   */
+  isRestoredSession(): boolean {
+    return this.isSessionRestored
+  }
 
   /**
    * Find Chrome/Chromium executable path
@@ -156,28 +371,50 @@ export class AuthService {
       await page.waitForSelector(passwordSelector, { visible: true })
       await page.type(passwordSelector, credentials.password)
 
-      // Click the Вход button to submit form
-      console.log(`[AuthService] Clicking Вход button`)
+      // Check if CAPTCHA is present
+      const captchaImage = await page.$('#login-form-full img[src*="captcha"]')
+      if (captchaImage) {
+        console.log('[AuthService] ⚠️  CAPTCHA detected - user must solve manually')
+        console.log('[AuthService] Browser will remain open for manual CAPTCHA entry')
+        console.log('[AuthService] Please solve the CAPTCHA and click the login button')
 
-      // Find and click the submit button with name="login" inside login-form-full
-      const submitButtonSelector = '#login-form-full input[name="login"][type="submit"]'
-      await page.waitForSelector(submitButtonSelector, { visible: true })
-
-      // Click the button using JavaScript to ensure it works
-      await page.evaluate((selector) => {
-        const button = document.querySelector(selector) as HTMLElement
-        if (button) {
-          button.click()
+        // Wait for navigation which indicates form submission
+        try {
+          await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 300000 }) // 5 min timeout
+          console.log('[AuthService] Navigation detected - checking login result')
+        } catch (error) {
+          console.error('[AuthService] Timeout waiting for CAPTCHA submission')
+          return {
+            success: false,
+            error: 'CAPTCHA submission timeout - please try again',
+          }
         }
-      }, submitButtonSelector)
+      } else {
+        console.log('[AuthService] No CAPTCHA detected - proceeding with automatic submission')
 
-      console.log('[AuthService] Login button clicked, waiting for response')
+        // Click the Вход button to submit form
+        console.log(`[AuthService] Clicking Вход button`)
 
-      // Wait for navigation or error message
-      await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {
-        console.log('[AuthService] Navigation timeout or no navigation occurred')
-        // Navigation might not happen if there's an error
-      })
+        // Find and click the submit button with name="login" inside login-form-full
+        const submitButtonSelector = '#login-form-full input[name="login"][type="submit"]'
+        await page.waitForSelector(submitButtonSelector, { visible: true })
+
+        // Click the button using JavaScript to ensure it works
+        await page.evaluate((selector) => {
+          const button = document.querySelector(selector) as HTMLElement
+          if (button) {
+            button.click()
+          }
+        }, submitButtonSelector)
+
+        console.log('[AuthService] Login button clicked, waiting for response')
+
+        // Wait for navigation or error message
+        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {
+          console.log('[AuthService] Navigation timeout or no navigation occurred')
+          // Navigation might not happen if there's an error
+        })
+      }
 
       // Check if login was successful
       // If successful, we should see username in the page or be redirected
@@ -246,6 +483,9 @@ export class AuthService {
       console.log(`[AuthService] Session ID: ${sessionId}`)
       console.log(`[AuthService] Session expires: ${sessionExpiry.toLocaleString()}`)
 
+      // Save session to file system
+      this.saveSession()
+
       return {
         success: true,
         username: credentials.username,
@@ -267,10 +507,7 @@ export class AuthService {
 
   /**
    * Logout current user
-   *
-   * TODO: Implement actual RuTracker logout
-   * - Clear session cookies
-   * - Navigate to logout endpoint
+   * Clears session cookies and saved session file
    */
   async logout(): Promise<void> {
     console.log(`[AuthService] Logout user: ${this.authState.username}`)
@@ -280,6 +517,19 @@ export class AuthService {
       username: undefined,
       sessionExpiry: undefined,
     }
+
+    this.sessionCookies = []
+    this.isSessionRestored = false
+    this.clearSavedSession()
+  }
+
+  /**
+   * Cleanup method to be called before app shutdown
+   */
+  async cleanup(): Promise<void> {
+    console.log('[AuthService] Cleaning up...')
+    this.stopSessionValidation()
+    await this.closeBrowser()
   }
 
   /**

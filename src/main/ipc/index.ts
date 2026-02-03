@@ -185,3 +185,12 @@ export function registerIpcHandlers(): void {
 
   console.log('IPC handlers registered successfully')
 }
+
+/**
+ * Cleanup services before app shutdown
+ */
+export async function cleanupServices(): Promise<void> {
+  console.log('Cleaning up services...')
+  await authService.cleanup()
+  console.log('Services cleaned up successfully')
+}
