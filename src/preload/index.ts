@@ -32,6 +32,9 @@ const api = {
   openProject: (request: OpenProjectRequest): Promise<ApiResponse<Project>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LOAD, request),
 
+  closeProject: (projectId: string): Promise<ApiResponse<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CLOSE, projectId),
+
   getRecentProjects: (): Promise<ApiResponse<RecentProject[]>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LIST),
 

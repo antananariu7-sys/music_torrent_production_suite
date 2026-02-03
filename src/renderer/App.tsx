@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Box, Spinner, VStack, Text } from '@chakra-ui/react'
 import type { AppInfo } from '@shared/types/app.types'
 import ProjectLauncher from '@/pages/ProjectLauncher'
+import ProjectOverview from '@/pages/ProjectOverview'
 import Settings from '@/pages/Settings'
 import { useThemeStore } from '@/store/useThemeStore'
 
@@ -46,6 +47,7 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/" element={<ProjectLauncher appInfo={appInfo} />} />
+      <Route path="/project" element={<ProjectOverview appInfo={appInfo} />} />
       <Route path="/settings" element={<Settings appInfo={appInfo} />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

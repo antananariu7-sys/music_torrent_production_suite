@@ -78,6 +78,19 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle(IPC_CHANNELS.PROJECT_CLOSE, async (_event, projectId: string) => {
+    try {
+      await projectService.closeProject(projectId)
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to close project:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to close project',
+      }
+    }
+  })
+
   ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, async () => {
     try {
       const recentProjects = configService.getRecentProjects()

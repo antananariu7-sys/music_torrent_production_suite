@@ -19,6 +19,7 @@ interface ProjectState {
   loadRecentProjects: () => Promise<void>
   createProject: (name: string, location: string, description?: string) => Promise<void>
   openProject: (filePath: string) => Promise<void>
+  closeProject: () => Promise<void>
 }
 
 export const useProjectStore = create<ProjectState>((set) => ({
@@ -103,6 +104,24 @@ export const useProjectStore = create<ProjectState>((set) => ({
       set({
         error: error instanceof Error ? error.message : 'Failed to open project',
         isLoading: false,
+      })
+    }
+  },
+
+  closeProject: async () => {
+    const { currentProject } = useProjectStore.getState()
+    if (!currentProject) return
+
+    try {
+      const response = await window.api.closeProject(currentProject.id)
+      if (response.success) {
+        set({ currentProject: null })
+      } else {
+        set({ error: response.error || 'Failed to close project' })
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to close project',
       })
     }
   },

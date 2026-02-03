@@ -10,9 +10,10 @@
 ## 🎵 Application Overview
 
 A project-based music production suite with three integrated components:
+
 1. **Torrent Search** - RuTracker automation for finding music
 2. **Download Manager** - WebTorrent-based download and seeding
-3. **Music Mixer** - Audio mixing interface *(TBD)*
+3. **Music Mixer** - Audio mixing interface _(TBD)_
 
 **Target Platforms**: Windows 10/11, macOS 10.13+
 
@@ -22,36 +23,36 @@ A project-based music production suite with three integrated components:
 
 ### Core Architecture
 
-| Document | Description |
-|----------|-------------|
-| [**01-overview.md**](.architecture/01-overview.md) | Application purpose, components, project structure |
-| [**02-process-architecture.md**](.architecture/02-process-architecture.md) | Main/Renderer/Preload process responsibilities |
-| [**03-ipc-communication.md**](.architecture/03-ipc-communication.md) | IPC channels, patterns, validation strategy |
-| [**04-web-automation.md**](.architecture/04-web-automation.md) | Puppeteer integration, RuTracker scraping flows |
-| [**05-security.md**](.architecture/05-security.md) | Security architecture, threats, credential storage |
+| Document                                                                   | Description                                        |
+| -------------------------------------------------------------------------- | -------------------------------------------------- |
+| [**01-overview.md**](.architecture/01-overview.md)                         | Application purpose, components, project structure |
+| [**02-process-architecture.md**](.architecture/02-process-architecture.md) | Main/Renderer/Preload process responsibilities     |
+| [**03-ipc-communication.md**](.architecture/03-ipc-communication.md)       | IPC channels, patterns, validation strategy        |
+| [**04-web-automation.md**](.architecture/04-web-automation.md)             | Puppeteer integration, RuTracker scraping flows    |
+| [**05-security.md**](.architecture/05-security.md)                         | Security architecture, threats, credential storage |
 
 ### Implementation Details
 
-| Document | Description |
-|----------|-------------|
-| [**06-directory-structure.md**](.architecture/06-directory-structure.md) | Complete file/folder organization |
-| [**07-data-models.md**](.architecture/07-data-models.md) | TypeScript interfaces for all data structures |
-| [**08-ui-architecture.md**](.architecture/08-ui-architecture.md) | React components, pages, styling strategy |
-| [**09-dependencies.md**](.architecture/09-dependencies.md) | NPM packages and dependency rationale |
+| Document                                                                 | Description                                   |
+| ------------------------------------------------------------------------ | --------------------------------------------- |
+| [**06-directory-structure.md**](.architecture/06-directory-structure.md) | Complete file/folder organization             |
+| [**07-data-models.md**](.architecture/07-data-models.md)                 | TypeScript interfaces for all data structures |
+| [**08-ui-architecture.md**](.architecture/08-ui-architecture.md)         | React components, pages, styling strategy     |
+| [**09-dependencies.md**](.architecture/09-dependencies.md)               | NPM packages and dependency rationale         |
 
 ### Development & Deployment
 
-| Document | Description |
-|----------|-------------|
-| [**10-development-plan.md**](.architecture/10-development-plan.md) | 6-phase development roadmap, ADRs |
-| [**11-risks-and-success.md**](.architecture/11-risks-and-success.md) | Technical risks, success criteria |
-| [**12-implementation-guide.md**](.architecture/12-implementation-guide.md) | RuTracker-specific code examples |
+| Document                                                                   | Description                       |
+| -------------------------------------------------------------------------- | --------------------------------- |
+| [**10-development-plan.md**](.architecture/10-development-plan.md)         | 6-phase development roadmap, ADRs |
+| [**11-risks-and-success.md**](.architecture/11-risks-and-success.md)       | Technical risks, success criteria |
+| [**12-implementation-guide.md**](.architecture/12-implementation-guide.md) | RuTracker-specific code examples  |
 
 ### Guidelines & Best Practices
 
-| Document | Description |
-|----------|-------------|
-| [**13-testing-guidelines.md**](.architecture/13-testing-guidelines.md) | Testing standards, data-testid locators, test patterns |
+| Document                                                                       | Description                                             |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------- |
+| [**13-testing-guidelines.md**](.architecture/13-testing-guidelines.md)         | Testing standards, data-testid locators, test patterns  |
 | [**14-development-guidelines.md**](.architecture/14-development-guidelines.md) | Code quality, architecture patterns, security practices |
 
 ---
@@ -90,7 +91,7 @@ Project → Search (RuTracker) → Download (WebTorrent) → Mix (TBD)
 1. **Foundation** (Week 1-2) - Project system, IPC infrastructure
 2. **Component 1** (Week 3-4) - Search engine
 3. **Component 2** (Week 5-6) - Torrent manager
-4. **Component 3** (Week 7-8) - Mixer *(details TBD)*
+4. **Component 3** (Week 7-8) - Mixer _(details TBD)_
 5. **Polish** (Week 9-10) - Testing, optimization
 6. **Distribution** (Week 11) - Installers, deployment
 
@@ -98,12 +99,12 @@ Project → Search (RuTracker) → Download (WebTorrent) → Mix (TBD)
 
 ## 🔑 Key Architecture Decisions
 
-| ADR | Decision | Rationale |
-|-----|----------|-----------|
-| **ADR-005** | WebTorrent for downloads | Pure JS, streaming support, cross-platform |
-| **ADR-006** | Project-based architecture | Organized workflow like DAWs/video editors |
-| **ADR-003** | Context isolation enabled | Security requirement for Electron apps |
-| **ADR-001** | Zustand for state management | Lightweight, TypeScript-friendly |
+| ADR         | Decision                     | Rationale                                  |
+| ----------- | ---------------------------- | ------------------------------------------ |
+| **ADR-005** | WebTorrent for downloads     | Pure JS, streaming support, cross-platform |
+| **ADR-006** | Project-based architecture   | Organized workflow like DAWs/video editors |
+| **ADR-003** | Context isolation enabled    | Security requirement for Electron apps     |
+| **ADR-001** | Zustand for state management | Lightweight, TypeScript-friendly           |
 
 See [10-development-plan.md](.architecture/10-development-plan.md#architecture-decision-records-adrs) for complete ADRs.
 
@@ -133,7 +134,7 @@ For coding standards, commit message format, and development best practices, see
 
 - **[AGENTS.md](AGENTS.md)** - Project rules and conventions
 - **[.claude/settings.local.json](.claude/settings.local.json)** - Claude Code configuration
-- **[README.md](README.md)** - Project README *(to be created)*
+- **[README.md](README.md)** - Project README
 
 ---
 

@@ -157,6 +157,9 @@ export class ProjectService {
    */
   async closeProject(projectId: string): Promise<void> {
     if (this.activeProject && this.activeProject.id === projectId) {
+      // Update isActive before saving
+      this.activeProject.isActive = false
+
       // Save before closing
       await this.saveProject(this.activeProject)
 
@@ -165,9 +168,6 @@ export class ProjectService {
         this.activeProject.id,
         this.activeProject.projectDirectory
       )
-
-      // Update isActive
-      this.activeProject.isActive = false
 
       // Clear active project
       this.activeProject = null

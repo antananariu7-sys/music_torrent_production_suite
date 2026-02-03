@@ -10,6 +10,7 @@ export const IPC_CHANNELS = {
   PROJECT_CREATE: 'project:create',
   PROJECT_LOAD: 'project:load',
   PROJECT_SAVE: 'project:save',
+  PROJECT_CLOSE: 'project:close',
   PROJECT_LIST: 'project:list',
   PROJECT_DELETE: 'project:delete',
 

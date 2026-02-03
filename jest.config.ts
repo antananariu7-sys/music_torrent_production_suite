@@ -5,9 +5,10 @@ const config: Config = {
   testEnvironment: 'node',
   rootDir: '.',
 
-  // Test file patterns - only test business logic (services)
+  // Test file patterns - only test business logic (services and renderer utils)
   testMatch: [
     '<rootDir>/src/main/services/**/*.{test,spec}.{ts,tsx}',
+    '<rootDir>/src/renderer/**/utils.{test,spec}.{ts,tsx}',
   ],
 
   // Files to ignore
@@ -24,10 +25,12 @@ const config: Config = {
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
   },
 
-  // Coverage configuration - only cover business logic (services)
+  // Coverage configuration - only cover business logic (services and renderer utils)
   collectCoverageFrom: [
     'src/main/services/**/*.{ts,tsx}',
     '!src/main/services/**/*.{test,spec}.{ts,tsx}',
+    'src/renderer/**/utils.{ts,tsx}',
+    '!src/renderer/**/utils.{test,spec}.{ts,tsx}',
   ],
 
   // Transform configuration

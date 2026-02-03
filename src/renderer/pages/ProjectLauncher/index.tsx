@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Box, SimpleGrid, VStack, Spinner, Text } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
 import type { AppInfo } from '@shared/types/app.types'
@@ -16,6 +17,7 @@ interface ProjectLauncherProps {
 export default function ProjectLauncher({
   appInfo,
 }: ProjectLauncherProps): JSX.Element {
+  const navigate = useNavigate()
   const {
     currentProject,
     recentProjects,
@@ -25,19 +27,22 @@ export default function ProjectLauncher({
     createProject,
     openProject,
     clearError,
+    closeProject,
   } = useProjectStore()
 
   useEffect(() => {
+    // Close project and release lock when returning to launcher
+    closeProject()
     // Load recent projects on mount
     loadRecentProjects()
-  }, [loadRecentProjects])
+  }, [loadRecentProjects, closeProject])
 
   useEffect(() => {
-    // Navigate to main app when project is loaded
+    // Navigate to project overview when project is loaded
     if (currentProject) {
-      // TODO: Navigate to main project view
+      navigate('/project')
     }
-  }, [currentProject])
+  }, [currentProject, navigate])
 
   const handleCreateProject = async (
     name: string,
