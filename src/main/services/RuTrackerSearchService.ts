@@ -1,7 +1,14 @@
 import puppeteer, { Browser, Page } from 'puppeteer-core'
 import { execSync } from 'child_process'
 import { existsSync } from 'fs'
-import type { SearchRequest, SearchResult, SearchResponse } from '@shared/types/search.types'
+import type {
+  SearchRequest,
+  SearchResult,
+  SearchResponse,
+  FileFormat,
+  SearchFilters,
+  SearchSort,
+} from '@shared/types/search.types'
 import type { AuthService } from './AuthService'
 
 interface BrowserOptions {
@@ -269,9 +276,37 @@ export class RuTrackerSearchService {
 
       // Parse search results
       console.log('[RuTrackerSearchService] Parsing search results')
-      const results = await this.parseSearchResults(page)
+      let results = await this.parseSearchResults(page)
 
-      console.log(`[RuTrackerSearchService] Found ${results.length} results`)
+      console.log(`[RuTrackerSearchService] Found ${results.length} raw results`)
+
+      // Store total results before filtering
+      const totalResults = results.length
+
+      // Calculate relevance scores
+      results = this.calculateRelevanceScores(results, request.query)
+
+      // Apply filters if provided
+      if (request.filters) {
+        console.log('[RuTrackerSearchService] Applying filters:', request.filters)
+        results = this.applyFilters(results, request.filters)
+        console.log(`[RuTrackerSearchService] ${results.length} results after filtering`)
+      }
+
+      // Apply sorting if provided
+      if (request.sort) {
+        console.log('[RuTrackerSearchService] Applying sort:', request.sort)
+        results = this.applySorting(results, request.sort)
+      } else {
+        // Default: sort by relevance score (descending)
+        results = this.applySorting(results, { by: 'relevance', order: 'desc' })
+      }
+
+      // Limit results if maxResults is specified
+      if (request.maxResults && request.maxResults > 0) {
+        results = results.slice(0, request.maxResults)
+        console.log(`[RuTrackerSearchService] Limited to ${request.maxResults} results`)
+      }
 
       // Close browser after successful search (in headless mode)
       if (this.browserOptions.headless) {
@@ -284,6 +319,8 @@ export class RuTrackerSearchService {
         success: true,
         results,
         query: request.query,
+        appliedFilters: request.filters,
+        totalResults,
       }
     } catch (error) {
       console.error('[RuTrackerSearchService] Search failed:', error)
@@ -301,6 +338,217 @@ export class RuTrackerSearchService {
         query: request.query,
       }
     }
+  }
+
+  /**
+   * Detect file format from title
+   *
+   * @param title - Torrent title
+   * @returns Detected file format or undefined
+   */
+  private detectFileFormat(title: string): FileFormat | undefined {
+    const titleLower = title.toLowerCase()
+
+    if (titleLower.includes('flac')) return 'flac'
+    if (titleLower.includes('mp3')) return 'mp3'
+    if (titleLower.includes('wav')) return 'wav'
+    if (titleLower.includes('aac')) return 'aac'
+    if (titleLower.includes('ogg')) return 'ogg'
+    if (titleLower.includes('alac') || titleLower.includes('apple lossless')) return 'alac'
+    if (titleLower.includes('ape') || titleLower.includes('monkey')) return 'ape'
+
+    return undefined
+  }
+
+  /**
+   * Parse size string to bytes
+   *
+   * @param sizeStr - Size string (e.g., "1.5 GB", "500 MB")
+   * @returns Size in bytes or undefined
+   */
+  private parseSizeToBytes(sizeStr: string): number | undefined {
+    const match = sizeStr.match(/([\d.]+)\s*(GB|MB|KB|TB)/i)
+    if (!match) return undefined
+
+    const value = parseFloat(match[1])
+    const unit = match[2].toUpperCase()
+
+    const multipliers: Record<string, number> = {
+      KB: 1024,
+      MB: 1024 * 1024,
+      GB: 1024 * 1024 * 1024,
+      TB: 1024 * 1024 * 1024 * 1024,
+    }
+
+    return value * (multipliers[unit] || 1)
+  }
+
+  /**
+   * Calculate relevance score for a search result
+   *
+   * @param result - Search result
+   * @param query - Original search query
+   * @returns Relevance score (0-100)
+   */
+  private calculateRelevance(result: SearchResult, query: string): number {
+    let score = 0
+    const titleLower = result.title.toLowerCase()
+    const queryLower = query.toLowerCase()
+    const queryWords = queryLower.split(/\s+/)
+
+    // Title exact match: +40 points
+    if (titleLower === queryLower) {
+      score += 40
+    }
+    // Title contains full query: +30 points
+    else if (titleLower.includes(queryLower)) {
+      score += 30
+    }
+    // Title contains all query words: +20 points
+    else if (queryWords.every(word => titleLower.includes(word))) {
+      score += 20
+    }
+    // Title contains some query words: +10 points per word
+    else {
+      const matchedWords = queryWords.filter(word => titleLower.includes(word))
+      score += matchedWords.length * 5
+    }
+
+    // Seeder boost: +1-30 points based on seeders
+    if (result.seeders > 0) {
+      score += Math.min(30, Math.log10(result.seeders + 1) * 10)
+    }
+
+    // Format boost: +10 points for lossless formats
+    if (result.format && ['flac', 'alac', 'ape', 'wav'].includes(result.format)) {
+      score += 10
+    }
+
+    return Math.min(100, Math.round(score))
+  }
+
+  /**
+   * Calculate relevance scores for all results
+   *
+   * @param results - Search results
+   * @param query - Original search query
+   * @returns Results with relevance scores
+   */
+  private calculateRelevanceScores(results: SearchResult[], query: string): SearchResult[] {
+    return results.map(result => ({
+      ...result,
+      relevanceScore: this.calculateRelevance(result, query),
+    }))
+  }
+
+  /**
+   * Apply filters to search results
+   *
+   * @param results - Search results
+   * @param filters - Filters to apply
+   * @returns Filtered results
+   */
+  private applyFilters(results: SearchResult[], filters: SearchFilters): SearchResult[] {
+    return results.filter(result => {
+      // Format filter
+      if (filters.format && filters.format !== 'any') {
+        if (result.format !== filters.format) {
+          return false
+        }
+      }
+
+      // Min seeders filter
+      if (filters.minSeeders !== undefined) {
+        if (result.seeders < filters.minSeeders) {
+          return false
+        }
+      }
+
+      // Size filters
+      if (result.sizeBytes) {
+        const sizeMB = result.sizeBytes / (1024 * 1024)
+
+        if (filters.minSize !== undefined && sizeMB < filters.minSize) {
+          return false
+        }
+
+        if (filters.maxSize !== undefined && sizeMB > filters.maxSize) {
+          return false
+        }
+      }
+
+      // Category filter
+      if (filters.categories && filters.categories.length > 0) {
+        if (!result.category || !filters.categories.includes(result.category)) {
+          return false
+        }
+      }
+
+      // Date filters (if uploadDate is available)
+      if (result.uploadDate) {
+        const uploadDate = new Date(result.uploadDate)
+
+        if (filters.dateFrom && uploadDate < filters.dateFrom) {
+          return false
+        }
+
+        if (filters.dateTo && uploadDate > filters.dateTo) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }
+
+  /**
+   * Apply sorting to search results
+   *
+   * @param results - Search results
+   * @param sort - Sort parameters
+   * @returns Sorted results
+   */
+  private applySorting(results: SearchResult[], sort: SearchSort): SearchResult[] {
+    const sorted = [...results]
+
+    sorted.sort((a, b) => {
+      let comparison = 0
+
+      switch (sort.by) {
+        case 'relevance':
+          // Higher score first (desc by default)
+          comparison = (a.relevanceScore || 0) - (b.relevanceScore || 0)
+          break
+        case 'seeders':
+          // More seeders first (desc by default)
+          comparison = a.seeders - b.seeders
+          break
+        case 'date':
+          // Newer first (desc by default)
+          if (a.uploadDate && b.uploadDate) {
+            comparison = new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
+          }
+          break
+        case 'size':
+          // Larger first (desc by default)
+          comparison = (a.sizeBytes || 0) - (b.sizeBytes || 0)
+          break
+        case 'title':
+          // Alphabetical (asc by default)
+          comparison = a.title.localeCompare(b.title)
+          break
+      }
+
+      // For most fields, desc means reverse order
+      // For title, asc is natural alphabetical order
+      if (sort.by === 'title') {
+        return sort.order === 'asc' ? comparison : -comparison
+      } else {
+        return sort.order === 'desc' ? -comparison : comparison
+      }
+    })
+
+    return sorted
   }
 
   /**
@@ -322,6 +570,8 @@ export class RuTrackerSearchService {
           seeders: number
           leechers: number
           url: string
+          category?: string
+          uploadDate?: string
         }> = []
 
         // Find the results table using the correct ID
@@ -402,6 +652,8 @@ export class RuTrackerSearchService {
               seeders,
               leechers,
               url,
+              category: undefined, // Will be populated if available
+              uploadDate: undefined, // Will be populated if available
             })
           } catch (error) {
             console.error(`[Browser] Error parsing row ${index}:`, error)
@@ -414,12 +666,19 @@ export class RuTrackerSearchService {
 
       console.log(`[RuTrackerSearchService] Parser returned ${results.length} results`)
 
+      // Post-process results: detect format and parse size
+      const processedResults = results.map(result => ({
+        ...result,
+        format: this.detectFileFormat(result.title),
+        sizeBytes: this.parseSizeToBytes(result.size),
+      }))
+
       // Log first result for debugging
-      if (results.length > 0) {
-        console.log('[RuTrackerSearchService] Sample result:', JSON.stringify(results[0], null, 2))
+      if (processedResults.length > 0) {
+        console.log('[RuTrackerSearchService] Sample result:', JSON.stringify(processedResults[0], null, 2))
       }
 
-      return results
+      return processedResults
     } catch (error) {
       console.error('[RuTrackerSearchService] Failed to parse results:', error)
       return []

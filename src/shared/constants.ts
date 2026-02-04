@@ -29,11 +29,17 @@ export const IPC_CHANNELS = {
   SEARCH_OPEN_URL: 'search:open-url',
 
   // Torrent operations
-  TORRENT_ADD: 'torrent:add',
-  TORRENT_REMOVE: 'torrent:remove',
-  TORRENT_PAUSE: 'torrent:pause',
-  TORRENT_RESUME: 'torrent:resume',
+  TORRENT_DOWNLOAD: 'torrent:download',
+  TORRENT_GET_HISTORY: 'torrent:get-history',
+  TORRENT_CLEAR_HISTORY: 'torrent:clear-history',
+  TORRENT_GET_SETTINGS: 'torrent:get-settings',
+  TORRENT_UPDATE_SETTINGS: 'torrent:update-settings',
   TORRENT_PROGRESS: 'torrent:progress',
+
+  // MusicBrainz operations
+  MUSICBRAINZ_FIND_ALBUMS: 'musicbrainz:find-albums',
+  MUSICBRAINZ_GET_ALBUM: 'musicbrainz:get-album',
+  MUSICBRAINZ_CREATE_QUERY: 'musicbrainz:create-query',
 
   // Settings
   SETTINGS_GET: 'settings:get',

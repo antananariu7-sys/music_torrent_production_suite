@@ -6,9 +6,13 @@ import { FileSystemService } from '../services/FileSystemService'
 import { LockService } from '../services/LockService'
 import { AuthService } from '../services/AuthService'
 import { RuTrackerSearchService } from '../services/RuTrackerSearchService'
+import { TorrentDownloadService } from '../services/TorrentDownloadService'
+import { MusicBrainzService } from '../services/MusicBrainzService'
 import type { CreateProjectRequest, OpenProjectRequest } from '@shared/types/project.types'
 import type { LoginCredentials } from '@shared/types/auth.types'
 import type { SearchRequest } from '@shared/types/search.types'
+import type { TorrentDownloadRequest, TorrentSettings } from '@shared/types/torrent.types'
+import type { AlbumSearchRequest } from '@shared/types/musicbrainz.types'
 
 // Initialize services
 const fileSystemService = new FileSystemService()
@@ -16,6 +20,8 @@ const configService = new ConfigService()
 const lockService = new LockService()
 const authService = new AuthService()
 const searchService = new RuTrackerSearchService(authService)
+const torrentService = new TorrentDownloadService(authService)
+const musicBrainzService = new MusicBrainzService()
 const projectService = new ProjectService(
   fileSystemService,
   configService,
@@ -209,6 +215,119 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  // Torrent download handlers
+  ipcMain.handle(IPC_CHANNELS.TORRENT_DOWNLOAD, async (_event, request: TorrentDownloadRequest) => {
+    try {
+      const response = await torrentService.downloadTorrent(request)
+      return response
+    } catch (error) {
+      console.error('Torrent download failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Torrent download failed',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.TORRENT_GET_HISTORY, async () => {
+    try {
+      const history = torrentService.getHistory()
+      return { success: true, data: history }
+    } catch (error) {
+      console.error('Failed to get torrent history:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get torrent history',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.TORRENT_CLEAR_HISTORY, async () => {
+    try {
+      torrentService.clearHistory()
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to clear torrent history:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to clear torrent history',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.TORRENT_GET_SETTINGS, async () => {
+    try {
+      const settings = torrentService.getSettings()
+      return { success: true, data: settings }
+    } catch (error) {
+      console.error('Failed to get torrent settings:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get torrent settings',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.TORRENT_UPDATE_SETTINGS, async (_event, settings: TorrentSettings) => {
+    try {
+      torrentService.updateSettings(settings)
+      return { success: true, data: torrentService.getSettings() }
+    } catch (error) {
+      console.error('Failed to update torrent settings:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update torrent settings',
+      }
+    }
+  })
+
+  // MusicBrainz handlers
+  ipcMain.handle(IPC_CHANNELS.MUSICBRAINZ_FIND_ALBUMS, async (_event, request: AlbumSearchRequest) => {
+    try {
+      const response = await musicBrainzService.findAlbumsBySong(request)
+      return response
+    } catch (error) {
+      console.error('MusicBrainz album search failed:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Album search failed',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.MUSICBRAINZ_GET_ALBUM, async (_event, albumId: string) => {
+    try {
+      const album = await musicBrainzService.getAlbumDetails(albumId)
+      return { success: true, data: album }
+    } catch (error) {
+      console.error('Failed to get album details:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get album details',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.MUSICBRAINZ_CREATE_QUERY, async (_event, albumId: string) => {
+    try {
+      const album = await musicBrainzService.getAlbumDetails(albumId)
+      if (!album) {
+        return {
+          success: false,
+          error: 'Album not found',
+        }
+      }
+      const query = musicBrainzService.createRuTrackerQuery(album)
+      return { success: true, data: query }
+    } catch (error) {
+      console.error('Failed to create RuTracker query:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create query',
+      }
+    }
+  })
+
   console.log('IPC handlers registered successfully')
 }
 
@@ -218,5 +337,6 @@ export function registerIpcHandlers(): void {
 export async function cleanupServices(): Promise<void> {
   console.log('Cleaning up services...')
   await authService.cleanup()
+  await torrentService.closeBrowser()
   console.log('Services cleaned up successfully')
 }
