@@ -69,7 +69,8 @@ export class TorrentDownloadService {
     try {
       if (existsSync(this.historyFilePath)) {
         const data = readFileSync(this.historyFilePath, 'utf-8')
-        this.downloadHistory = JSON.parse(data).map((item: any) => ({
+        const items = JSON.parse(data) as Array<Omit<TorrentFile, 'downloadedAt'> & { downloadedAt: string }>
+        this.downloadHistory = items.map((item) => ({
           ...item,
           downloadedAt: new Date(item.downloadedAt),
         }))
@@ -238,11 +239,11 @@ export class TorrentDownloadService {
       await page.waitForSelector(downloadSelector, { timeout: 10000 })
 
       // Get the download link
-      const downloadLink = await page.$eval(downloadSelector, (el: any) => el.href)
+      const downloadLink = await page.$eval(downloadSelector, (el) => (el as HTMLAnchorElement).href)
       console.log(`[TorrentDownloadService] Found download link: ${downloadLink}`)
 
       // Navigate to download link to trigger download
-      await page.goto(downloadLink, { waitUntil: 'networkidle2' })
+      await page.goto(String(downloadLink), { waitUntil: 'networkidle2' })
 
       // Wait for download to complete (simple delay - in production, monitor file system)
       await new Promise(resolve => setTimeout(resolve, 3000))

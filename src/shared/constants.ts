@@ -40,6 +40,8 @@ export const IPC_CHANNELS = {
   MUSICBRAINZ_FIND_ALBUMS: 'musicbrainz:find-albums',
   MUSICBRAINZ_GET_ALBUM: 'musicbrainz:get-album',
   MUSICBRAINZ_CREATE_QUERY: 'musicbrainz:create-query',
+  MUSICBRAINZ_CLASSIFY_SEARCH: 'musicbrainz:classify-search',
+  MUSICBRAINZ_GET_ARTIST_ALBUMS: 'musicbrainz:get-artist-albums',
 
   // Settings
   SETTINGS_GET: 'settings:get',

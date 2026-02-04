@@ -12,7 +12,11 @@ import type { CreateProjectRequest, OpenProjectRequest } from '@shared/types/pro
 import type { LoginCredentials } from '@shared/types/auth.types'
 import type { SearchRequest } from '@shared/types/search.types'
 import type { TorrentDownloadRequest, TorrentSettings } from '@shared/types/torrent.types'
-import type { AlbumSearchRequest } from '@shared/types/musicbrainz.types'
+import type {
+  AlbumSearchRequest,
+  SearchClassificationRequest,
+  ArtistAlbumsRequest,
+} from '@shared/types/musicbrainz.types'
 
 // Initialize services
 const fileSystemService = new FileSystemService()
@@ -327,6 +331,38 @@ export function registerIpcHandlers(): void {
       }
     }
   })
+
+  ipcMain.handle(
+    IPC_CHANNELS.MUSICBRAINZ_CLASSIFY_SEARCH,
+    async (_event, request: SearchClassificationRequest) => {
+      try {
+        const response = await musicBrainzService.classifySearch(request)
+        return response
+      } catch (error) {
+        console.error('Search classification failed:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Search classification failed',
+        }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.MUSICBRAINZ_GET_ARTIST_ALBUMS,
+    async (_event, request: ArtistAlbumsRequest) => {
+      try {
+        const response = await musicBrainzService.getArtistAlbums(request)
+        return response
+      } catch (error) {
+        console.error('Failed to get artist albums:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get artist albums',
+        }
+      }
+    }
+  )
 
   console.log('IPC handlers registered successfully')
 }

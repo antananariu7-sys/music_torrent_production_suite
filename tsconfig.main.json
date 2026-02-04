@@ -9,7 +9,7 @@
       "@shared/*": ["src/shared/*"]
     },
     "types": ["node"],
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "DOM"],
     "noUnusedLocals": false
   },
   "include": ["src/main/**/*", "src/shared/**/*"],

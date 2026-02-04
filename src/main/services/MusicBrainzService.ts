@@ -1,9 +1,59 @@
 import type {
   MusicBrainzAlbum,
   MusicBrainzTrack,
+  MusicBrainzArtist,
   AlbumSearchRequest,
   AlbumSearchResponse,
+  SearchClassificationRequest,
+  SearchClassificationResponse,
+  SearchClassificationResult,
+  ArtistAlbumsRequest,
+  ArtistAlbumsResponse,
 } from '@shared/types/musicbrainz.types'
+
+// MusicBrainz API response types
+interface MBRecording {
+  id: string
+  title: string
+  score?: number
+  'artist-credit'?: Array<{ artist?: { id: string; name: string } }>
+  releases?: Array<{
+    id: string
+    title: string
+    date?: string
+    'release-group'?: { id: string; 'primary-type'?: string }
+    'track-count'?: number
+  }>
+}
+
+interface MBRelease {
+  id: string
+  title: string
+  score?: number
+  date?: string
+  'artist-credit'?: Array<{ artist?: { id: string; name: string } }>
+  'release-group'?: { id: string; 'primary-type'?: string }
+  'track-count'?: number
+}
+
+interface MBArtist {
+  id: string
+  name: string
+  score?: number
+  type?: string
+}
+
+interface MBRecordingResponse {
+  recordings: MBRecording[]
+}
+
+interface MBReleaseResponse {
+  releases: MBRelease[]
+}
+
+interface MBArtistResponse {
+  artists: MBArtist[]
+}
 
 /**
  * MusicBrainzService
@@ -62,7 +112,7 @@ export class MusicBrainzService {
       throw new Error(`MusicBrainz API error: ${response.status} ${response.statusText}`)
     }
 
-    return response.json()
+    return response.json() as Promise<T>
   }
 
   /**
@@ -82,7 +132,7 @@ export class MusicBrainzService {
       }
 
       // Search for recordings (songs)
-      const recordingResponse = await this.request<any>('recording', {
+      const recordingResponse = await this.request<MBRecordingResponse>('recording', {
         query,
         limit: '10',
         fmt: 'json',
@@ -109,7 +159,7 @@ export class MusicBrainzService {
           if (albumsMap.has(release.id)) continue
 
           // Get artist name
-          const artist = recording['artist-credit']?.[0]?.name || 'Unknown Artist'
+          const artist = recording['artist-credit']?.[0]?.artist?.name || 'Unknown Artist'
 
           const album: MusicBrainzAlbum = {
             id: release.id,
@@ -156,12 +206,12 @@ export class MusicBrainzService {
     try {
       console.log(`[MusicBrainzService] Fetching album details for: ${albumId}`)
 
-      const response = await this.request<any>(`release/${albumId}`, {
+      const response = await this.request<MBRelease & { media?: Array<{ tracks?: Array<{ id: string; title: string; length?: number; position: number; recording?: { title: string; length?: number } }> }> }>(`release/${albumId}`, {
         inc: 'recordings+artist-credits',
         fmt: 'json',
       })
 
-      const artist = response['artist-credit']?.[0]?.name || 'Unknown Artist'
+      const artist = response['artist-credit']?.[0]?.artist?.name || 'Unknown Artist'
 
       // Extract track list
       const tracks: MusicBrainzTrack[] = []
@@ -207,5 +257,173 @@ export class MusicBrainzService {
   createRuTrackerQuery(album: MusicBrainzAlbum): string {
     // Format: "Artist - Album Title"
     return `${album.artist} - ${album.title}`
+  }
+
+  /**
+   * Classify a search term as artist, album, or song
+   *
+   * @param request - Search classification request
+   * @returns Classification results with best match
+   */
+  async classifySearch(request: SearchClassificationRequest): Promise<SearchClassificationResponse> {
+    try {
+      console.log(`[MusicBrainzService] Classifying search term: "${request.query}"`)
+
+      const results: SearchClassificationResult[] = []
+
+      // Search for artists
+      try {
+        const artistResponse = await this.request<MBArtistResponse>('artist', {
+          query: `artist:"${request.query}"`,
+          limit: '3',
+          fmt: 'json',
+        })
+
+        if (artistResponse.artists && artistResponse.artists.length > 0) {
+          for (const artist of artistResponse.artists) {
+            results.push({
+              type: 'artist',
+              name: artist.name,
+              artist: artist.name,
+              albumId: artist.id,
+              score: artist.score || 0,
+            })
+          }
+        }
+      } catch (error) {
+        console.warn('[MusicBrainzService] Artist search failed:', error)
+      }
+
+      // Search for albums
+      try {
+        const albumResponse = await this.request<MBReleaseResponse>('release', {
+          query: `release:"${request.query}"`,
+          limit: '3',
+          fmt: 'json',
+        })
+
+        if (albumResponse.releases && albumResponse.releases.length > 0) {
+          for (const release of albumResponse.releases) {
+            const artist = release['artist-credit']?.[0]?.artist?.name || 'Unknown Artist'
+            results.push({
+              type: 'album',
+              name: release.title,
+              artist,
+              albumId: release.id,
+              score: release.score || 0,
+            })
+          }
+        }
+      } catch (error) {
+        console.warn('[MusicBrainzService] Album search failed:', error)
+      }
+
+      // Search for songs (recordings)
+      try {
+        const songResponse = await this.request<MBRecordingResponse>('recording', {
+          query: `recording:"${request.query}"`,
+          limit: '3',
+          fmt: 'json',
+        })
+
+        if (songResponse.recordings && songResponse.recordings.length > 0) {
+          for (const recording of songResponse.recordings) {
+            const artist = recording['artist-credit']?.[0]?.artist?.name || 'Unknown Artist'
+            results.push({
+              type: 'song',
+              name: recording.title,
+              artist,
+              score: recording.score || 0,
+            })
+          }
+        }
+      } catch (error) {
+        console.warn('[MusicBrainzService] Song search failed:', error)
+      }
+
+      // Sort by score
+      results.sort((a, b) => b.score - a.score)
+
+      const bestMatch = results.length > 0 ? results[0] : undefined
+
+      console.log(
+        `[MusicBrainzService] Found ${results.length} results, best match: ${bestMatch?.type} - ${bestMatch?.name}`
+      )
+
+      return {
+        success: true,
+        results,
+        bestMatch,
+        query: request.query,
+      }
+    } catch (error) {
+      console.error('[MusicBrainzService] Classification failed:', error)
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Classification failed',
+        query: request.query,
+      }
+    }
+  }
+
+  /**
+   * Get all albums by an artist
+   *
+   * @param request - Artist albums request
+   * @returns List of albums by the artist
+   */
+  async getArtistAlbums(request: ArtistAlbumsRequest): Promise<ArtistAlbumsResponse> {
+    try {
+      console.log(`[MusicBrainzService] Fetching albums for artist: ${request.artistId}`)
+
+      // Get artist details
+      const artistResponse = await this.request<MBArtist>(`artist/${request.artistId}`, {
+        fmt: 'json',
+      })
+
+      const artist: MusicBrainzArtist = {
+        id: artistResponse.id,
+        name: artistResponse.name,
+        type: artistResponse.type,
+      }
+
+      // Get artist's releases
+      const releasesResponse = await this.request<MBReleaseResponse>('release', {
+        artist: request.artistId,
+        limit: String(request.limit || 50),
+        fmt: 'json',
+      })
+
+      const albums: MusicBrainzAlbum[] = []
+
+      if (releasesResponse.releases && releasesResponse.releases.length > 0) {
+        for (const release of releasesResponse.releases) {
+          albums.push({
+            id: release.id,
+            title: release.title,
+            artist: artist.name,
+            date: release.date,
+            type: release['release-group']?.['primary-type']?.toLowerCase(),
+            trackCount: release['track-count'],
+          })
+        }
+      }
+
+      console.log(`[MusicBrainzService] Found ${albums.length} albums for ${artist.name}`)
+
+      return {
+        success: true,
+        albums,
+        artist,
+      }
+    } catch (error) {
+      console.error('[MusicBrainzService] Failed to get artist albums:', error)
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get artist albums',
+      }
+    }
   }
 }

@@ -602,7 +602,7 @@ export class RuTrackerSearchService {
           console.log(`[Browser] Trying tbody tr fallback: ${tbodyRows.length} rows`)
         }
 
-        rows.forEach((row, index) => {
+        rows.forEach((row: Element, index: number) => {
           try {
             // Extract topic ID from data attribute
             const topicId = row.getAttribute('data-topic_id') || `unknown-${index}`

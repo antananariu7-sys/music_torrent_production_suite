@@ -75,7 +75,7 @@ describe('MusicBrainzService', () => {
     })
 
     it('should handle API errors gracefully', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch as jest.Mock).mockResolvedValue({
         ok: false,
         status: 500,
         statusText: 'Internal Server Error',
@@ -90,7 +90,7 @@ describe('MusicBrainzService', () => {
     })
 
     it('should return empty array when no recordings found', async () => {
-      ;(global.fetch as jest.Mock).mockResolvedValue({
+      (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: async () => ({ recordings: [] }),
       })
@@ -172,7 +172,7 @@ describe('MusicBrainzService', () => {
     })
 
     it('should return null on error', async () => {
-      ;(global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
+      (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
 
       const album = await service.getAlbumDetails('album1')
 
