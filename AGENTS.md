@@ -9,16 +9,22 @@ This document contains essential rules and conventions for AI agents working on 
 **📐 For complete application architecture and design specifications**, see:
 
 → **[ARCHITECTURE.md](ARCHITECTURE.md)** - Main architecture index
-→ **[.architecture/](.architecture/)** - Detailed architecture documents
+→ **[docs/](docs/)** - Complete documentation library
 
-The architecture documentation covers:
+The documentation is organized into:
 
+- **[docs/architecture/](docs/architecture/)** - Architecture and system design
+- **[docs/guides/](docs/guides/)** - Development guides and best practices
+- **[docs/api/](docs/api/)** - API references and quick guides
+
+Coverage includes:
 - Application components and data flow
 - IPC communication patterns
 - Security architecture
 - Development roadmap
 - TypeScript data models
 - Implementation guides
+- Testing strategies
 
 **Important**: Review the architecture before making significant changes to ensure alignment with the overall design.
 

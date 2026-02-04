@@ -3,7 +3,7 @@
 **Comprehensive Electron-based music production application** with integrated torrent search, download management, and mixing capabilities.
 
 > **📁 This document serves as an index to the complete architecture documentation.**
-> All detailed specifications are organized in the [`.architecture/`](.architecture/) directory.
+> All detailed specifications are organized in the [`docs/`](docs/) directory.
 
 ---
 
@@ -19,41 +19,47 @@ A project-based music production suite with three integrated components:
 
 ---
 
-## 📚 Architecture Documentation
+## 📚 Documentation Structure
 
-### Core Architecture
+### Architecture Documentation ([docs/architecture/](docs/architecture/))
 
-| Document                                                                   | Description                                        |
-| -------------------------------------------------------------------------- | -------------------------------------------------- |
-| [**01-overview.md**](.architecture/01-overview.md)                         | Application purpose, components, project structure |
-| [**02-process-architecture.md**](.architecture/02-process-architecture.md) | Main/Renderer/Preload process responsibilities     |
-| [**03-ipc-communication.md**](.architecture/03-ipc-communication.md)       | IPC channels, patterns, validation strategy        |
-| [**04-web-automation.md**](.architecture/04-web-automation.md)             | Puppeteer integration, RuTracker scraping flows    |
-| [**05-security.md**](.architecture/05-security.md)                         | Security architecture, threats, credential storage |
+Core architecture and system design documents:
 
-### Implementation Details
+| Document | Description |
+|----------|-------------|
+| [**01-overview.md**](docs/architecture/01-overview.md) | Application purpose, components, project structure |
+| [**02-process-architecture.md**](docs/architecture/02-process-architecture.md) | Main/Renderer/Preload process responsibilities |
+| [**03-ipc-communication.md**](docs/architecture/03-ipc-communication.md) | IPC channels, patterns, validation strategy |
+| [**04-web-automation.md**](docs/architecture/04-web-automation.md) | Puppeteer integration, RuTracker scraping flows |
+| [**05-security.md**](docs/architecture/05-security.md) | Security architecture, threats, credential storage |
+| [**06-directory-structure.md**](docs/architecture/06-directory-structure.md) | Complete file/folder organization |
+| [**07-data-models.md**](docs/architecture/07-data-models.md) | TypeScript interfaces for all data structures |
+| [**08-ui-architecture.md**](docs/architecture/08-ui-architecture.md) | React components, pages, styling strategy |
+| [**09-dependencies.md**](docs/architecture/09-dependencies.md) | NPM packages and dependency rationale |
+| [**10-development-plan.md**](docs/architecture/10-development-plan.md) | 6-phase development roadmap, ADRs |
+| [**11-risks-and-success.md**](docs/architecture/11-risks-and-success.md) | Technical risks, success criteria |
+| [**15-project-system.md**](docs/architecture/15-project-system.md) | Project-based workflow architecture |
+| [**refactoring-plan-project-launcher.md**](docs/architecture/refactoring-plan-project-launcher.md) | Project launcher refactoring plan |
+| [**transform-welcome-to-project.md**](docs/architecture/transform-welcome-to-project.md) | Welcome screen transformation plan |
 
-| Document                                                                 | Description                                   |
-| ------------------------------------------------------------------------ | --------------------------------------------- |
-| [**06-directory-structure.md**](.architecture/06-directory-structure.md) | Complete file/folder organization             |
-| [**07-data-models.md**](.architecture/07-data-models.md)                 | TypeScript interfaces for all data structures |
-| [**08-ui-architecture.md**](.architecture/08-ui-architecture.md)         | React components, pages, styling strategy     |
-| [**09-dependencies.md**](.architecture/09-dependencies.md)               | NPM packages and dependency rationale         |
+### Development Guides ([docs/guides/](docs/guides/))
 
-### Development & Deployment
+Practical implementation guides and best practices:
 
-| Document                                                                   | Description                       |
-| -------------------------------------------------------------------------- | --------------------------------- |
-| [**10-development-plan.md**](.architecture/10-development-plan.md)         | 6-phase development roadmap, ADRs |
-| [**11-risks-and-success.md**](.architecture/11-risks-and-success.md)       | Technical risks, success criteria |
-| [**12-implementation-guide.md**](.architecture/12-implementation-guide.md) | RuTracker-specific code examples  |
+| Document | Description |
+|----------|-------------|
+| [**development.md**](docs/guides/development.md) | Code quality, architecture patterns, security practices |
+| [**testing.md**](docs/guides/testing.md) | Testing standards, data-testid locators, test patterns |
+| [**rutracker-implementation.md**](docs/guides/rutracker-implementation.md) | RuTracker-specific implementation code examples |
+| [**enhanced-search.md**](docs/guides/enhanced-search.md) | Enhanced search features, filters, MusicBrainz integration |
 
-### Guidelines & Best Practices
+### API Reference ([docs/api/](docs/api/))
 
-| Document                                                                       | Description                                             |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| [**13-testing-guidelines.md**](.architecture/13-testing-guidelines.md)         | Testing standards, data-testid locators, test patterns  |
-| [**14-development-guidelines.md**](.architecture/14-development-guidelines.md) | Code quality, architecture patterns, security practices |
+API documentation and quick references:
+
+| Document | Description |
+|----------|-------------|
+| [**search-api-reference.md**](docs/api/search-api-reference.md) | Quick reference for enhanced search API |
 
 ---
 
@@ -106,7 +112,7 @@ Project → Search (RuTracker) → Download (WebTorrent) → Mix (TBD)
 | **ADR-003** | Context isolation enabled    | Security requirement for Electron apps     |
 | **ADR-001** | Zustand for state management | Lightweight, TypeScript-friendly           |
 
-See [10-development-plan.md](.architecture/10-development-plan.md#architecture-decision-records-adrs) for complete ADRs.
+See [10-development-plan.md](docs/architecture/10-development-plan.md#architecture-decision-records-adrs) for complete ADRs.
 
 ---
 
@@ -114,28 +120,69 @@ See [10-development-plan.md](.architecture/10-development-plan.md#architecture-d
 
 For coding standards, commit message format, and development best practices, see:
 
-**→ [AGENTS.md](AGENTS.md)** - Project rules for AI agents and developers
+**→ [agents.md](agents.md)** - Project rules for AI agents and developers
+
+---
+
+## 🎯 Current Implementation Status
+
+### Completed Features
+
+✅ **Authentication System**
+- RuTracker login with CAPTCHA support
+- Session persistence across app restarts
+- Background session validation
+
+✅ **Search Engine**
+- Single-query search with advanced filters
+- Format filtering (MP3, FLAC, WAV, etc.)
+- Quality filtering (seeders, file size)
+- Smart sorting (relevance, seeders, date, size)
+- MusicBrainz album discovery integration
+
+✅ **Torrent Management**
+- Direct torrent file downloads
+- Download history tracking
+- Configurable download folder
+- Auto-open in torrent client
+
+✅ **Testing Infrastructure**
+- Comprehensive unit tests for services
+- Test coverage for RuTracker and MusicBrainz services
+
+### In Progress
+
+🚧 **Project System** - Core project management functionality
+🚧 **UI Components** - React components for project workflow
+
+### Planned
+
+📋 **Download Manager** - WebTorrent integration for in-app downloads
+📋 **Music Mixer** - Audio mixing capabilities
+📋 **E2E Testing** - Playwright test automation
 
 ---
 
 ## 📝 Document Status
 
-- **Version**: 1.1
-- **Last Updated**: 2026-02-01
-- **Status**: Architecture design complete + Guidelines added
+- **Version**: 2.0
+- **Last Updated**: 2026-02-04
+- **Status**: Architecture consolidated and reorganized
 - **Recent Updates**:
-  - Added comprehensive testing guidelines with data-testid standards
-  - Added development guidelines with code quality and security practices
-- **Next Steps**: Begin Phase 1 implementation
+  - Reorganized documentation into logical structure
+  - Consolidated all docs into `docs/` with subdirectories
+  - Removed duplicate and temporary files
+  - Updated current implementation status
+- **Next Steps**: Continue Phase 1 implementation
 
 ---
 
 ## 🔗 Related Documentation
 
-- **[AGENTS.md](AGENTS.md)** - Project rules and conventions
+- **[agents.md](agents.md)** - Project rules and conventions for AI agents
 - **[.claude/settings.local.json](.claude/settings.local.json)** - Claude Code configuration
 - **[README.md](README.md)** - Project README
 
 ---
 
-**Architecture by**: Claude Sonnet 4.5 using [electron-architecture skill](.agents/skills/electron-architecture/)
+**Architecture by**: Claude Sonnet 4.5 using [electron-architecture skill](.claude/skills/electron-architecture/)

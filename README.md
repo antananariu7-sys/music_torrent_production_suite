@@ -177,13 +177,15 @@ dist/                        # Build output (gitignored)
 
 ## Architecture
 
-See the [`.architecture/`](.architecture/) directory for comprehensive architecture documentation:
+See the [`docs/`](docs/) directory for comprehensive documentation:
 
-- [01-overview.md](.architecture/01-overview.md) - Application overview
-- [02-process-architecture.md](.architecture/02-process-architecture.md) - Electron process architecture
-- [03-ipc-communication.md](.architecture/03-ipc-communication.md) - IPC patterns
-- [06-directory-structure.md](.architecture/06-directory-structure.md) - Complete directory structure
-- And more...
+**Quick Links**:
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Main architecture index
+- [docs/architecture/01-overview.md](docs/architecture/01-overview.md) - Application overview
+- [docs/architecture/02-process-architecture.md](docs/architecture/02-process-architecture.md) - Electron process architecture
+- [docs/architecture/03-ipc-communication.md](docs/architecture/03-ipc-communication.md) - IPC patterns
+- [docs/guides/development.md](docs/guides/development.md) - Development best practices
+- [docs/guides/testing.md](docs/guides/testing.md) - Testing standards
 
 ## Development Workflow
 
@@ -258,7 +260,7 @@ This project follows a project-based workflow similar to DAWs:
 
 ## Contributing
 
-See [AGENTS.md](AGENTS.md) for project rules and conventions.
+See [agents.md](agents.md) for project rules and conventions.
 
 ## License
 
