@@ -46,7 +46,7 @@ export function StatsGrid({
   ]
 
   return (
-    <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} gap={4}>
+    <SimpleGrid columns={{ base: 2, lg: 4 }} gap={3}>
       {statCards.map((card, index) => (
         <Box
           key={index}
@@ -54,14 +54,14 @@ export function StatsGrid({
           borderWidth="1px"
           borderColor="border.base"
           borderRadius="md"
-          p={6}
+          p={3}
         >
-          <VStack align="start" gap={3}>
-            <HStack gap={3} align="center">
-              <Text fontSize="3xl">{card.icon}</Text>
+          <VStack align="start" gap={1}>
+            <HStack gap={2} align="center">
+              <Text fontSize="lg">{card.icon}</Text>
               <Text
                 fontSize="xs"
-                fontWeight="bold"
+                fontWeight="semibold"
                 textTransform="uppercase"
                 color="text.muted"
                 letterSpacing="wide"
@@ -70,14 +70,14 @@ export function StatsGrid({
               </Text>
             </HStack>
             <Text
-              fontSize="2xl"
+              fontSize="lg"
               fontWeight="bold"
               color="text.primary"
             >
               {card.value}
             </Text>
             <Text
-              fontSize="sm"
+              fontSize="xs"
               color="text.secondary"
             >
               {card.detail}

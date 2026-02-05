@@ -1,4 +1,5 @@
-import { Box, VStack, Text, Button, HStack, Icon, Heading, Grid } from '@chakra-ui/react'
+import { useState } from 'react'
+import { Box, VStack, Text, Button, HStack, Icon, Heading, Grid, Image } from '@chakra-ui/react'
 import { FiMusic, FiDisc, FiUser, FiDownload, FiChevronRight } from 'react-icons/fi'
 import type { SearchClassificationResult, MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
@@ -212,6 +213,8 @@ interface AlbumItemProps {
 }
 
 const AlbumItem: React.FC<AlbumItemProps> = ({ album, onSelect }) => {
+  const [imageError, setImageError] = useState(false)
+
   return (
     <Box
       p={3}
@@ -228,7 +231,18 @@ const AlbumItem: React.FC<AlbumItemProps> = ({ album, onSelect }) => {
       }}
     >
       <VStack align="start" gap={2}>
-        <Icon as={FiDisc} boxSize={8} color="interactive.base" />
+        {album.coverArtUrl && !imageError ? (
+          <Image
+            src={album.coverArtUrl}
+            alt={`${album.title} cover`}
+            boxSize="80px"
+            objectFit="cover"
+            borderRadius="sm"
+            onError={() => setImageError(true)}
+          />
+        ) : (
+          <Icon as={FiDisc} boxSize={10} color="interactive.base" />
+        )}
         <VStack align="start" gap={0.5}>
           <Text fontSize="sm" fontWeight="medium" color="text.primary" lineClamp={2}>
             {album.title}

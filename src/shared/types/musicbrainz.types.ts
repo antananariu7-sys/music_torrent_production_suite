@@ -17,6 +17,8 @@ export interface MusicBrainzAlbum {
   tracks?: MusicBrainzTrack[]
   /** Score from search (0-100) */
   score?: number
+  /** Cover art URL from Cover Art Archive */
+  coverArtUrl?: string
 }
 
 export interface MusicBrainzTrack {

@@ -19,7 +19,7 @@ export function ProjectHeader({ name, description, isActive }: ProjectHeaderProp
           {name}
         </Heading>
         {isActive && (
-          <Badge colorPalette="green" size="lg">
+          <Badge colorPalette="green" size="lg" px={3}>
             ACTIVE
           </Badge>
         )}

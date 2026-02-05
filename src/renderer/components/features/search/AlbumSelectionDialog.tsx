@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
-import { Box, Button, Flex, Heading, Text, VStack, HStack, Badge, Icon } from '@chakra-ui/react'
-import { FiCheck, FiChevronRight } from 'react-icons/fi'
+import { Box, Button, Flex, Heading, Text, VStack, HStack, Badge, Icon, Image } from '@chakra-ui/react'
+import { FiCheck, FiChevronRight, FiDisc } from 'react-icons/fi'
 import type { MusicBrainzAlbum, SearchClassificationResult } from '@shared/types/musicbrainz.types'
 
 interface AlbumSelectionDialogProps {
@@ -21,6 +21,11 @@ export const AlbumSelectionDialog: React.FC<AlbumSelectionDialogProps> = ({
   onCancel,
 }) => {
   const [selectedAlbum, setSelectedAlbum] = useState<MusicBrainzAlbum | null>(null)
+  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set())
+
+  const handleImageError = (albumId: string) => {
+    setImageErrors((prev) => new Set(prev).add(albumId))
+  }
 
   if (!isOpen) return null
 
@@ -153,9 +158,19 @@ export const AlbumSelectionDialog: React.FC<AlbumSelectionDialogProps> = ({
                 }
               >
                 <Flex align="flex-start" gap={3} width="full">
-                  <Text fontSize="3xl" flexShrink={0}>
-                    💿
-                  </Text>
+                  {album.coverArtUrl && !imageErrors.has(album.id) ? (
+                    <Image
+                      src={album.coverArtUrl}
+                      alt={`${album.title} cover`}
+                      boxSize="80px"
+                      objectFit="cover"
+                      borderRadius="md"
+                      flexShrink={0}
+                      onError={() => handleImageError(album.id)}
+                    />
+                  ) : (
+                    <Icon as={FiDisc} boxSize="80px" color="interactive.base" flexShrink={0} />
+                  )}
                   <Box flex="1" minW="0">
                     <Flex align="center" gap={2} flexWrap="wrap">
                       <Heading size="lg" color="text.primary">

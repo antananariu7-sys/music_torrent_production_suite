@@ -63,10 +63,22 @@ interface MBArtistResponse {
  */
 export class MusicBrainzService {
   private readonly API_BASE = 'https://musicbrainz.org/ws/2'
+  private readonly COVER_ART_BASE = 'https://coverartarchive.org/release'
   private readonly USER_AGENT = 'MusicProductionSuite/1.0.0 (https://github.com/yourrepo)'
   private readonly RATE_LIMIT_MS = 1000 // MusicBrainz requires 1 request per second
 
   private lastRequestTime = 0
+
+  /**
+   * Generate Cover Art Archive URL for an album
+   * Uses 250px thumbnail for performance
+   *
+   * @param albumId - MusicBrainz release ID
+   * @returns Cover art URL
+   */
+  private getCoverArtUrl(albumId: string): string {
+    return `${this.COVER_ART_BASE}/${albumId}/front-250`
+  }
 
   /**
    * Respect MusicBrainz rate limiting (1 request per second)
@@ -169,6 +181,7 @@ export class MusicBrainzService {
             type: release['release-group']?.['primary-type']?.toLowerCase(),
             trackCount: release['track-count'],
             score: recording.score || 0,
+            coverArtUrl: this.getCoverArtUrl(release.id),
           }
 
           albumsMap.set(release.id, album)
@@ -237,6 +250,7 @@ export class MusicBrainzService {
         type: response['release-group']?.['primary-type']?.toLowerCase(),
         trackCount: tracks.length,
         tracks,
+        coverArtUrl: this.getCoverArtUrl(response.id),
       }
 
       console.log(`[MusicBrainzService] Album has ${tracks.length} tracks`)
@@ -406,6 +420,7 @@ export class MusicBrainzService {
             date: release.date,
             type: release['release-group']?.['primary-type']?.toLowerCase(),
             trackCount: release['track-count'],
+            coverArtUrl: this.getCoverArtUrl(release.id),
           })
         }
       }

@@ -1,8 +1,20 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, session } from 'electron'
 import { join } from 'path'
 import { APP_CONFIG } from '../shared/constants'
 
 export function createWindow(): BrowserWindow {
+  // Set Content Security Policy headers to allow cover art images from HTTPS sources
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:",
+        ],
+      },
+    })
+  })
+
   const window = new BrowserWindow({
     width: APP_CONFIG.DEFAULT_WINDOW_WIDTH,
     height: APP_CONFIG.DEFAULT_WINDOW_HEIGHT,
