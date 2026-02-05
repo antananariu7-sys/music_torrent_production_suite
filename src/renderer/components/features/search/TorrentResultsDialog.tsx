@@ -1,4 +1,17 @@
 import React, { useState } from 'react'
+import {
+  Box,
+  Button,
+  Flex,
+  Heading,
+  Text,
+  VStack,
+  HStack,
+  Badge,
+  Spinner,
+  Icon,
+} from '@chakra-ui/react'
+import { FiCheck, FiDownload } from 'react-icons/fi'
 import type { SearchResult } from '@shared/types/search.types'
 
 interface TorrentResultsDialogProps {
@@ -37,177 +50,184 @@ export const TorrentResultsDialog: React.FC<TorrentResultsDialogProps> = ({
       case 'flac':
       case 'alac':
       case 'ape':
-        return 'bg-green-600'
+        return 'green'
       case 'mp3':
-        return 'bg-blue-600'
+        return 'blue'
       case 'wav':
-        return 'bg-purple-600'
+        return 'purple'
       default:
-        return 'bg-gray-600'
+        return 'gray'
     }
   }
 
   const getRelevanceColor = (score?: number): string => {
-    if (!score) return 'text-gray-500'
-    if (score >= 80) return 'text-green-400'
-    if (score >= 60) return 'text-blue-400'
-    if (score >= 40) return 'text-yellow-400'
-    return 'text-gray-400'
+    if (!score) return 'text.muted'
+    if (score >= 80) return 'green.400'
+    if (score >= 60) return 'blue.400'
+    if (score >= 40) return 'yellow.400'
+    return 'text.muted'
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-5xl max-h-[85vh] flex flex-col rounded-lg bg-gray-900 p-6 shadow-2xl">
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold text-white">Select Torrent to Download</h2>
-          <p className="mt-1 text-sm text-gray-400">
+    <Box
+      position="fixed"
+      inset="0"
+      zIndex="modal"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      bg="blackAlpha.700"
+      backdropFilter="blur(8px)"
+    >
+      <Box
+        width="full"
+        maxW="5xl"
+        maxH="85vh"
+        display="flex"
+        flexDirection="column"
+        borderRadius="lg"
+        bg="bg.card"
+        p={6}
+        shadow="modal"
+      >
+        <Box mb={4}>
+          <Heading size="2xl" color="text.primary">
+            Select Torrent to Download
+          </Heading>
+          <Text mt={1} fontSize="sm" color="text.secondary">
             Found {results.length} torrent{results.length !== 1 ? 's' : ''} for{' '}
-            <span className="font-medium text-white">{query}</span>
-          </p>
-        </div>
+            <Text as="span" fontWeight="medium" color="text.primary">
+              {query}
+            </Text>
+          </Text>
+        </Box>
 
-        <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+        <VStack flex="1" overflowY="auto" gap={2} mb={4} align="stretch">
           {results.map((result) => (
-            <button
+            <Button
               key={result.id}
               onClick={() => handleSelectTorrent(result)}
               disabled={isDownloading}
-              className={`w-full rounded-lg border p-4 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed ${
-                selectedTorrent?.id === result.id
-                  ? 'border-blue-500 bg-blue-500/20'
-                  : 'border-gray-700 bg-gray-800 hover:border-gray-600 hover:bg-gray-750'
-              }`}
+              width="full"
+              height="auto"
+              borderRadius="lg"
+              border="1px solid"
+              borderColor={selectedTorrent?.id === result.id ? 'border.focus' : 'border.base'}
+              bg={selectedTorrent?.id === result.id ? 'bg.active' : 'bg.elevated'}
+              p={4}
+              textAlign="left"
+              transition="all 0.2s"
+              _hover={!isDownloading ? { borderColor: 'border.hover', bg: 'bg.hover' } : {}}
+              _focus={{ outline: 'none', ring: 2, ringColor: 'interactive.base' }}
             >
-              <div className="flex items-start gap-3">
-                <div className="flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-base font-semibold text-white flex-1">{result.title}</h3>
+              <Flex gap={3} align="flex-start">
+                <Box flex="1">
+                  <Flex align="flex-start" justify="space-between" gap={2}>
+                    <Heading size="md" color="text.primary" flex="1">
+                      {result.title}
+                    </Heading>
                     {selectedTorrent?.id === result.id && (
-                      <div className="text-blue-500">
-                        <svg
-                          className="h-5 w-5"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </div>
+                      <Icon as={FiCheck} boxSize={5} color="interactive.base" />
                     )}
-                  </div>
+                  </Flex>
 
-                  <p className="mt-1 text-sm text-gray-400">by {result.author}</p>
+                  <Text mt={1} fontSize="sm" color="text.secondary">
+                    by {result.author}
+                  </Text>
 
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <Flex mt={2} flexWrap="wrap" align="center" gap={2}>
                     {result.format && (
-                      <span
-                        className={`rounded px-2 py-0.5 text-xs font-medium uppercase text-white ${getFormatBadgeColor(result.format)}`}
+                      <Badge
+                        colorPalette={getFormatBadgeColor(result.format)}
+                        textTransform="uppercase"
+                        fontSize="xs"
                       >
                         {result.format}
-                      </span>
+                      </Badge>
                     )}
                     {result.category && (
-                      <span className="rounded bg-gray-700 px-2 py-0.5 text-xs text-gray-300">
+                      <Badge colorPalette="gray" fontSize="xs">
                         {result.category}
-                      </span>
+                      </Badge>
                     )}
-                    <span className="text-xs text-gray-500">📦 {result.size}</span>
-                    <span className="text-xs text-green-400">⬆ {result.seeders} seeders</span>
-                    <span className="text-xs text-gray-500">⬇ {result.leechers} leechers</span>
+                    <Text fontSize="xs" color="text.muted">
+                      📦 {result.size}
+                    </Text>
+                    <Text fontSize="xs" color="green.400">
+                      ⬆ {result.seeders} seeders
+                    </Text>
+                    <Text fontSize="xs" color="text.muted">
+                      ⬇ {result.leechers} leechers
+                    </Text>
                     {result.relevanceScore !== undefined && (
-                      <span className={`text-xs font-medium ${getRelevanceColor(result.relevanceScore)}`}>
+                      <Text fontSize="xs" fontWeight="medium" color={getRelevanceColor(result.relevanceScore)}>
                         ⭐ {result.relevanceScore}% match
-                      </span>
+                      </Text>
                     )}
-                  </div>
+                  </Flex>
 
                   {result.uploadDate && (
-                    <div className="mt-1 text-xs text-gray-600">
+                    <Text mt={1} fontSize="xs" color="text.muted">
                       Uploaded: {new Date(result.uploadDate).toLocaleDateString()}
-                    </div>
+                    </Text>
                   )}
-                </div>
-              </div>
-            </button>
+                </Box>
+              </Flex>
+            </Button>
           ))}
-        </div>
+        </VStack>
 
         {isDownloading && (
-          <div className="mb-4 rounded-lg bg-blue-500/10 border border-blue-500 p-3 flex items-center gap-3">
-            <div className="animate-spin">
-              <svg className="h-5 w-5 text-blue-500" fill="none" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-            </div>
-            <span className="text-sm text-blue-400">Downloading torrent file...</span>
-          </div>
+          <Flex
+            mb={4}
+            borderRadius="lg"
+            bg="blue.500/10"
+            border="1px solid"
+            borderColor="interactive.base"
+            p={3}
+            align="center"
+            gap={3}
+          >
+            <Spinner size="sm" color="interactive.base" />
+            <Text fontSize="sm" color="blue.400">
+              Downloading torrent file...
+            </Text>
+          </Flex>
         )}
 
-        <div className="flex justify-end gap-3">
-          <button
+        <HStack justify="flex-end" gap={3}>
+          <Button
             onClick={onCancel}
             disabled={isDownloading}
-            className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            size="md"
+            bg="bg.elevated"
+            color="text.primary"
+            _hover={{ bg: 'bg.hover' }}
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleDownload}
             disabled={!selectedTorrent || isDownloading}
-            className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            size="md"
+            bg="interactive.base"
+            color="white"
+            _hover={{ bg: 'interactive.hover' }}
           >
             {isDownloading ? (
               <>
-                <div className="animate-spin">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24">
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                </div>
+                <Spinner size="sm" mr={2} />
                 Downloading...
               </>
             ) : (
               <>
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                  />
-                </svg>
+                <Icon as={FiDownload} mr={2} />
                 Download Torrent
               </>
             )}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </HStack>
+      </Box>
+    </Box>
   )
 }

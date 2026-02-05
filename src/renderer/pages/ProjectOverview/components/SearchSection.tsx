@@ -54,7 +54,8 @@ export function SearchSection(): JSX.Element {
                 </Text>
               </HStack>
               <Text fontSize="sm" color="text.secondary">
-                Please login to RuTracker in the Settings page to enable search functionality.
+                Please login to RuTracker in the Settings page to enable search
+                functionality.
               </Text>
             </VStack>
           </Box>
@@ -71,7 +72,10 @@ export function SearchSection(): JSX.Element {
         {isAuthenticated && (
           <>
             <SmartSearchBar placeholder="Search for artist, album, or song..." />
-            <SmartSearch onComplete={handleSearchComplete} onCancel={handleSearchCancel} />
+            <SmartSearch
+              onComplete={handleSearchComplete}
+              onCancel={handleSearchCancel}
+            />
           </>
         )}
       </VStack>

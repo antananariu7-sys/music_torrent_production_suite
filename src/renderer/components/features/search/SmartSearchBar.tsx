@@ -1,14 +1,14 @@
 import React, { useState } from 'react'
+import { Box, Button, Flex, Input, Spinner, Text, Icon } from '@chakra-ui/react'
+import { FiSearch, FiX } from 'react-icons/fi'
 import { useSmartSearchStore } from '@/store/smartSearchStore'
 
 interface SmartSearchBarProps {
   placeholder?: string
-  className?: string
 }
 
 export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
   placeholder = 'Search for artist, album, or song...',
-  className = '',
 }) => {
   const [query, setQuery] = useState('')
   const { startSearch, isLoading, step } = useSmartSearchStore()
@@ -29,103 +29,87 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
   const isActive = step !== 'idle' && step !== 'completed' && step !== 'error'
 
   return (
-    <form onSubmit={handleSubmit} className={`relative ${className}`}>
-      <div className="relative">
+    <Box as="form" onSubmit={handleSubmit} position="relative">
+      <Box position="relative">
         {/* Search Icon */}
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
-          {isLoading ? (
-            <div className="animate-spin">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24">
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                />
-              </svg>
-            </div>
-          ) : (
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          )}
-        </div>
+        <Box position="absolute" left={4} top="50%" transform="translateY(-50%)" color="text.muted" zIndex={1}>
+          {isLoading ? <Spinner size="sm" color="text.muted" /> : <Icon as={FiSearch} boxSize={5} />}
+        </Box>
 
         {/* Input */}
-        <input
+        <Input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
           disabled={isLoading}
-          className={`w-full rounded-lg border bg-gray-800 py-3 pl-12 pr-24 text-white placeholder-gray-400 focus:outline-none focus:ring-2 transition-all ${
-            isActive
-              ? 'border-blue-500 ring-2 ring-blue-500'
-              : 'border-gray-700 focus:border-blue-500 focus:ring-blue-500'
-          } disabled:opacity-50 disabled:cursor-not-allowed`}
+          width="full"
+          borderRadius="lg"
+          border="1px solid"
+          borderColor={isActive ? 'border.focus' : 'border.base'}
+          bg="bg.elevated"
+          py={3}
+          pl={12}
+          pr={24}
+          color="text.primary"
+          _placeholder={{ color: 'text.muted' }}
+          _focus={{
+            outline: 'none',
+            ring: 2,
+            ringColor: 'interactive.base',
+            borderColor: 'border.focus',
+          }}
+          _disabled={{ opacity: 0.5, cursor: 'not-allowed' }}
+          ring={isActive ? 2 : 0}
+          ringColor={isActive ? 'interactive.base' : undefined}
         />
 
         {/* Clear/Search Button */}
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2">
+        <Flex position="absolute" right={2} top="50%" transform="translateY(-50%)" align="center" gap={2}>
           {query && (
-            <button
+            <Button
               type="button"
               onClick={handleClear}
               disabled={isLoading}
-              className="rounded-md p-1.5 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none disabled:opacity-50"
+              size="sm"
+              p={1.5}
+              minW="auto"
+              bg="transparent"
+              color="text.muted"
+              _hover={{ bg: 'bg.hover', color: 'text.primary' }}
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+              <Icon as={FiX} boxSize={5} />
+            </Button>
           )}
 
-          <button
+          <Button
             type="submit"
             disabled={!query.trim() || isLoading}
-            className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            size="sm"
+            px={4}
+            bg="interactive.base"
+            color="white"
+            _hover={{ bg: 'interactive.hover' }}
           >
             Search
-          </button>
-        </div>
-      </div>
+          </Button>
+        </Flex>
+      </Box>
 
       {/* Status indicator */}
       {isActive && (
-        <div className="mt-2 flex items-center gap-2 text-sm">
-          <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-          <span className="text-gray-400">
+        <Flex mt={2} align="center" gap={2} fontSize="sm">
+          <Box h={2} w={2} borderRadius="full" bg="interactive.base" animation="pulse 2s infinite" />
+          <Text color="text.secondary">
             {step === 'classifying' && 'Classifying search...'}
             {step === 'user-choice' && "Choose what you're searching for"}
             {step === 'selecting-album' && 'Select an album'}
             {step === 'searching-rutracker' && 'Searching RuTracker...'}
             {step === 'selecting-torrent' && 'Select a torrent'}
             {step === 'downloading' && 'Downloading torrent file...'}
-          </span>
-        </div>
+          </Text>
+        </Flex>
       )}
-    </form>
+    </Box>
   )
 }

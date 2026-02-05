@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react'
+import { Box, Flex, Text, Button, Icon } from '@chakra-ui/react'
+import { FiCheckCircle, FiAlertCircle } from 'react-icons/fi'
 import { useSmartSearchStore } from '@/store/smartSearchStore'
 import { SearchClassificationDialog } from './SearchClassificationDialog'
 import { AlbumSelectionDialog } from './AlbumSelectionDialog'
@@ -266,50 +268,56 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
 
       {/* Completion Notification */}
       {step === 'completed' && (
-        <div className="fixed bottom-4 right-4 z-50 rounded-lg bg-green-600 p-4 shadow-lg">
-          <div className="flex items-center gap-3">
-            <svg className="h-6 w-6 text-white" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <div className="text-white">
-              <p className="font-medium">Torrent Downloaded!</p>
-              <p className="text-sm opacity-90">Ready to open in your torrent client</p>
-            </div>
-          </div>
-        </div>
+        <Box position="fixed" bottom={4} right={4} zIndex="toast" borderRadius="lg" bg="green.600" p={4} shadow="lg">
+          <Flex align="center" gap={3}>
+            <Icon as={FiCheckCircle} boxSize={6} color="white" />
+            <Box color="white">
+              <Text fontWeight="medium">Torrent Downloaded!</Text>
+              <Text fontSize="sm" opacity={0.9}>
+                Ready to open in your torrent client
+              </Text>
+            </Box>
+          </Flex>
+        </Box>
       )}
 
       {/* Error Notification */}
       {step === 'error' && error && (
-        <div className="fixed bottom-4 right-4 z-50 rounded-lg bg-red-600 p-4 shadow-lg max-w-md">
-          <div className="flex items-start gap-3">
-            <svg
-              className="h-6 w-6 text-white flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <div className="flex-1">
-              <p className="font-medium text-white">Search Error</p>
-              <p className="text-sm text-white opacity-90">{error}</p>
-              <button
+        <Box
+          position="fixed"
+          bottom={4}
+          right={4}
+          zIndex="toast"
+          borderRadius="lg"
+          bg="red.600"
+          p={4}
+          shadow="lg"
+          maxW="md"
+        >
+          <Flex align="flex-start" gap={3}>
+            <Icon as={FiAlertCircle} boxSize={6} color="white" flexShrink={0} />
+            <Box flex="1">
+              <Text fontWeight="medium" color="white">
+                Search Error
+              </Text>
+              <Text fontSize="sm" color="white" opacity={0.9}>
+                {error}
+              </Text>
+              <Button
                 onClick={handleCancel}
-                className="mt-2 text-sm underline text-white opacity-90 hover:opacity-100"
+                mt={2}
+                size="sm"
+                variant="ghost"
+                color="white"
+                opacity={0.9}
+                textDecoration="underline"
+                _hover={{ opacity: 1, bg: 'whiteAlpha.200' }}
               >
                 Close
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </Box>
+          </Flex>
+        </Box>
       )}
     </>
   )

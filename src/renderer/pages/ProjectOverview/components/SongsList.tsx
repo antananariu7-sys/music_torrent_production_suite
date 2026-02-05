@@ -17,9 +17,9 @@ export function SongsList({ songs, maxDisplay = 10 }: SongsListProps): JSX.Eleme
   if (songs.length === 0) {
     return (
       <Box
-        bg="gray.700"
+        bg="bg.card"
         borderWidth="1px"
-        borderColor="gray.600"
+        borderColor="border.base"
         borderRadius="md"
         p={12}
         textAlign="center"
@@ -34,9 +34,9 @@ export function SongsList({ songs, maxDisplay = 10 }: SongsListProps): JSX.Eleme
   return (
     <VStack align="stretch" gap={2}>
       <Box
-        bg="gray.700"
+        bg="bg.card"
         borderWidth="1px"
-        borderColor="gray.600"
+        borderColor="border.base"
         borderRadius="md"
         overflow="hidden"
       >

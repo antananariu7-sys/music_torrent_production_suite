@@ -50,9 +50,9 @@ export function StatsGrid({
       {statCards.map((card, index) => (
         <Box
           key={index}
-          bg="gray.700"
+          bg="bg.card"
           borderWidth="1px"
-          borderColor="gray.600"
+          borderColor="border.base"
           borderRadius="md"
           p={6}
         >

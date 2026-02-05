@@ -1,4 +1,6 @@
 import React, { useState } from 'react'
+import { Box, Button, Flex, Heading, Text, VStack, HStack, Badge, Icon } from '@chakra-ui/react'
+import { FiCheck, FiChevronRight } from 'react-icons/fi'
 import type { MusicBrainzAlbum, SearchClassificationResult } from '@shared/types/musicbrainz.types'
 
 interface AlbumSelectionDialogProps {
@@ -46,122 +48,159 @@ export const AlbumSelectionDialog: React.FC<AlbumSelectionDialogProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-4xl max-h-[80vh] flex flex-col rounded-lg bg-gray-900 p-6 shadow-2xl">
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold text-white">
+    <Box
+      position="fixed"
+      inset="0"
+      zIndex="modal"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      p={4}
+      bg="blackAlpha.700"
+      backdropFilter="blur(12px)"
+    >
+      <Box
+        width="full"
+        maxW="4xl"
+        maxH="85vh"
+        display="flex"
+        flexDirection="column"
+        borderRadius="xl"
+        bg="bg.surface"
+        border="1px solid"
+        borderColor="border.base"
+        shadow="modal"
+      >
+        {/* Header */}
+        <Box p={6} borderBottom="1px solid" borderColor="border.base" flexShrink={0}>
+          <Heading size="2xl" color="text.primary">
             {isArtistSearch ? 'Select an Album' : 'Which Album Contains This Song?'}
-          </h2>
-          <p className="mt-1 text-sm text-gray-400">
+          </Heading>
+          <Text mt={2} fontSize="sm" color="text.secondary">
             {selectedClassification && (
               <>
                 Found {albums.length} album{albums.length !== 1 ? 's' : ''} for{' '}
-                <span className="font-medium text-white">{selectedClassification.name}</span>
-                {selectedClassification.artist && (
-                  <> by {selectedClassification.artist}</>
-                )}
+                <Text as="span" fontWeight="medium" color="text.primary">
+                  {selectedClassification.name}
+                </Text>
+                {selectedClassification.artist && <> by {selectedClassification.artist}</>}
               </>
             )}
-          </p>
-        </div>
+          </Text>
+        </Box>
 
-        {isArtistSearch && onSelectDiscography && (
-          <div className="mb-4">
-            <button
+        {/* Body */}
+        <VStack flex="1" overflowY="auto" p={6} gap={3} align="stretch">
+          {/* Discography Option */}
+          {isArtistSearch && onSelectDiscography && (
+            <Button
               onClick={onSelectDiscography}
-              className="w-full rounded-lg border-2 border-dashed border-blue-500 bg-blue-500/10 p-4 text-left transition-all hover:bg-blue-500/20 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              width="full"
+              height="auto"
+              borderRadius="lg"
+              border="2px dashed"
+              borderColor="interactive.base"
+              bg="bg.active"
+              p={4}
+              textAlign="left"
+              transition="all 0.2s"
+              _hover={{
+                bg: 'bg.hover',
+                borderColor: 'interactive.hover',
+                transform: 'scale(1.01)',
+              }}
             >
-              <div className="flex items-center gap-3">
-                <div className="text-3xl">📀</div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-blue-400">Download Complete Discography</h3>
-                  <p className="text-sm text-gray-400">
+              <Flex align="center" gap={3}>
+                <Text fontSize="3xl" flexShrink={0}>
+                  📀
+                </Text>
+                <Box flex="1" minW="0">
+                  <Heading size="lg" color="interactive.base">
+                    Download Complete Discography
+                  </Heading>
+                  <Text fontSize="sm" color="text.secondary">
                     Search RuTracker for all albums by {selectedClassification?.name}
-                  </p>
-                </div>
-                <svg
-                  className="h-6 w-6 text-blue-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </div>
-            </button>
-          </div>
-        )}
+                  </Text>
+                </Box>
+                <Icon as={FiChevronRight} boxSize={6} color="interactive.base" flexShrink={0} />
+              </Flex>
+            </Button>
+          )}
 
-        <div className="flex-1 overflow-y-auto space-y-2 mb-4">
-          {albums.map((album) => (
-            <button
-              key={album.id}
-              onClick={() => handleSelectAlbum(album)}
-              className={`w-full rounded-lg border p-4 text-left transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                selectedAlbum?.id === album.id
-                  ? 'border-blue-500 bg-blue-500/20'
-                  : 'border-gray-700 bg-gray-800 hover:border-gray-600 hover:bg-gray-750'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div className="text-3xl">💿</div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-semibold text-white">{album.title}</h3>
-                    {album.type && (
-                      <span className="rounded bg-gray-700 px-2 py-0.5 text-xs font-medium text-gray-300">
-                        {getAlbumTypeLabel(album.type)}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-400">by {album.artist}</p>
-                  <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
-                    <span>📅 {formatDate(album.date)}</span>
-                    {album.trackCount && <span>🎵 {album.trackCount} tracks</span>}
-                    {album.score && <span>✨ {album.score}% match</span>}
-                  </div>
-                </div>
-                {selectedAlbum?.id === album.id && (
-                  <div className="text-blue-500">
-                    <svg
-                      className="h-6 w-6"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
+          {/* Album List */}
+          {albums.map((album) => {
+            const isSelected = selectedAlbum?.id === album.id
+            return (
+              <Button
+                key={album.id}
+                onClick={() => handleSelectAlbum(album)}
+                width="full"
+                height="auto"
+                borderRadius="lg"
+                p={4}
+                textAlign="left"
+                border="1px solid"
+                borderColor={isSelected ? 'border.focus' : 'border.base'}
+                bg={isSelected ? 'bg.active' : 'bg.card'}
+                transition="all 0.2s"
+                _hover={
+                  !isSelected
+                    ? {
+                        borderColor: 'border.hover',
+                        bg: 'bg.hover',
+                      }
+                    : {}
+                }
+              >
+                <Flex align="flex-start" gap={3} width="full">
+                  <Text fontSize="3xl" flexShrink={0}>
+                    💿
+                  </Text>
+                  <Box flex="1" minW="0">
+                    <Flex align="center" gap={2} flexWrap="wrap">
+                      <Heading size="lg" color="text.primary">
+                        {album.title}
+                      </Heading>
+                      {album.type && (
+                        <Badge bg="bg.elevated" color="text.secondary" fontSize="xs">
+                          {getAlbumTypeLabel(album.type)}
+                        </Badge>
+                      )}
+                    </Flex>
+                    <Text fontSize="sm" mt={1} color="text.secondary">
+                      by {album.artist}
+                    </Text>
+                    <Flex mt={2} align="center" gap={3} fontSize="xs" flexWrap="wrap" color="text.muted">
+                      <Text>📅 {formatDate(album.date)}</Text>
+                      {album.trackCount && <Text>🎵 {album.trackCount} tracks</Text>}
+                      {album.score && <Text>✨ {album.score}% match</Text>}
+                    </Flex>
+                  </Box>
+                  {isSelected && <Icon as={FiCheck} boxSize={6} color="interactive.base" flexShrink={0} />}
+                </Flex>
+              </Button>
+            )
+          })}
+        </VStack>
 
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onCancel}
-            className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
-          >
+        {/* Footer */}
+        <HStack p={6} borderTop="1px solid" borderColor="border.base" justify="flex-end" gap={3} flexShrink={0}>
+          <Button onClick={onCancel} size="md" bg="bg.elevated" color="text.primary" _hover={{ bg: 'bg.hover' }}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleConfirm}
             disabled={!selectedAlbum}
-            className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            size="md"
+            px={6}
+            bg="interactive.base"
+            color="white"
+            _hover={{ bg: 'interactive.hover' }}
           >
             Search RuTracker
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </HStack>
+      </Box>
+    </Box>
   )
 }

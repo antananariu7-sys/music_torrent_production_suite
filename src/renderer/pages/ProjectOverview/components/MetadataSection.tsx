@@ -9,9 +9,9 @@ interface MetadataSectionProps {
 export function MetadataSection({ genre, tags, directory }: MetadataSectionProps): JSX.Element {
   return (
     <Box
-      bg="gray.700"
+      bg="bg.card"
       borderWidth="1px"
-      borderColor="gray.600"
+      borderColor="border.base"
       borderRadius="md"
       p={6}
     >
@@ -80,7 +80,7 @@ export function MetadataSection({ genre, tags, directory }: MetadataSectionProps
             fontSize="sm"
             p={2}
             borderRadius="sm"
-            bg="gray.800"
+            bg="bg.elevated"
             color="text.secondary"
             w="full"
             wordBreak="break-all"

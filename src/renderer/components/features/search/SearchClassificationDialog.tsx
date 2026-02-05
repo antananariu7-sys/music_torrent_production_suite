@@ -1,4 +1,6 @@
 import React from 'react'
+import { Box, Button, Flex, Heading, Text, VStack, Badge, Icon } from '@chakra-ui/react'
+import { FiChevronRight } from 'react-icons/fi'
 import type { SearchClassificationResult } from '@shared/types/musicbrainz.types'
 
 interface SearchClassificationDialogProps {
@@ -58,69 +60,105 @@ export const SearchClassificationDialog: React.FC<SearchClassificationDialogProp
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-lg bg-gray-900 p-6 shadow-2xl">
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold text-white">What are you searching for?</h2>
-          <p className="mt-1 text-sm text-gray-400">
-            We found multiple matches for &quot;<span className="font-medium text-white">{query}</span>&quot;.
-            Choose what you&apos;re looking for:
-          </p>
-        </div>
+    <Box
+      position="fixed"
+      inset="0"
+      zIndex="modal"
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      p={4}
+      bg="blackAlpha.700"
+      backdropFilter="blur(12px)"
+    >
+      <Box
+        width="full"
+        maxW="2xl"
+        borderRadius="xl"
+        bg="bg.surface"
+        border="1px solid"
+        borderColor="border.base"
+        shadow="modal"
+      >
+        {/* Header */}
+        <Box p={6} borderBottom="1px solid" borderColor="border.base">
+          <Heading size="2xl" color="text.primary">
+            What are you searching for?
+          </Heading>
+          <Text mt={2} fontSize="sm" color="text.secondary">
+            We found multiple matches for &quot;
+            <Text as="span" fontWeight="medium" color="text.primary">
+              {query}
+            </Text>
+            &quot;. Choose what you&apos;re looking for:
+          </Text>
+        </Box>
 
-        <div className="space-y-3">
+        {/* Body */}
+        <VStack p={6} gap={3} maxH="60vh" overflowY="auto" align="stretch">
           {results.map((result, index) => (
-            <button
+            <Button
               key={`${result.type}-${result.name}-${index}`}
               onClick={() => onSelect(result)}
-              className="w-full rounded-lg border border-gray-700 bg-gray-800 p-4 text-left transition-all hover:border-blue-500 hover:bg-gray-750 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              width="full"
+              height="auto"
+              borderRadius="lg"
+              p={4}
+              textAlign="left"
+              bg="bg.card"
+              border="1px solid"
+              borderColor="border.base"
+              transition="all 0.2s"
+              _hover={{
+                borderColor: 'border.focus',
+                bg: 'bg.hover',
+                transform: 'scale(1.02)',
+              }}
             >
-              <div className="flex items-start gap-4">
-                <div className="text-4xl">{getTypeIcon(result.type)}</div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded bg-blue-600 px-2 py-0.5 text-xs font-medium uppercase text-white">
+              <Flex align="flex-start" gap={4} width="full">
+                <Text fontSize="4xl" flexShrink={0}>
+                  {getTypeIcon(result.type)}
+                </Text>
+                <Box flex="1" minW="0">
+                  <Flex align="center" gap={2} mb={1}>
+                    <Badge colorPalette="brand" textTransform="uppercase" fontSize="xs">
                       {getTypeLabel(result.type)}
-                    </span>
-                    <span className="text-xs text-gray-500">
+                    </Badge>
+                    <Text fontSize="xs" color="text.secondary">
                       {result.score}% match
-                    </span>
-                  </div>
-                  <h3 className="mt-1 text-lg font-semibold text-white">{result.name}</h3>
+                    </Text>
+                  </Flex>
+                  <Heading size="lg" color="text.primary">
+                    {result.name}
+                  </Heading>
                   {result.artist && result.type !== 'artist' && (
-                    <p className="text-sm text-gray-400">by {result.artist}</p>
+                    <Text fontSize="sm" mt={1} color="text.secondary">
+                      by {result.artist}
+                    </Text>
                   )}
-                  <p className="mt-1 text-xs text-gray-500">{getActionDescription(result.type)}</p>
-                </div>
-                <div className="text-gray-600">
-                  <svg
-                    className="h-6 w-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </button>
+                  <Text fontSize="xs" mt={1} color="text.muted">
+                    {getActionDescription(result.type)}
+                  </Text>
+                </Box>
+                <Icon as={FiChevronRight} boxSize={6} color="text.muted" flexShrink={0} />
+              </Flex>
+            </Button>
           ))}
-        </div>
+        </VStack>
 
-        <div className="mt-6 flex justify-end">
-          <button
+        {/* Footer */}
+        <Flex p={6} borderTop="1px solid" borderColor="border.base" justify="flex-end">
+          <Button
             onClick={onCancel}
-            className="rounded-lg bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            size="md"
+            bg="bg.elevated"
+            color="text.primary"
+            _hover={{ bg: 'bg.hover' }}
           >
             Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </Flex>
+      </Box>
+    </Box>
   )
 }

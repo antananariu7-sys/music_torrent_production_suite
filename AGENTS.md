@@ -212,6 +212,26 @@ Implement JWT-based authentication to secure API endpoints.
 - **Single responsibility** - Each component should have one clear purpose
 - **Reusable components** - Move common UI patterns to shared components
 
+### UI Styling (CRITICAL)
+
+- **Use Chakra UI v3 ONLY** - All styling MUST use Chakra UI components and props
+- **NO Tailwind CSS** - Never use `className` with utility classes like `flex items-center justify-center`
+- **NO inline className** - Do not use `className` for styling (except for animation libraries or third-party components)
+- **Use semantic tokens** - Use theme tokens like `bg.card`, `text.primary`, `border.base` instead of raw colors
+- **Chakra components** - Use `Box`, `Flex`, `Stack`, `Button`, `Heading`, `Text`, etc.
+- **Example**:
+  ```tsx
+  // ✅ CORRECT - Chakra UI
+  <Box p={4} bg="bg.card" borderRadius="lg">
+    <Heading size="lg" color="text.primary">Title</Heading>
+  </Box>
+
+  // ❌ WRONG - Tailwind classes
+  <div className="p-4 bg-gray-800 rounded-lg">
+    <h2 className="text-lg font-bold text-white">Title</h2>
+  </div>
+  ```
+
 ### Error Handling
 
 - **Never swallow errors silently** - At minimum, log them

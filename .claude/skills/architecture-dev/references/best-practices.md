@@ -133,6 +133,122 @@ declare global {
 
 ## React Patterns
 
+### UI Styling with Chakra UI v3
+
+**CRITICAL**: All UI components MUST use Chakra UI v3. Tailwind CSS, inline styles with `className`, or other CSS frameworks are NOT permitted.
+
+```tsx
+// ✅ CORRECT - Use Chakra UI components and props
+import { Box, Flex, Heading, Text, Button } from '@chakra-ui/react'
+
+function MyComponent() {
+  return (
+    <Box p={4} bg="bg.card" borderRadius="lg" border="1px solid" borderColor="border.base">
+      <Flex justify="space-between" align="center" mb={3}>
+        <Heading size="lg" color="text.primary">Title</Heading>
+        <Button bg="interactive.base" color="white" _hover={{ bg: 'interactive.hover' }}>
+          Action
+        </Button>
+      </Flex>
+      <Text fontSize="sm" color="text.secondary">
+        Description text
+      </Text>
+    </Box>
+  )
+}
+```
+
+```tsx
+// ❌ WRONG - Do NOT use className with utility classes
+function BadComponent() {
+  return (
+    <div className="p-4 bg-gray-800 rounded-lg border border-gray-700">
+      <div className="flex justify-between items-center mb-3">
+        <h2 className="text-lg font-bold text-white">Title</h2>
+        <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          Action
+        </button>
+      </div>
+      <p className="text-sm text-gray-400">Description text</p>
+    </div>
+  )
+}
+```
+
+**Use Semantic Tokens** from the theme:
+
+```tsx
+// Background tokens
+bg="bg.canvas"    // Deep studio dark
+bg="bg.surface"   // Slightly elevated
+bg="bg.card"      // Card elevation
+bg="bg.elevated"  // Higher elevation
+bg="bg.hover"     // Hover state
+bg="bg.active"    // Active/selected state
+
+// Text tokens
+color="text.primary"   // Primary text
+color="text.secondary" // Secondary text
+color="text.muted"     // Muted text
+
+// Border tokens
+borderColor="border.base"  // Default border
+borderColor="border.hover" // Hover state
+borderColor="border.focus" // Focus state (brand)
+
+// Interactive tokens
+bg="interactive.base"   // Primary interactive (brand.500)
+bg="interactive.hover"  // Interactive hover
+bg="interactive.active" // Interactive active
+```
+
+**Common Patterns**:
+
+```tsx
+// Modal/Dialog overlay
+<Box
+  position="fixed"
+  inset="0"
+  zIndex="modal"
+  display="flex"
+  alignItems="center"
+  justifyContent="center"
+  bg="blackAlpha.700"
+  backdropFilter="blur(12px)"
+>
+  <Box
+    maxW="4xl"
+    bg="bg.surface"
+    borderRadius="xl"
+    border="1px solid"
+    borderColor="border.base"
+    shadow="modal"
+    p={6}
+  >
+    {/* Content */}
+  </Box>
+</Box>
+
+// Interactive button-like card
+<Button
+  width="full"
+  height="auto"
+  p={4}
+  bg="bg.card"
+  border="1px solid"
+  borderColor="border.base"
+  _hover={{ borderColor: 'border.hover', bg: 'bg.hover' }}
+  textAlign="left"
+>
+  {/* Content */}
+</Button>
+
+// Status badges
+<Badge colorPalette="green" fontSize="xs">
+  FLAC
+</Badge>
+```
+
 ### Custom Hooks for IPC
 
 ```typescript
