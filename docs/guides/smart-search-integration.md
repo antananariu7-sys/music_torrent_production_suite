@@ -334,18 +334,61 @@ describe('SmartSearch Store', () => {
 - **Debouncing**: SmartSearchBar could add debouncing for real-time search
 - **Pagination**: Currently loads first 20-50 results
 
+## Recent Enhancements (2026-02-05)
+
+### Implemented Features
+
+✅ **Search History Persistence**
+- Search history is now saved per-project to `search-history.json`
+- Automatically loads when opening a project
+- Preserves history across app restarts
+- Maximum 50 entries with auto-cleanup
+
+✅ **Torrent Collection System**
+- "Collect" action adds torrents to a per-project collection
+- Collections are saved to `torrent-collection.json` in project directory
+- Magnet link extraction for easy use in external torrent clients
+- Duplicate prevention by torrent ID
+
+✅ **Project Context Integration**
+- Smart Search is now project-aware
+- All persistence (history, collections) is scoped to current project
+- Context is set automatically when project loads
+
+✅ **Workflow Improvements**
+- New "collecting" step after torrent selection
+- Better state preservation across workflow steps
+- Activity log for tracking workflow progress
+
+### Architecture Changes
+
+**Store Updates** (`smartSearchStore.ts`):
+- Added `projectId`, `projectName`, `projectDirectory` to state
+- New actions: `setProjectContext`, `loadHistoryFromProject`
+- Auto-save to disk on history changes
+- New workflow step: `collecting`
+
+**New Service** (`TorrentCollectionService.ts`):
+- Manages persistent torrent collection storage
+- Methods: `loadCollection`, `saveCollection`, `clearCollection`
+- File-based storage in project directory
+
+**New IPC Channels**:
+- `torrent:collection:load` - Load collection for project
+- `torrent:collection:save` - Save collection for project
+- `torrent:collection:clear` - Clear project collection
+
 ## Future Enhancements
 
 - [ ] Real-time search suggestions (debounced)
-- [ ] Recently searched items
 - [ ] Favorite artists/albums
 - [ ] Advanced filter presets
 - [ ] Batch download support
 - [ ] Integration with torrent client APIs
 - [ ] Download queue management
-- [ ] Search history with replay
 
 ---
 
 **Implementation Date**: 2026-02-04
-**Status**: ✅ Complete and ready for integration
+**Last Updated**: 2026-02-05
+**Status**: ✅ Complete with project persistence

@@ -52,6 +52,8 @@ Practical implementation guides and best practices:
 | [**testing.md**](docs/guides/testing.md) | Testing standards, data-testid locators, test patterns |
 | [**rutracker-implementation.md**](docs/guides/rutracker-implementation.md) | RuTracker-specific implementation code examples |
 | [**enhanced-search.md**](docs/guides/enhanced-search.md) | Enhanced search features, filters, MusicBrainz integration |
+| [**smart-search-integration.md**](docs/guides/smart-search-integration.md) | Smart Search workflow, components, and integration guide |
+| [**chakra-ui-style-guide.md**](docs/guides/chakra-ui-style-guide.md) | Chakra UI v3 styling standards and patterns |
 
 ### API Reference ([docs/api/](docs/api/))
 
@@ -131,7 +133,7 @@ For coding standards, commit message format, and development best practices, see
 ✅ **Authentication System**
 - RuTracker login with CAPTCHA support
 - Session persistence across app restarts
-- Background session validation
+- Background session validation (5-minute interval)
 
 ✅ **Search Engine**
 - Single-query search with advanced filters
@@ -140,11 +142,37 @@ For coding standards, commit message format, and development best practices, see
 - Smart sorting (relevance, seeders, date, size)
 - MusicBrainz album discovery integration
 
+✅ **Smart Search Workflow**
+- Automatic search term classification (artist/album/song)
+- Multi-step guided workflow with dialogs
+- Album selection from MusicBrainz results
+- RuTracker result selection
+- Search history persistence (per-project, max 50 entries)
+
 ✅ **Torrent Management**
 - Direct torrent file downloads
+- Magnet link extraction and support
 - Download history tracking
 - Configurable download folder
-- Auto-open in torrent client
+- Auto-open in torrent client option
+
+✅ **Torrent Collection System**
+- Per-project torrent collections
+- Collect torrents from search results
+- Persistent storage (`torrent-collection.json`)
+- Duplicate prevention by torrent ID
+
+✅ **Project System**
+- Project creation and management
+- Project-scoped data (search history, torrent collections)
+- Recent projects list
+- Project metadata and statistics
+
+✅ **UI Architecture**
+- Tabbed ProjectOverview interface (Search, Torrent, Mix)
+- Chakra UI v3 component library
+- Dark theme with studio aesthetic
+- Responsive layout
 
 ✅ **Testing Infrastructure**
 - Comprehensive unit tests for services
@@ -152,28 +180,29 @@ For coding standards, commit message format, and development best practices, see
 
 ### In Progress
 
-🚧 **Project System** - Core project management functionality
-🚧 **UI Components** - React components for project workflow
+🚧 **Mix Tab** - Audio mixing interface (placeholder)
 
 ### Planned
 
 📋 **Download Manager** - WebTorrent integration for in-app downloads
-📋 **Music Mixer** - Audio mixing capabilities
+📋 **Music Mixer** - Full audio mixing capabilities
 📋 **E2E Testing** - Playwright test automation
 
 ---
 
 ## 📝 Document Status
 
-- **Version**: 2.0
-- **Last Updated**: 2026-02-04
-- **Status**: Architecture consolidated and reorganized
+- **Version**: 2.1
+- **Last Updated**: 2026-02-05
+- **Status**: Architecture documentation updated with recent features
 - **Recent Updates**:
-  - Reorganized documentation into logical structure
-  - Consolidated all docs into `docs/` with subdirectories
-  - Removed duplicate and temporary files
-  - Updated current implementation status
-- **Next Steps**: Continue Phase 1 implementation
+  - Added IPC channels for torrent collection and search history
+  - Documented Smart Search workflow enhancements
+  - Added TorrentCollectionService architecture
+  - Updated UI architecture with tabbed interface
+  - Updated data models with new types
+  - Marked completed features in implementation status
+- **Next Steps**: Continue Phase 2 implementation (Mix component)
 
 ---
 

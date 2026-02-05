@@ -105,6 +105,55 @@ interface SearchJob {
   }
 }
 
+// ====================================
+// MUSICBRAINZ INTEGRATION
+// ====================================
+
+interface MusicBrainzAlbum {
+  id: string                  // MusicBrainz release ID
+  title: string
+  artist: string
+  artistId?: string
+  releaseDate?: string
+  country?: string
+  trackCount?: number
+  format?: string             // CD, Vinyl, Digital, etc.
+  score?: number              // Match confidence (0-100)
+}
+
+interface SearchClassificationResult {
+  type: 'artist' | 'album' | 'song'
+  name: string
+  artist?: string
+  artistId?: string
+  albumId?: string
+  score: number               // Match confidence (0-100)
+  disambiguation?: string     // Additional context
+}
+
+// ====================================
+// SEARCH HISTORY (Per-Project)
+// ====================================
+
+interface SearchHistoryEntry {
+  id: string
+  query: string
+  timestamp: string           // ISO timestamp
+  status: 'completed' | 'error' | 'cancelled'
+  result?: string             // Description (e.g., "Downloaded album X")
+}
+
+interface SearchHistoryFile {
+  projectId: string
+  projectName: string
+  history: SearchHistoryEntry[]
+  lastUpdated: string
+}
+
+// ====================================
+// USER SETTINGS
+// ====================================
+
 // User Settings
 interface Settings {
   theme: 'light' | 'dark' | 'system'
@@ -186,6 +235,67 @@ interface ProjectMetadata {
 // ====================================
 // TORRENT MANAGEMENT
 // ====================================
+
+// Torrent download request/response types
+interface TorrentDownloadRequest {
+  torrentId: string           // RuTracker topic/torrent ID
+  pageUrl: string             // Page URL where torrent is located
+  title?: string              // Optional torrent title
+}
+
+interface TorrentDownloadResponse {
+  success: boolean
+  error?: string
+  torrent?: TorrentFileInfo   // Downloaded torrent file info
+}
+
+interface TorrentFileInfo {
+  id: string
+  title: string
+  filePath?: string           // Local file path (for .torrent files)
+  magnetLink?: string         // Magnet link alternative
+  pageUrl: string
+  downloadedAt: Date
+  size?: number
+  metadata?: {
+    author?: string
+    seeders?: number
+    leechers?: number
+    category?: string
+  }
+}
+
+interface TorrentSettings {
+  torrentsFolder: string      // Directory for torrent files
+  autoOpen?: boolean          // Auto-open in torrent client
+  keepHistory?: boolean       // Track download history
+  preferMagnetLinks?: boolean // Prefer magnet links over .torrent
+}
+
+// Torrent collection (per-project saved torrents)
+interface CollectedTorrent {
+  id: string                  // Unique collection entry ID
+  torrentId: string           // RuTracker topic ID
+  magnetLink: string          // Magnet link
+  title: string
+  pageUrl: string
+  addedAt: string             // ISO timestamp
+  metadata?: {
+    size?: string
+    sizeBytes?: number
+    seeders?: number
+    leechers?: number
+    category?: string
+  }
+  projectId: string           // Owning project
+}
+
+interface TorrentCollectionFile {
+  projectId: string
+  projectName: string
+  torrents: CollectedTorrent[]
+  lastUpdated: string         // ISO timestamp
+}
 
 interface TorrentDownload {
   id: string

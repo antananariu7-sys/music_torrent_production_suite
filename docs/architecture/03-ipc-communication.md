@@ -8,45 +8,53 @@ This document describes the Inter-Process Communication (IPC) design between mai
 
 | Channel Name | Direction | Purpose | Data |
 |--------------|-----------|---------|------|
-| `app:get-version` | R→M | Get application version | `void` → `string` |
-| `auth:login` | R→M | Login to RuTracker | `LoginCredentials: {username: string, password: string, remember: boolean}` → `LoginResult: {success: boolean, username?: string, sessionId?: string, error?: string}` |
+| **App Lifecycle** |  |  |  |
+| `app:ready` | R→M | Signal app is ready | `void` → `void` |
+| `app:quit` | R→M | Quit application | `void` → `void` |
+| **Authentication** |  |  |  |
+| `auth:login` | R→M | Login to RuTracker | `LoginCredentials` → `LoginResult` |
 | `auth:logout` | R→M | Logout from RuTracker | `void` → `{success: boolean, error?: string}` |
 | `auth:status` | R→M | Check authentication status | `void` → `{success: boolean, data?: AuthState}` |
-| `search:start` | R→M | Start RuTracker search | `SearchRequest: {query: string, category?: string}` → `SearchResponse: {success: boolean, results?: SearchResult[], error?: string, query?: string}` |
-| `search:stop` | R→M | Stop ongoing search (future) | `void` → `void` |
-| `search:progress` | M→R | Search progress update (future) | `{current: number, total: number, status: string}` |
-| `search:results` | M→R | Partial results update (future) | `{results: SearchResult[]}` |
-| `search:error` | M→R | Search error notification (future) | `{error: string}` |
-| `file:import-queries` | R→M | Import queries from file | `void` → `string[]` |
-| `file:export-results` | R→M | Show export dialog | `{results: SearchResult[]}` → `string` |
+| `auth:debug` | R→M | Get debug info for auth | `void` → `DebugInfo` |
+| **Search** |  |  |  |
+| `search:start` | R→M | Start RuTracker search | `SearchRequest` → `SearchResponse` |
+| `search:stop` | R→M | Stop ongoing search | `void` → `void` |
+| `search:progress` | M→R | Search progress update | `SearchProgress` |
+| `search:results` | M→R | Partial results update | `{results: SearchResult[]}` |
+| `search:error` | M→R | Search error notification | `{error: string}` |
+| `search:open-url` | R→M | Open URL in browser | `{url: string}` → `void` |
 | **Project Management** |  |  |  |
-| `project:create` | R→M | Create new project | `{name: string}` → `Project` |
+| `project:create` | R→M | Create new project | `{name: string, description?: string}` → `Project` |
 | `project:load` | R→M | Load existing project | `{projectId: string}` → `Project` |
 | `project:save` | R→M | Save current project | `{project: Project}` → `boolean` |
 | `project:close` | R→M | Close current project | `void` → `void` |
 | `project:list` | R→M | Get all projects | `void` → `ProjectInfo[]` |
 | `project:delete` | R→M | Delete a project | `{projectId: string}` → `boolean` |
-| `project:export` | R→M | Export project to file | `{projectId: string}` → `string` |
-| `project:import` | R→M | Import project from file | `void` → `Project` |
-| **Torrent Management** |  |  |  |
-| `torrent:add` | R→M | Add torrent to queue | `{magnetUri: string, options?: TorrentOptions}` → `TorrentDownload` |
-| `torrent:add-from-search` | R→M | Add torrent from search result | `{searchResultId: string}` → `TorrentDownload` |
-| `torrent:pause` | R→M | Pause torrent download | `{torrentId: string}` → `void` |
-| `torrent:resume` | R→M | Resume torrent download | `{torrentId: string}` → `void` |
-| `torrent:remove` | R→M | Remove torrent | `{torrentId: string, deleteFiles: boolean}` → `void` |
-| `torrent:get-info` | R→M | Get torrent info | `{torrentId: string}` → `TorrentInfo` |
-| `torrent:list` | R→M | Get all torrents | `void` → `TorrentDownload[]` |
-| `torrent:progress` | M→R | Torrent progress update | `{torrentId: string, progress: number, downloadSpeed: number, uploadSpeed: number}` |
-| `torrent:complete` | M→R | Torrent download complete | `{torrentId: string, files: AudioFile[]}` |
-| `torrent:error` | M→R | Torrent error occurred | `{torrentId: string, error: string}` |
+| **Torrent Operations** |  |  |  |
+| `torrent:download` | R→M | Download torrent file | `TorrentDownloadRequest` → `TorrentDownloadResponse` |
+| `torrent:get-history` | R→M | Get download history | `void` → `TorrentFile[]` |
+| `torrent:clear-history` | R→M | Clear download history | `void` → `{success: boolean}` |
+| `torrent:get-settings` | R→M | Get torrent settings | `void` → `TorrentSettings` |
+| `torrent:update-settings` | R→M | Update torrent settings | `Partial<TorrentSettings>` → `TorrentSettings` |
+| `torrent:progress` | M→R | Torrent progress update | `TorrentDownloadProgress` |
+| **Torrent Collection** |  |  |  |
+| `torrent:collection:load` | R→M | Load project torrent collection | `LoadTorrentCollectionRequest` → `TorrentCollectionResponse` |
+| `torrent:collection:save` | R→M | Save project torrent collection | `SaveTorrentCollectionRequest` → `{success: boolean}` |
+| `torrent:collection:clear` | R→M | Clear project torrent collection | `{projectDirectory: string}` → `{success: boolean}` |
+| **MusicBrainz** |  |  |  |
+| `musicbrainz:find-albums` | R→M | Find albums by song | `{songTitle: string, artist?: string}` → `MusicBrainzAlbum[]` |
+| `musicbrainz:get-album` | R→M | Get album details | `{albumId: string}` → `MusicBrainzAlbum` |
+| `musicbrainz:create-query` | R→M | Create RuTracker query | `{albumId: string}` → `string` |
+| `musicbrainz:classify-search` | R→M | Classify search term | `{query: string}` → `SearchClassificationResult[]` |
+| `musicbrainz:get-artist-albums` | R→M | Get artist's albums | `{artistId: string, limit?: number}` → `MusicBrainzAlbum[]` |
+| **Search History** |  |  |  |
+| `searchHistory:load` | R→M | Load project search history | `{projectId: string, projectDirectory: string}` → `SearchHistoryResponse` |
+| `searchHistory:save` | R→M | Save project search history | `SaveSearchHistoryRequest` → `{success: boolean}` |
 | **Settings** |  |  |  |
 | `settings:get` | R→M | Get user settings | `void` → `Settings` |
-| `settings:update` | R→M | Update settings | `Partial<Settings>` → `Settings` |
-| `settings:changed` | M→R | Notify settings changed | `Settings` |
-| **Window Control** |  |  |  |
-| `window:minimize` | R→M | Minimize window | `void` → `void` |
-| `window:maximize` | R→M | Maximize window | `void` → `void` |
-| `window:close` | R→M | Close window | `void` → `void` |
+| `settings:set` | R→M | Update settings | `Partial<Settings>` → `Settings` |
+| **File Operations** |  |  |  |
+| `file:select-directory` | R→M | Open directory picker | `void` → `string \| null` |
 
 ### Communication Patterns
 - **Request-Response**: File operations, settings management, window control (use `ipcMain.handle` / `ipcRenderer.invoke`)

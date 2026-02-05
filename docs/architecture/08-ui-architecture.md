@@ -15,19 +15,70 @@ This document describes the UI architecture, component structure, and styling st
 ### Component Structure
 ```
 src/renderer/
-├── pages/              # Route-level page components
-│   └── Welcome.tsx     # Welcome/landing page
-├── components/         # Reusable UI components
-│   └── (to be added)
-├── theme/              # Chakra UI theme configuration
-│   └── index.ts        # Custom theme with brand colors
-├── styles/             # Global styles
-│   └── global.css      # Base CSS reset and globals
-├── store/              # Zustand state stores
-│   └── (to be added)
-└── hooks/              # Custom React hooks
+├── pages/                      # Route-level page components
+│   ├── ProjectLauncher/        # Project selection/creation (welcome screen)
+│   │   └── index.tsx
+│   ├── ProjectOverview/        # Main workspace with tabbed interface
+│   │   ├── index.tsx           # Tab navigation and layout
+│   │   ├── ProjectOverview.styles.tsx
+│   │   ├── utils.ts            # Statistics calculation helpers
+│   │   └── components/
+│   │       ├── ProjectHeader.tsx
+│   │       ├── StatsGrid.tsx
+│   │       ├── MetadataSection.tsx
+│   │       ├── SongsList.tsx
+│   │       ├── SearchSection.tsx
+│   │       └── tabs/
+│   │           ├── SearchTab.tsx   # Smart search workflow
+│   │           ├── TorrentTab.tsx  # Torrent collection management
+│   │           ├── MixTab.tsx      # Audio mixing (placeholder)
+│   │           └── index.ts
+│   └── Settings/               # Application settings
+│       └── index.tsx
+├── components/                 # Reusable UI components
+│   ├── common/                 # Layout, footer, shared utilities
+│   │   ├── PageLayout.tsx
+│   │   └── Footer.tsx
+│   └── features/
+│       ├── search/             # Smart search components
+│       │   ├── SmartSearchBar.tsx
+│       │   ├── SmartSearch.tsx
+│       │   ├── SearchClassificationDialog.tsx
+│       │   ├── AlbumSelectionDialog.tsx
+│       │   ├── TorrentResultsDialog.tsx
+│       │   └── index.ts
+│       └── torrent/            # Torrent collection components
+│           ├── TorrentCollectionPanel.tsx
+│           └── index.ts
+├── theme/                      # Chakra UI theme configuration
+│   └── index.ts                # Custom theme with brand colors
+├── styles/                     # Global styles
+│   └── global.css              # Base CSS reset and globals
+├── store/                      # Zustand state stores
+│   ├── smartSearchStore.ts     # Multi-step search workflow state
+│   ├── torrentCollectionStore.ts # Per-project torrent collection
+│   ├── useAuthStore.ts         # Authentication state
+│   ├── useProjectStore.ts      # Project CRUD operations
+│   ├── useSearchStore.ts       # Basic search state
+│   └── useThemeStore.ts        # Theme state
+└── hooks/                      # Custom React hooks
     └── (to be added)
 ```
+
+### Page Architecture
+
+**ProjectOverview Tabbed Interface**:
+The main workspace uses a tabbed interface with three sections:
+
+| Tab | Icon | Purpose | Component |
+|-----|------|---------|-----------|
+| **Search** | 🔍 | Smart search workflow | `SearchTab` |
+| **Torrent** | ⬇️ | View/manage collected torrents | `TorrentTab` |
+| **Mix** | 🎵 | Audio mixing (placeholder) | `MixTab` |
+
+- Tab navigation uses local state (`useState`)
+- Badge on Torrent tab shows collection count
+- Each tab is a separate component for code splitting potential
 
 ### Styling Strategy
 
