@@ -2,6 +2,7 @@ import puppeteer, { Browser, Page } from 'puppeteer-core'
 import { execSync } from 'child_process'
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
 import path from 'path'
+import { shell } from 'electron'
 import type {
   TorrentDownloadRequest,
   TorrentDownloadResponse,
@@ -30,6 +31,7 @@ export class TorrentDownloadService {
       torrentsFolder: settings?.torrentsFolder || this.getDefaultTorrentsFolder(),
       autoOpen: settings?.autoOpen ?? false,
       keepHistory: settings?.keepHistory ?? true,
+      preferMagnetLinks: settings?.preferMagnetLinks ?? true, // Prefer magnet links by default
     }
 
     // Ensure torrents folder exists
@@ -290,6 +292,52 @@ export class TorrentDownloadService {
         }
       }
 
+      // Try to find magnet link first (preferred method)
+      const magnetSelector = 'a.magnet-link[href^="magnet:"]'
+      console.log(`[TorrentDownloadService] Looking for magnet link: ${magnetSelector}`)
+
+      let magnetLink: string | null = null
+      try {
+        await page.waitForSelector(magnetSelector, { timeout: 5000 })
+        magnetLink = await page.$eval(magnetSelector, (el) => (el as HTMLAnchorElement).href)
+        console.log(`[TorrentDownloadService] ✅ Found magnet link`)
+      } catch (error) {
+        console.log('[TorrentDownloadService] No magnet link found, will try .torrent download')
+      }
+
+      // If we have magnet link and prefer it, use that
+      if (magnetLink && this.settings.preferMagnetLinks) {
+        console.log('[TorrentDownloadService] Using magnet link (preferred method)')
+
+        // Create torrent record with magnet link
+        const torrentFile: TorrentFile = {
+          id: request.torrentId,
+          title: request.title || `Torrent ${request.torrentId}`,
+          magnetLink,
+          pageUrl: request.pageUrl,
+          downloadedAt: new Date(),
+        }
+
+        // Add to history
+        if (this.settings.keepHistory) {
+          this.downloadHistory.push(torrentFile)
+          this.saveHistory()
+        }
+
+        // Close browser
+        await this.closeBrowser()
+
+        console.log(`[TorrentDownloadService] ✅ Magnet link extracted successfully`)
+
+        return {
+          success: true,
+          torrent: torrentFile,
+        }
+      }
+
+      // Fall back to .torrent file download if no magnet link or not preferred
+      console.log('[TorrentDownloadService] Attempting .torrent file download')
+
       // Find download link - RuTracker uses specific classes
       // From the HTML: <a href="dl.php?t=2754895" class="dl-stub dl-link dl-topic">
       const downloadSelector = 'a.dl-link[href*="dl.php"]'
@@ -386,6 +434,7 @@ export class TorrentDownloadService {
         id: request.torrentId,
         title: request.title || `Torrent ${request.torrentId}`,
         filePath,
+        magnetLink: magnetLink || undefined, // Include magnet link if we found it
         pageUrl: request.pageUrl,
         downloadedAt: new Date(),
       }
@@ -475,5 +524,43 @@ export class TorrentDownloadService {
    */
   getSettings(): TorrentSettings {
     return { ...this.settings }
+  }
+
+  /**
+   * Open a magnet link or torrent file in the default torrent client
+   *
+   * @param torrent - Torrent file record with magnet link or file path
+   * @returns Promise that resolves when the operation completes
+   */
+  async openInTorrentClient(torrent: TorrentFile): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Prefer magnet link if available
+      if (torrent.magnetLink) {
+        console.log(`[TorrentDownloadService] Opening magnet link in default torrent client`)
+        await shell.openExternal(torrent.magnetLink)
+        console.log(`[TorrentDownloadService] ✅ Magnet link opened successfully`)
+        return { success: true }
+      }
+
+      // Fall back to opening .torrent file
+      if (torrent.filePath && existsSync(torrent.filePath)) {
+        console.log(`[TorrentDownloadService] Opening .torrent file: ${torrent.filePath}`)
+        await shell.openPath(torrent.filePath)
+        console.log(`[TorrentDownloadService] ✅ Torrent file opened successfully`)
+        return { success: true }
+      }
+
+      console.error(`[TorrentDownloadService] No magnet link or file path available`)
+      return {
+        success: false,
+        error: 'No magnet link or torrent file available to open',
+      }
+    } catch (error) {
+      console.error('[TorrentDownloadService] Failed to open in torrent client:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to open torrent',
+      }
+    }
   }
 }

@@ -191,10 +191,12 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
       })
 
       if (response.success && response.torrent) {
-        setDownloadComplete(response.torrent.filePath)
+        // Use magnet link or file path
+        const result = response.torrent.magnetLink || response.torrent.filePath || 'Torrent ready'
+        setDownloadComplete(result)
 
         if (onComplete) {
-          onComplete(response.torrent.filePath)
+          onComplete(result)
         }
 
         // Auto-close after 2 seconds

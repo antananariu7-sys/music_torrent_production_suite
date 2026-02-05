@@ -16,8 +16,10 @@ export interface TorrentFile {
   id: string
   /** Torrent title */
   title: string
-  /** Local file path where torrent is saved */
-  filePath: string
+  /** Local file path where torrent is saved (for .torrent files) */
+  filePath?: string
+  /** Magnet link (alternative to file download) */
+  magnetLink?: string
   /** Original page URL */
   pageUrl: string
   /** Download timestamp */
@@ -54,4 +56,6 @@ export interface TorrentSettings {
   autoOpen?: boolean
   /** Keep download history */
   keepHistory?: boolean
+  /** Prefer magnet links over .torrent file downloads */
+  preferMagnetLinks?: boolean
 }
