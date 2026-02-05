@@ -24,3 +24,10 @@ button {
   padding-left: 10px !important;
   padding-right: 10px !important;
 }
+
+/* Fix Chakra UI v3 Toaster positioning */
+[data-part="root"][data-placement="top-end"] {
+  top: 16px !important;
+  right: 320px !important;
+  left: auto !important;
+}

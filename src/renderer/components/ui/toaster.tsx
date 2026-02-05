@@ -1,6 +1,6 @@
 'use client'
 
-import { Toast, Toaster as ChakraToaster, createToaster, Box, Flex, CloseButton } from '@chakra-ui/react'
+import { Toaster as ChakraToaster, createToaster, Box, Flex, CloseButton } from '@chakra-ui/react'
 import { LuCheck, LuX, LuTriangleAlert, LuInfo } from 'react-icons/lu'
 import type { FC, ReactNode } from 'react'
 
@@ -38,42 +38,40 @@ export function Toaster() {
         const Icon = styles.icon
 
         return (
-          <Toast.Root asChild>
-            <Flex
-              bg={styles.bg}
+          <Flex
+            bg={styles.bg}
+            color="white"
+            px={4}
+            py={3}
+            borderRadius="lg"
+            boxShadow="lg"
+            minW="300px"
+            maxW="400px"
+            align="flex-start"
+            gap={3}
+          >
+            <Box mt="0.5">
+              <Icon size={18} />
+            </Box>
+            <Box flex="1">
+              {toast.title && (
+                <Box fontWeight="semibold" fontSize="sm">
+                  {toast.title}
+                </Box>
+              )}
+              {toast.description && (
+                <Box fontSize="sm" opacity={0.9} mt={toast.title ? 1 : 0}>
+                  {toast.description}
+                </Box>
+              )}
+            </Box>
+            <CloseButton
+              size="sm"
               color="white"
-              px={4}
-              py={3}
-              mr={4}
-              mt={4}
-              borderRadius="lg"
-              boxShadow="lg"
-              minW="300px"
-              maxW="400px"
-              align="flex-start"
-              gap={3}
-            >
-              <Box mt="0.5">
-                <Icon size={18} />
-              </Box>
-              <Box flex="1">
-                {toast.title && (
-                  <Box fontWeight="semibold" fontSize="sm">
-                    {toast.title}
-                  </Box>
-                )}
-                {toast.description && (
-                  <Box fontSize="sm" opacity={0.9} mt={toast.title ? 1 : 0}>
-                    {toast.description}
-                  </Box>
-                )}
-              </Box>
-{/* @ts-expect-error Chakra UI v3 types incomplete for asChild */}
-              <Toast.CloseTrigger asChild>
-                <CloseButton size="sm" color="white" _hover={{ bg: 'whiteAlpha.200' }} />
-              </Toast.CloseTrigger>
-            </Flex>
-          </Toast.Root>
+              _hover={{ bg: 'whiteAlpha.200' }}
+              onClick={() => toaster.dismiss()}
+            />
+          </Flex>
         )
       }}
     </ToasterPortal>
