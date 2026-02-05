@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Card, VStack, HStack, Heading, Text, Badge, Box, IconButton } from '@chakra-ui/react'
 import { FiMusic, FiTrash2 } from 'react-icons/fi'
 import type { RecentProject } from '@shared/types/project.types'
-import { ConfirmDialog } from '@/components/common/ConfirmDialog'
+import { DeleteProjectDialog } from '@/components/common/DeleteProjectDialog'
 import { useProjectStore } from '@/store/useProjectStore'
 
 interface RecentProjectCardProps {
@@ -21,9 +21,10 @@ export function RecentProjectCard({
   project,
   onOpenProject,
 }: RecentProjectCardProps): JSX.Element {
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const deleteProject = useProjectStore((state) => state.deleteProject)
+  const deleteProjectFromDisk = useProjectStore((state) => state.deleteProjectFromDisk)
 
   const formatDate = (date: Date) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -35,18 +36,23 @@ export function RecentProjectCard({
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    setShowDeleteConfirm(true)
+    setShowDeleteDialog(true)
   }
 
-  const handleConfirmDelete = async () => {
+  const handleDeleteFromRecent = async () => {
     setIsDeleting(true)
     await deleteProject(project.projectId)
     setIsDeleting(false)
-    setShowDeleteConfirm(false)
+    setShowDeleteDialog(false)
+  }
+
+  const handleDeleteFromDisk = async () => {
+    await deleteProjectFromDisk(project.projectId, project.projectDirectory)
+    setShowDeleteDialog(false)
   }
 
   const handleCancelDelete = () => {
-    setShowDeleteConfirm(false)
+    setShowDeleteDialog(false)
   }
 
   return (
@@ -131,14 +137,12 @@ export function RecentProjectCard({
         </Card.Body>
       </Card.Root>
 
-      <ConfirmDialog
-        isOpen={showDeleteConfirm}
-        title="Delete Project"
-        message={`Are you sure you want to remove "${project.projectName}" from recent projects? This will not delete the project files from disk.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        confirmColorPalette="red"
-        onConfirm={handleConfirmDelete}
+      <DeleteProjectDialog
+        isOpen={showDeleteDialog}
+        projectName={project.projectName}
+        projectDirectory={project.projectDirectory}
+        onDeleteFromRecent={handleDeleteFromRecent}
+        onDeleteFromDisk={handleDeleteFromDisk}
         onCancel={handleCancelDelete}
         isLoading={isDeleting}
       />

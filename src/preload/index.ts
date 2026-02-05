@@ -66,6 +66,9 @@ const api = {
   deleteProject: (projectId: string): Promise<ApiResponse<void>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE, projectId),
 
+  deleteProjectFromDisk: (projectId: string, projectDirectory: string): Promise<ApiResponse<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE_FROM_DISK, projectId, projectDirectory),
+
   // File operations
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.FILE_SELECT_DIRECTORY),

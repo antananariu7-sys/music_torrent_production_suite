@@ -119,6 +119,26 @@ export class FileSystemService {
   }
 
   /**
+   * Deletes a directory and all its contents
+   * Does nothing if directory doesn't exist
+   *
+   * @param dirPath - Path to directory to delete
+   * @throws Error if path is not a directory
+   */
+  async deleteDirectory(dirPath: string): Promise<void> {
+    if (!await fs.pathExists(dirPath)) {
+      return // Directory doesn't exist, nothing to do
+    }
+
+    const stats = await fs.stat(dirPath)
+    if (!stats.isDirectory()) {
+      throw new Error(`Path is not a directory: ${dirPath}`)
+    }
+
+    await fs.remove(dirPath)
+  }
+
+  /**
    * Reads and parses a JSON file
    *
    * @param filePath - Path to JSON file

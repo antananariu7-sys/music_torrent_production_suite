@@ -226,6 +226,27 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_DELETE_FROM_DISK,
+    async (_event, projectId: string, projectDirectory: string) => {
+      try {
+        // First remove from recent projects
+        configService.removeRecentProject(projectId)
+
+        // Then delete the directory from disk
+        await fileSystemService.deleteDirectory(projectDirectory)
+
+        return { success: true }
+      } catch (error) {
+        console.error('Failed to delete project from disk:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to delete project from disk',
+        }
+      }
+    }
+  )
+
   // File operation handlers
   ipcMain.handle(IPC_CHANNELS.FILE_SELECT_DIRECTORY, async () => {
     try {

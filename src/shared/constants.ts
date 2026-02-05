@@ -13,6 +13,7 @@ export const IPC_CHANNELS = {
   PROJECT_CLOSE: 'project:close',
   PROJECT_LIST: 'project:list',
   PROJECT_DELETE: 'project:delete',
+  PROJECT_DELETE_FROM_DISK: 'project:delete-from-disk',
 
   // Authentication
   AUTH_LOGIN: 'auth:login',
