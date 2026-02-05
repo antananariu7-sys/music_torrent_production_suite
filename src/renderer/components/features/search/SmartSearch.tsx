@@ -3,6 +3,7 @@ import { Box, Flex, Text, Button, Icon } from '@chakra-ui/react'
 import { FiAlertCircle, FiDownload } from 'react-icons/fi'
 import { useSmartSearchStore } from '@/store/smartSearchStore'
 import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
+import { toaster } from '@/components/ui/toaster'
 import { InlineSearchResults } from './InlineSearchResults'
 import type { SearchClassificationResult, MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
@@ -284,6 +285,14 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
 
       addActivityLog(`Added to collection: ${torrent.title}`, 'success')
 
+      // Show success toast
+      toaster.create({
+        title: 'Added to collection',
+        description: torrent.title,
+        type: 'success',
+        duration: 5000,
+      })
+
       // Add to search history
       addToHistory({
         query: originalQuery,
@@ -307,6 +316,13 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
       addActivityLog(errorMsg, 'error')
       setError(errorMsg)
       addToHistory({ query: originalQuery, status: 'error' })
+
+      toaster.create({
+        title: 'Failed to add to collection',
+        description: errorMsg,
+        type: 'error',
+        duration: 5000,
+      })
     }
   }
 
@@ -334,7 +350,12 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
   useEffect(() => {
     if (error) {
       console.error('SmartSearch error:', error)
-      // TODO: Show error toast notification
+      toaster.create({
+        title: 'Search error',
+        description: error,
+        type: 'error',
+        duration: 5000,
+      })
     }
   }, [error])
 

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Box, HStack, VStack, Text, Button, Icon, IconButton } from '@chakra-ui/react'
 import { FiDownload, FiCopy, FiTrash2, FiCheck, FiExternalLink } from 'react-icons/fi'
 import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
+import { toaster } from '@/components/ui/toaster'
 import type { CollectedTorrent } from '@shared/types/torrent.types'
 
 interface CollectedTorrentItemProps {
@@ -48,8 +49,21 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
       await navigator.clipboard.writeText(torrent.magnetLink)
       setIsCopied(true)
       setTimeout(() => setIsCopied(false), 2000)
+
+      toaster.create({
+        title: 'Magnet link copied',
+        description: 'Open in your torrent client to start downloading.',
+        type: 'success',
+        duration: 3000,
+      })
     } catch (err) {
       console.error('Failed to copy magnet link:', err)
+      toaster.create({
+        title: 'Failed to copy',
+        description: 'Could not copy magnet link to clipboard.',
+        type: 'error',
+        duration: 3000,
+      })
     }
   }
 
@@ -67,11 +81,34 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
       if (response.success) {
         // Remove from collection after successful download
         removeFromCollection(torrent.id)
+
+        toaster.create({
+          title: 'Download started',
+          description: torrent.title,
+          type: 'success',
+          duration: 5000,
+        })
       } else {
-        setDownloadError(response.error || 'Download failed')
+        const errorMsg = response.error || 'Download failed'
+        setDownloadError(errorMsg)
+
+        toaster.create({
+          title: 'Download failed',
+          description: errorMsg,
+          type: 'error',
+          duration: 5000,
+        })
       }
     } catch (err) {
-      setDownloadError(err instanceof Error ? err.message : 'Download failed')
+      const errorMsg = err instanceof Error ? err.message : 'Download failed'
+      setDownloadError(errorMsg)
+
+      toaster.create({
+        title: 'Download failed',
+        description: errorMsg,
+        type: 'error',
+        duration: 5000,
+      })
     } finally {
       setIsDownloading(false)
     }
@@ -79,6 +116,13 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
 
   const handleRemove = () => {
     removeFromCollection(torrent.id)
+
+    toaster.create({
+      title: 'Removed from collection',
+      description: torrent.title,
+      type: 'info',
+      duration: 3000,
+    })
   }
 
   const handleOpenPage = async () => {

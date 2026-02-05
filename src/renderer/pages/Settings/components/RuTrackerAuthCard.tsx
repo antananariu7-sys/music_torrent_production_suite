@@ -11,6 +11,7 @@ import {
   Checkbox,
 } from '@chakra-ui/react'
 import { useAuthStore } from '@/store/useAuthStore'
+import { toaster } from '@/components/ui/toaster'
 
 interface RuTrackerAuthCardProps {
   onLogin?: (username: string, password: string, remember: boolean) => Promise<void>
@@ -44,8 +45,23 @@ export function RuTrackerAuthCard({
 
       // Reset password field after successful login
       setPassword('')
+
+      toaster.create({
+        title: 'Login successful',
+        description: `Welcome back, ${loginUsername}!`,
+        type: 'success',
+        duration: 5000,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      const errorMsg = err instanceof Error ? err.message : 'Login failed'
+      setError(errorMsg)
+
+      toaster.create({
+        title: 'Login failed',
+        description: errorMsg,
+        type: 'error',
+        duration: 5000,
+      })
     }
   }
 
@@ -61,8 +77,23 @@ export function RuTrackerAuthCard({
       setLoginUsername('')
       setPassword('')
       setRememberMe(false)
+
+      toaster.create({
+        title: 'Logged out',
+        description: 'You have been logged out successfully.',
+        type: 'info',
+        duration: 5000,
+      })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Logout failed')
+      const errorMsg = err instanceof Error ? err.message : 'Logout failed'
+      setError(errorMsg)
+
+      toaster.create({
+        title: 'Logout failed',
+        description: errorMsg,
+        type: 'error',
+        duration: 5000,
+      })
     }
   }
 

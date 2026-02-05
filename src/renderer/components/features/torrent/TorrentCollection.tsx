@@ -1,11 +1,24 @@
 import { Box, VStack, HStack, Text, Button, Icon, Heading } from '@chakra-ui/react'
 import { FiDownload, FiTrash2 } from 'react-icons/fi'
 import { useCollection, useTorrentCollectionStore } from '@/store/torrentCollectionStore'
+import { toaster } from '@/components/ui/toaster'
 import { CollectedTorrentItem } from './CollectedTorrentItem'
 
 export function TorrentCollection(): JSX.Element {
   const collection = useCollection()
   const clearCollection = useTorrentCollectionStore((state) => state.clearCollection)
+
+  const handleClearAll = () => {
+    const count = collection.length
+    clearCollection()
+
+    toaster.create({
+      title: 'Collection cleared',
+      description: `Removed ${count} torrent${count !== 1 ? 's' : ''} from collection.`,
+      type: 'info',
+      duration: 5000,
+    })
+  }
 
   return (
     <Box
@@ -39,7 +52,7 @@ export function TorrentCollection(): JSX.Element {
             size="sm"
             variant="ghost"
             colorPalette="red"
-            onClick={clearCollection}
+            onClick={handleClearAll}
           >
             <Icon as={FiTrash2} mr={2} />
             Clear All
