@@ -103,6 +103,7 @@ interface SmartSearchState {
   setLoading: (isLoading: boolean) => void
   addActivityLog: (message: string, type: ActivityLogEntry['type']) => void
   addToHistory: (entry: Omit<SearchHistoryEntry, 'id' | 'timestamp'>) => void
+  removeFromHistory: (id: string) => void
   clearHistory: () => void
   clearActivityLog: () => void
   reset: () => void
@@ -198,12 +199,19 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
   },
 
   startSearch: (query: string) =>
-    set({
+    set((state) => ({
       ...initialState,
+      // Preserve history, activity log, and project context
+      searchHistory: state.searchHistory,
+      activityLog: state.activityLog,
+      projectId: state.projectId,
+      projectName: state.projectName,
+      projectDirectory: state.projectDirectory,
+      // Start new search
       originalQuery: query,
       step: 'classifying',
       isLoading: true,
-    }),
+    })),
 
   setClassificationResults: (results: SearchClassificationResult[]) =>
     set({
@@ -305,6 +313,21 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
         },
         ...state.searchHistory,
       ].slice(0, 50) // Keep only last 50 searches
+
+      // Auto-save to file (fire and forget)
+      saveSearchHistoryToDisk(
+        newHistory,
+        state.projectId,
+        state.projectName,
+        state.projectDirectory
+      )
+
+      return { searchHistory: newHistory }
+    }),
+
+  removeFromHistory: (id: string) =>
+    set((state) => {
+      const newHistory = state.searchHistory.filter((entry) => entry.id !== id)
 
       // Auto-save to file (fire and forget)
       saveSearchHistoryToDisk(

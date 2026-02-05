@@ -1,6 +1,6 @@
-import { Box, Text, VStack, HStack, Icon } from '@chakra-ui/react'
-import { FiClock, FiCheckCircle, FiXCircle, FiX } from 'react-icons/fi'
-import { useSearchHistory } from '@/store/smartSearchStore'
+import { Box, Text, VStack, HStack, Icon, IconButton } from '@chakra-ui/react'
+import { FiClock, FiCheckCircle, FiXCircle, FiX, FiTrash2 } from 'react-icons/fi'
+import { useSearchHistory, useSmartSearchStore } from '@/store/smartSearchStore'
 import type { SearchHistoryEntry } from '@/store/smartSearchStore'
 
 interface SearchHistoryProps {
@@ -67,6 +67,8 @@ interface SearchHistoryItemProps {
 }
 
 const SearchHistoryItem: React.FC<SearchHistoryItemProps> = ({ entry, onSelectQuery }) => {
+  const removeFromHistory = useSmartSearchStore((state) => state.removeFromHistory)
+
   const formatTimestamp = (date: Date) => {
     const now = new Date()
     const diff = now.getTime() - new Date(date).getTime()
@@ -107,6 +109,17 @@ const SearchHistoryItem: React.FC<SearchHistoryItemProps> = ({ entry, onSelectQu
     }
   }
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent triggering the onSelectQuery
+    removeFromHistory(entry.id)
+  }
+
+  const handleClick = () => {
+    if (onSelectQuery) {
+      onSelectQuery(entry.query)
+    }
+  }
+
   return (
     <Box
       p={3}
@@ -115,15 +128,20 @@ const SearchHistoryItem: React.FC<SearchHistoryItemProps> = ({ entry, onSelectQu
       borderWidth="1px"
       borderColor="border.base"
       transition="all 0.2s"
-      cursor={onSelectQuery ? 'pointer' : 'default'}
-      onClick={() => onSelectQuery?.(entry.query)}
-      _hover={onSelectQuery ? {
+      position="relative"
+      _hover={{
         borderColor: 'border.focus',
         bg: 'bg.hover',
-      } : {}}
+      }}
     >
-      <HStack justify="space-between" align="start">
-        <VStack align="start" gap={1} flex="1">
+      <HStack justify="space-between" align="start" gap={2}>
+        <VStack
+          align="start"
+          gap={1}
+          flex="1"
+          cursor={onSelectQuery ? 'pointer' : 'default'}
+          onClick={handleClick}
+        >
           <Text fontSize="sm" fontWeight="medium" color="text.primary">
             {entry.query}
           </Text>
@@ -141,6 +159,16 @@ const SearchHistoryItem: React.FC<SearchHistoryItemProps> = ({ entry, onSelectQu
               boxSize={3.5}
               color={getStatusColor()}
             />
+            <IconButton
+              aria-label="Delete search history entry"
+              size="xs"
+              variant="ghost"
+              onClick={handleDelete}
+              color="text.muted"
+              _hover={{ bg: 'red.500/10', color: 'red.500' }}
+            >
+              <Icon as={FiTrash2} boxSize={3} />
+            </IconButton>
           </HStack>
           <Text fontSize="xs" color="text.muted">
             {formatTimestamp(entry.timestamp)}
