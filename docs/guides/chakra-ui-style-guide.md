@@ -665,6 +665,148 @@ _disabled={{ opacity: 0.5 }}
 
 ---
 
+## Toast Notification System
+
+The application uses Chakra UI v3's toast system for user feedback. Toasts provide non-intrusive notifications for important state changes.
+
+### Configuration
+
+Toast notifications are configured in [src/renderer/components/ui/toaster.tsx](../../src/renderer/components/ui/toaster.tsx):
+
+```tsx
+import { toaster, Toaster } from '@/renderer/components/ui/toaster'
+
+// Mount once in app root
+<Toaster />
+```
+
+The toaster is configured with:
+- **Placement**: `top-end` (top-right corner)
+- **Pause on idle**: Toasts pause when the page is idle
+
+### Toast Types
+
+| Type | Usage | Color Indicator |
+|------|-------|-----------------|
+| `success` | Successful operations | Green |
+| `error` | Failed operations, errors | Red |
+| `warning` | Warnings, cautions | Yellow |
+| `info` | Informational messages | Blue |
+| `loading` | Long-running operations | Spinner |
+
+### Basic Usage
+
+```tsx
+import { toaster } from '@/renderer/components/ui/toaster'
+
+// Success toast
+toaster.create({
+  title: 'Project saved',
+  description: 'Your changes have been saved successfully.',
+  type: 'success',
+})
+
+// Error toast
+toaster.create({
+  title: 'Save failed',
+  description: 'Could not save project. Please try again.',
+  type: 'error',
+})
+
+// Info toast
+toaster.create({
+  title: 'Download started',
+  description: 'Your file will be ready shortly.',
+  type: 'info',
+})
+```
+
+### Custom Duration
+
+```tsx
+toaster.create({
+  title: 'Project deleted',
+  description: 'This action cannot be undone.',
+  type: 'warning',
+  duration: 10000, // 10 seconds for important notifications
+})
+```
+
+### When to Show Toasts
+
+> **⚠️ IMPORTANT**: All significant user-facing state changes MUST show a toast notification.
+
+**Always show toasts for:**
+
+| Category | Examples |
+|----------|----------|
+| **Project state changes** | Create, save, delete, open, close project |
+| **Settings changes** | Login/logout, preference updates, configuration changes |
+| **Search operations** | Search completed, search failed, no results found |
+| **Download operations** | Download started, download completed, download failed |
+| **Collection changes** | Item added to collection, item removed, collection cleared |
+| **Clipboard operations** | Content copied to clipboard |
+| **Authentication** | Login success, login failed, logout |
+| **Error states** | Any operation failure that the user initiated |
+
+**Don't show toasts for:**
+- Background auto-save operations (unless they fail)
+- Real-time sync updates
+- UI state changes (panel open/close, navigation)
+- Hover or focus events
+
+### Current Usage Examples
+
+From the codebase:
+
+```tsx
+// Authentication (RuTrackerAuthCard.tsx)
+toaster.create({
+  title: 'Login successful',
+  description: `Welcome back, ${loginUsername}!`,
+  type: 'success',
+})
+
+// Collection management (TorrentCollection.tsx)
+toaster.create({
+  title: 'Collection cleared',
+  description: `Removed ${count} torrent${count !== 1 ? 's' : ''} from collection.`,
+  type: 'info',
+})
+
+// Download operations (CollectedTorrentItem.tsx)
+toaster.create({
+  title: 'Download started',
+  description: torrent.title,
+  type: 'success',
+})
+
+// Project deletion (RecentProjectCard.tsx)
+toaster.create({
+  title: 'Project deleted',
+  description: `"${project.projectName}" has been permanently deleted from disk.`,
+  type: 'warning',
+  duration: 10000,
+})
+
+// Search errors (SmartSearch.tsx)
+toaster.create({
+  title: 'Search error',
+  description: error,
+  type: 'error',
+})
+```
+
+### Best Practices
+
+1. **Be concise**: Keep titles under 5 words, descriptions under 15 words
+2. **Be specific**: Include relevant context (project name, item count, etc.)
+3. **Use appropriate types**: Match the toast type to the operation outcome
+4. **Consider duration**: Use longer durations (10s) for destructive or important actions
+5. **Don't spam**: Batch similar operations when possible (e.g., "3 items added" vs 3 separate toasts)
+
+---
+
 ## Resources
 
 - **Chakra UI Docs**: https://www.chakra-ui.com/
@@ -674,4 +816,4 @@ _disabled={{ opacity: 0.5 }}
 
 ---
 
-**Last Updated**: 2026-02-04
+**Last Updated**: 2026-02-06
