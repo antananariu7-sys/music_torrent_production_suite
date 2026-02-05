@@ -8,7 +8,13 @@ import { AuthService } from '../services/AuthService'
 import { RuTrackerSearchService } from '../services/RuTrackerSearchService'
 import { TorrentDownloadService } from '../services/TorrentDownloadService'
 import { MusicBrainzService } from '../services/MusicBrainzService'
+import { searchHistoryService } from '../services/SearchHistoryService'
 import type { CreateProjectRequest, OpenProjectRequest } from '@shared/types/project.types'
+import type {
+  SaveSearchHistoryRequest,
+  LoadSearchHistoryRequest,
+  SearchHistoryResponse,
+} from '@shared/types/searchHistory.types'
 import type { LoginCredentials } from '@shared/types/auth.types'
 import type { SearchRequest } from '@shared/types/search.types'
 import type { TorrentDownloadRequest, TorrentSettings } from '@shared/types/torrent.types'
@@ -359,6 +365,69 @@ export function registerIpcHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to get artist albums',
+        }
+      }
+    }
+  )
+
+  // Search history handlers
+  ipcMain.handle(
+    'searchHistory:load',
+    async (_event, request: LoadSearchHistoryRequest & { projectDirectory: string }): Promise<SearchHistoryResponse> => {
+      try {
+        const { projectId, projectDirectory } = request
+
+        if (!projectDirectory) {
+          return {
+            success: false,
+            error: 'Project directory not provided',
+          }
+        }
+
+        const history = await searchHistoryService.loadHistory(projectId, projectDirectory)
+
+        return {
+          success: true,
+          history,
+        }
+      } catch (error) {
+        console.error('Error loading search history:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to load search history',
+        }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    'searchHistory:save',
+    async (_event, request: SaveSearchHistoryRequest & { projectDirectory: string }): Promise<SearchHistoryResponse> => {
+      try {
+        const { projectId, projectName, history, projectDirectory } = request
+
+        if (!projectDirectory) {
+          return {
+            success: false,
+            error: 'Project directory not provided',
+          }
+        }
+
+        await searchHistoryService.saveHistory(
+          projectId,
+          projectName,
+          projectDirectory,
+          history
+        )
+
+        return {
+          success: true,
+        }
+      } catch (error) {
+        console.error('Error saving search history:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to save search history',
         }
       }
     }

@@ -24,6 +24,11 @@ import type {
   TorrentFile,
   TorrentSettings,
 } from '@shared/types/torrent.types'
+import type {
+  SaveSearchHistoryRequest,
+  LoadSearchHistoryRequest,
+  SearchHistoryResponse,
+} from '@shared/types/searchHistory.types'
 
 // API response wrapper
 interface ApiResponse<T> {
@@ -117,6 +122,15 @@ const api = {
 
     updateSettings: (settings: TorrentSettings): Promise<ApiResponse<TorrentSettings>> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_UPDATE_SETTINGS, settings),
+  },
+
+  // Search history methods
+  searchHistory: {
+    load: (request: LoadSearchHistoryRequest & { projectDirectory: string }): Promise<SearchHistoryResponse> =>
+      ipcRenderer.invoke('searchHistory:load', request),
+
+    save: (request: SaveSearchHistoryRequest & { projectDirectory: string }): Promise<SearchHistoryResponse> =>
+      ipcRenderer.invoke('searchHistory:save', request),
   },
 }
 

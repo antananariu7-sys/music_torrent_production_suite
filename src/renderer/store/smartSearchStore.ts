@@ -4,6 +4,29 @@ import type {
   MusicBrainzAlbum,
 } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
+import type { SearchHistoryEntry as PersistentSearchHistoryEntry } from '@shared/types/searchHistory.types'
+
+/**
+ * Search History Entry
+ */
+export interface SearchHistoryEntry {
+  id: string
+  query: string
+  timestamp: Date
+  status: 'completed' | 'error' | 'cancelled'
+  result?: string // Description of result (e.g., "Downloaded album X")
+}
+
+/**
+ * Activity Log Entry
+ */
+export interface ActivityLogEntry {
+  id: string
+  timestamp: Date
+  step: SearchWorkflowStep
+  message: string
+  type: 'info' | 'success' | 'error' | 'warning'
+}
 
 /**
  * Smart Search Workflow States
@@ -52,7 +75,20 @@ interface SmartSearchState {
   // Loading state
   isLoading: boolean
 
+  // Search history
+  searchHistory: SearchHistoryEntry[]
+
+  // Activity log
+  activityLog: ActivityLogEntry[]
+
+  // Project context for persistence
+  projectId?: string
+  projectName?: string
+  projectDirectory?: string
+
   // Actions
+  setProjectContext: (projectId: string, projectName: string, projectDirectory: string) => void
+  loadHistoryFromProject: (projectId: string, projectDirectory: string) => Promise<void>
   startSearch: (query: string) => void
   setClassificationResults: (results: SearchClassificationResult[]) => void
   selectClassification: (result: SearchClassificationResult) => void
@@ -65,6 +101,10 @@ interface SmartSearchState {
   setError: (error: string) => void
   setStep: (step: SearchWorkflowStep) => void
   setLoading: (isLoading: boolean) => void
+  addActivityLog: (message: string, type: ActivityLogEntry['type']) => void
+  addToHistory: (entry: Omit<SearchHistoryEntry, 'id' | 'timestamp'>) => void
+  clearHistory: () => void
+  clearActivityLog: () => void
   reset: () => void
 }
 
@@ -82,10 +122,80 @@ const initialState = {
   downloadedFilePath: null,
   error: null,
   isLoading: false,
+  searchHistory: [] as SearchHistoryEntry[],
+  activityLog: [] as ActivityLogEntry[],
+}
+
+/**
+ * Helper function to save search history to disk
+ */
+async function saveSearchHistoryToDisk(
+  history: SearchHistoryEntry[],
+  projectId?: string,
+  projectName?: string,
+  projectDirectory?: string
+): Promise<void> {
+  if (!projectId || !projectName || !projectDirectory) {
+    console.warn('[smartSearchStore] Cannot save history: missing project info')
+    return
+  }
+
+  try {
+    // Convert Date objects to ISO strings for serialization
+    const persistentHistory: PersistentSearchHistoryEntry[] = history.map((entry) => ({
+      ...entry,
+      timestamp: entry.timestamp.toISOString(),
+    }))
+
+    await window.api.searchHistory.save({
+      projectId,
+      projectName,
+      projectDirectory,
+      history: persistentHistory,
+    })
+  } catch (error) {
+    console.error('[smartSearchStore] Failed to save search history:', error)
+  }
+}
+
+/**
+ * Helper function to load search history from disk
+ */
+export async function loadSearchHistoryFromDisk(
+  projectId: string,
+  projectDirectory: string
+): Promise<SearchHistoryEntry[]> {
+  try {
+    const response = await window.api.searchHistory.load({
+      projectId,
+      projectDirectory,
+    })
+
+    if (response.success && response.history) {
+      // Convert ISO strings back to Date objects
+      return response.history.map((entry) => ({
+        ...entry,
+        timestamp: new Date(entry.timestamp),
+      }))
+    }
+
+    return []
+  } catch (error) {
+    console.error('[smartSearchStore] Failed to load search history:', error)
+    return []
+  }
 }
 
 export const useSmartSearchStore = create<SmartSearchState>((set) => ({
   ...initialState,
+
+  setProjectContext: (projectId: string, projectName: string, projectDirectory: string) =>
+    set({ projectId, projectName, projectDirectory }),
+
+  loadHistoryFromProject: async (projectId: string, projectDirectory: string) => {
+    const history = await loadSearchHistoryFromDisk(projectId, projectDirectory)
+    set({ searchHistory: history })
+  },
 
   startSearch: (query: string) =>
     set({
@@ -171,8 +281,54 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
   setLoading: (isLoading: boolean) =>
     set({ isLoading }),
 
+  addActivityLog: (message: string, type: ActivityLogEntry['type']) =>
+    set((state) => ({
+      activityLog: [
+        ...state.activityLog,
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          timestamp: new Date(),
+          step: state.step,
+          message,
+          type,
+        },
+      ],
+    })),
+
+  addToHistory: (entry: Omit<SearchHistoryEntry, 'id' | 'timestamp'>) =>
+    set((state) => {
+      const newHistory = [
+        {
+          id: `${Date.now()}-${Math.random()}`,
+          timestamp: new Date(),
+          ...entry,
+        },
+        ...state.searchHistory,
+      ].slice(0, 50) // Keep only last 50 searches
+
+      // Auto-save to file (fire and forget)
+      saveSearchHistoryToDisk(
+        newHistory,
+        state.projectId,
+        state.projectName,
+        state.projectDirectory
+      )
+
+      return { searchHistory: newHistory }
+    }),
+
+  clearHistory: () =>
+    set({ searchHistory: [] }),
+
+  clearActivityLog: () =>
+    set({ activityLog: [] }),
+
   reset: () =>
-    set(initialState),
+    set({
+      ...initialState,
+      searchHistory: useSmartSearchStore.getState().searchHistory,
+      activityLog: useSmartSearchStore.getState().activityLog,
+    }),
 }))
 
 // Selector hooks for better performance
@@ -187,3 +343,5 @@ export const useAlbums = () => useSmartSearchStore((state) => state.albums)
 export const useSelectedAlbum = () => useSmartSearchStore((state) => state.selectedAlbum)
 export const useRuTrackerResults = () => useSmartSearchStore((state) => state.ruTrackerResults)
 export const useSelectedTorrent = () => useSmartSearchStore((state) => state.selectedTorrent)
+export const useSearchHistory = () => useSmartSearchStore((state) => state.searchHistory)
+export const useActivityLog = () => useSmartSearchStore((state) => state.activityLog)
