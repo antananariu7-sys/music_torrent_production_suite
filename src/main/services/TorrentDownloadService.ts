@@ -290,12 +290,19 @@ export class TorrentDownloadService {
         }
       }
 
-      // Find download link
-      const downloadSelector = 'a.dl-link, a[href*="dl.php"]'
+      // Find download link - RuTracker uses specific classes
+      // From the HTML: <a href="dl.php?t=2754895" class="dl-stub dl-link dl-topic">
+      const downloadSelector = 'a.dl-link[href*="dl.php"]'
       console.log(`[TorrentDownloadService] Waiting for download link: ${downloadSelector}`)
 
+      let downloadElement
       try {
         await page.waitForSelector(downloadSelector, { timeout: 10000 })
+        downloadElement = await page.$(downloadSelector)
+
+        if (!downloadElement) {
+          throw new Error('Download element not found after wait')
+        }
       } catch (error) {
         // Get page content for debugging
         const pageTitle = await page.title()
@@ -313,68 +320,52 @@ export class TorrentDownloadService {
         throw new Error(`Download link not found on page. Expected selector: ${downloadSelector}`)
       }
 
-      // Get the download link
+      // Get the download link URL for logging
       const downloadLink = await page.$eval(downloadSelector, (el) => (el as HTMLAnchorElement).href)
       console.log(`[TorrentDownloadService] Found download link: ${downloadLink}`)
 
-      // Set up download monitoring
-      let downloadCompleted = false
-      const downloadPromise = new Promise<void>((resolve) => {
-        client.on('Browser.downloadProgress', (event: { state: string }) => {
-          if (event.state === 'completed') {
-            downloadCompleted = true
-            console.log('[TorrentDownloadService] Download completed')
-            resolve()
-          }
-        })
+      // Set up download monitoring - listen for download events
+      let downloadStarted = false
+      client.on('Browser.downloadWillBegin', () => {
+        downloadStarted = true
+        console.log('[TorrentDownloadService] Download started')
       })
 
-      // Navigate to download link to trigger download
-      console.log('[TorrentDownloadService] Navigating to download link')
-      const downloadResponse = await page.goto(String(downloadLink), {
-        waitUntil: 'networkidle2',
-        timeout: 30000,
-      }).catch(async (error) => {
-        // ERR_ABORTED is expected when download starts
-        if (error.message.includes('ERR_ABORTED')) {
-          console.log('[TorrentDownloadService] Navigation aborted (expected for downloads)')
-          return null
-        }
-        throw error
-      })
+      // Click the download link instead of navigating
+      // This is the correct approach for file downloads
+      console.log('[TorrentDownloadService] Clicking download link')
+      await downloadElement.click()
 
-      if (downloadResponse) {
-        console.log(`[TorrentDownloadService] Download response status: ${downloadResponse.status()}`)
+      // Wait a bit for download to start
+      await new Promise(resolve => setTimeout(resolve, 2000))
 
-        // Check if we got an error page
-        if (downloadResponse.status() >= 400) {
-          const pageContent = await page.content()
-          console.error(`[TorrentDownloadService] Download failed with status ${downloadResponse.status()}`)
+      if (!downloadStarted) {
+        console.warn('[TorrentDownloadService] Download did not start after clicking. Checking for errors...')
 
-          // Check for specific error messages
-          if (pageContent.includes('login') || pageContent.includes('авторизац')) {
-            return {
-              success: false,
-              error: 'Authentication failed during download. Session may have expired. Please login again.',
-            }
-          }
-
+        // Check if we got redirected or page changed
+        const currentUrl = page.url()
+        if (currentUrl.includes('login.php')) {
           return {
             success: false,
-            error: `Download request failed with HTTP status ${downloadResponse.status()}`,
+            error: 'Redirected to login after clicking download. Session expired. Please login again.',
+          }
+        }
+
+        // Check for error messages on page
+        const errorElement = await page.$('.mrg_16, .med.bold')
+        if (errorElement) {
+          const errorText = await page.evaluate(el => el?.textContent, errorElement)
+          console.error(`[TorrentDownloadService] Error on page: ${errorText}`)
+          return {
+            success: false,
+            error: `Download failed: ${errorText || 'Unknown error on page'}`,
           }
         }
       }
 
-      // Wait for download to complete (with timeout)
-      await Promise.race([
-        downloadPromise,
-        new Promise(resolve => setTimeout(resolve, 10000)),
-      ])
-
-      if (!downloadCompleted) {
-        console.warn('[TorrentDownloadService] Download completion not detected, but continuing')
-      }
+      // Wait for download to complete
+      console.log('[TorrentDownloadService] Waiting for download to complete...')
+      await new Promise(resolve => setTimeout(resolve, 5000))
 
       // Generate file path
       const fileName = `${request.torrentId}.torrent`

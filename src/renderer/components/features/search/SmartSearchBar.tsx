@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Box, Button, Flex, Input, Spinner, Text, Icon } from '@chakra-ui/react'
-import { FiSearch, FiX } from 'react-icons/fi'
+import { FiX } from 'react-icons/fi'
 import { useSmartSearchStore } from '@/store/smartSearchStore'
 
 interface SmartSearchBarProps {
@@ -32,8 +32,15 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
     <Box as="form" onSubmit={handleSubmit} position="relative">
       <Box position="relative">
         {/* Search Icon */}
-        <Box position="absolute" left={4} top="50%" transform="translateY(-50%)" color="text.muted" zIndex={1}>
-          {isLoading ? <Spinner size="sm" color="text.muted" /> : <Icon as={FiSearch} boxSize={5} />}
+        <Box
+          position="absolute"
+          left={4}
+          top="50%"
+          transform="translateY(-50%)"
+          color="text.muted"
+          zIndex={1}
+        >
+          {isLoading && <Spinner size="sm" color="text.muted" />}
         </Box>
 
         {/* Input */}
@@ -65,7 +72,14 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
         />
 
         {/* Clear/Search Button */}
-        <Flex position="absolute" right={2} top="50%" transform="translateY(-50%)" align="center" gap={2}>
+        <Flex
+          position="absolute"
+          right={2}
+          top="50%"
+          transform="translateY(-50%)"
+          align="center"
+          gap={2}
+        >
           {query && (
             <Button
               type="button"
@@ -99,7 +113,13 @@ export const SmartSearchBar: React.FC<SmartSearchBarProps> = ({
       {/* Status indicator */}
       {isActive && (
         <Flex mt={2} align="center" gap={2} fontSize="sm">
-          <Box h={2} w={2} borderRadius="full" bg="interactive.base" animation="pulse 2s infinite" />
+          <Box
+            h={2}
+            w={2}
+            borderRadius="full"
+            bg="interactive.base"
+            animation="pulse 2s infinite"
+          />
           <Text color="text.secondary">
             {step === 'classifying' && 'Classifying search...'}
             {step === 'user-choice' && "Choose what you're searching for"}
