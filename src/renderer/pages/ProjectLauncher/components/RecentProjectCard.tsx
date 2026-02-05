@@ -3,6 +3,7 @@ import { Card, VStack, HStack, Heading, Text, Badge, Box, IconButton } from '@ch
 import { FiMusic, FiTrash2 } from 'react-icons/fi'
 import type { RecentProject } from '@shared/types/project.types'
 import { DeleteProjectDialog } from '@/components/common/DeleteProjectDialog'
+import { toaster } from '@/components/ui/toaster'
 import { useProjectStore } from '@/store/useProjectStore'
 
 interface RecentProjectCardProps {
@@ -41,14 +42,32 @@ export function RecentProjectCard({
 
   const handleDeleteFromRecent = async () => {
     setIsDeleting(true)
-    await deleteProject(project.projectId)
+    const success = await deleteProject(project.projectId)
     setIsDeleting(false)
     setShowDeleteDialog(false)
+
+    if (success) {
+      toaster.create({
+        title: 'Project removed',
+        description: `"${project.projectName}" has been removed from recent projects.`,
+        type: 'success',
+        duration: 10000,
+      })
+    }
   }
 
   const handleDeleteFromDisk = async () => {
-    await deleteProjectFromDisk(project.projectId, project.projectDirectory)
+    const success = await deleteProjectFromDisk(project.projectId, project.projectDirectory)
     setShowDeleteDialog(false)
+
+    if (success) {
+      toaster.create({
+        title: 'Project deleted',
+        description: `"${project.projectName}" has been permanently deleted from disk.`,
+        type: 'warning',
+        duration: 10000,
+      })
+    }
   }
 
   const handleCancelDelete = () => {

@@ -5,6 +5,7 @@ import type { AppInfo } from '@shared/types/app.types'
 import ProjectLauncher from '@/pages/ProjectLauncher'
 import ProjectOverview from '@/pages/ProjectOverview'
 import Settings from '@/pages/Settings'
+import { Toaster } from '@/components/ui/toaster'
 import { useThemeStore } from '@/store/useThemeStore'
 import { useAuthStore } from '@/store/useAuthStore'
 
@@ -74,6 +75,7 @@ function App() {
   return (
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppContent />
+      <Toaster />
     </HashRouter>
   )
 }
