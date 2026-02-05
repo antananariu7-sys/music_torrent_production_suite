@@ -170,6 +170,33 @@ export class TorrentDownloadService {
   }
 
   /**
+   * Validate session by checking if we're still logged in
+   */
+  private async validateSession(page: Page): Promise<boolean> {
+    try {
+      // Check for login form - if present, we're not logged in
+      const loginForm = await page.$('#login-form-full')
+      if (loginForm) {
+        console.log('[TorrentDownloadService] ❌ Session expired - login form detected')
+        return false
+      }
+
+      // Check for user profile link - if present, we're logged in
+      const profileLink = await page.$('a[href*="profile.php"]')
+      if (profileLink) {
+        console.log('[TorrentDownloadService] ✅ Session valid - user profile link found')
+        return true
+      }
+
+      console.log('[TorrentDownloadService] ⚠️  Cannot determine session status')
+      return false
+    } catch (error) {
+      console.error('[TorrentDownloadService] Session validation error:', error)
+      return false
+    }
+  }
+
+  /**
    * Download a torrent file from RuTracker
    *
    * @param request - Torrent download request
@@ -192,6 +219,17 @@ export class TorrentDownloadService {
 
       // Get session cookies from AuthService
       const sessionCookies = this.authService.getSessionCookies()
+      console.log(`[TorrentDownloadService] Using ${sessionCookies.length} session cookies`)
+
+      // Debug: Log cookie names (not values for security)
+      console.log(`[TorrentDownloadService] Cookie names: ${sessionCookies.map(c => c.name).join(', ')}`)
+
+      if (sessionCookies.length === 0) {
+        return {
+          success: false,
+          error: 'No session cookies found. Please login again.',
+        }
+      }
 
       // Initialize browser
       const browser = await this.initBrowser()
@@ -207,50 +245,150 @@ export class TorrentDownloadService {
       // Set viewport
       await page.setViewport({ width: 1280, height: 800 })
 
-      // Navigate to RuTracker homepage first to set cookies
+      // Navigate to RuTracker homepage first to set domain context
+      console.log('[TorrentDownloadService] Navigating to RuTracker homepage')
       await page.goto('https://rutracker.org/forum/', {
-        waitUntil: 'networkidle2',
+        waitUntil: 'domcontentloaded',
         timeout: 30000,
       })
 
-      // Restore session cookies
-      if (sessionCookies.length > 0) {
-        await page.setCookie(
-          ...sessionCookies.map(cookie => ({
-            name: cookie.name,
-            value: cookie.value,
-            domain: cookie.domain,
-            path: cookie.path,
-            expires: cookie.expires,
-          }))
-        )
-      }
+      // Set session cookies
+      console.log('[TorrentDownloadService] Setting session cookies')
+      await page.setCookie(
+        ...sessionCookies.map(cookie => ({
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain,
+          path: cookie.path,
+          expires: cookie.expires,
+        }))
+      )
+
+      // Verify cookies were set
+      const currentCookies = await page.cookies()
+      console.log(`[TorrentDownloadService] Current cookies after setting: ${currentCookies.length}`)
 
       // Navigate to torrent page
       console.log(`[TorrentDownloadService] Navigating to torrent page: ${request.pageUrl}`)
-      await page.goto(request.pageUrl, {
+      const pageResponse = await page.goto(request.pageUrl, {
         waitUntil: 'networkidle2',
         timeout: 30000,
       })
 
-      // Find and click download button
-      // RuTracker typically has a download link with class 'dl-link' or similar
-      const downloadSelector = 'a.dl-link, a[href*="dl.php"], .magnet-link'
-      await page.waitForSelector(downloadSelector, { timeout: 10000 })
+      if (!pageResponse) {
+        throw new Error('Failed to load torrent page - no response received')
+      }
+
+      console.log(`[TorrentDownloadService] Page loaded with status: ${pageResponse.status()}`)
+
+      // Validate session on torrent page
+      const isSessionValid = await this.validateSession(page)
+      if (!isSessionValid) {
+        return {
+          success: false,
+          error: 'Session expired or invalid. Please login again.',
+        }
+      }
+
+      // Find download link
+      const downloadSelector = 'a.dl-link, a[href*="dl.php"]'
+      console.log(`[TorrentDownloadService] Waiting for download link: ${downloadSelector}`)
+
+      try {
+        await page.waitForSelector(downloadSelector, { timeout: 10000 })
+      } catch (error) {
+        // Get page content for debugging
+        const pageTitle = await page.title()
+        const pageUrl = page.url()
+        console.error(`[TorrentDownloadService] Download link not found. Page title: "${pageTitle}", URL: ${pageUrl}`)
+
+        // Check if we got redirected to login
+        if (pageUrl.includes('login.php')) {
+          return {
+            success: false,
+            error: 'Redirected to login page. Session may have expired. Please login again.',
+          }
+        }
+
+        throw new Error(`Download link not found on page. Expected selector: ${downloadSelector}`)
+      }
 
       // Get the download link
       const downloadLink = await page.$eval(downloadSelector, (el) => (el as HTMLAnchorElement).href)
       console.log(`[TorrentDownloadService] Found download link: ${downloadLink}`)
 
-      // Navigate to download link to trigger download
-      await page.goto(String(downloadLink), { waitUntil: 'networkidle2' })
+      // Set up download monitoring
+      let downloadCompleted = false
+      const downloadPromise = new Promise<void>((resolve) => {
+        client.on('Browser.downloadProgress', (event: { state: string }) => {
+          if (event.state === 'completed') {
+            downloadCompleted = true
+            console.log('[TorrentDownloadService] Download completed')
+            resolve()
+          }
+        })
+      })
 
-      // Wait for download to complete (simple delay - in production, monitor file system)
-      await new Promise(resolve => setTimeout(resolve, 3000))
+      // Navigate to download link to trigger download
+      console.log('[TorrentDownloadService] Navigating to download link')
+      const downloadResponse = await page.goto(String(downloadLink), {
+        waitUntil: 'networkidle2',
+        timeout: 30000,
+      }).catch(async (error) => {
+        // ERR_ABORTED is expected when download starts
+        if (error.message.includes('ERR_ABORTED')) {
+          console.log('[TorrentDownloadService] Navigation aborted (expected for downloads)')
+          return null
+        }
+        throw error
+      })
+
+      if (downloadResponse) {
+        console.log(`[TorrentDownloadService] Download response status: ${downloadResponse.status()}`)
+
+        // Check if we got an error page
+        if (downloadResponse.status() >= 400) {
+          const pageContent = await page.content()
+          console.error(`[TorrentDownloadService] Download failed with status ${downloadResponse.status()}`)
+
+          // Check for specific error messages
+          if (pageContent.includes('login') || pageContent.includes('авторизац')) {
+            return {
+              success: false,
+              error: 'Authentication failed during download. Session may have expired. Please login again.',
+            }
+          }
+
+          return {
+            success: false,
+            error: `Download request failed with HTTP status ${downloadResponse.status()}`,
+          }
+        }
+      }
+
+      // Wait for download to complete (with timeout)
+      await Promise.race([
+        downloadPromise,
+        new Promise(resolve => setTimeout(resolve, 10000)),
+      ])
+
+      if (!downloadCompleted) {
+        console.warn('[TorrentDownloadService] Download completion not detected, but continuing')
+      }
 
       // Generate file path
       const fileName = `${request.torrentId}.torrent`
       const filePath = path.join(this.settings.torrentsFolder, fileName)
+
+      // Verify file was downloaded
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      if (!existsSync(filePath)) {
+        console.error(`[TorrentDownloadService] Torrent file not found at expected path: ${filePath}`)
+        return {
+          success: false,
+          error: 'Download failed - torrent file was not saved. Check if session is valid.',
+        }
+      }
 
       // Create torrent file record
       const torrentFile: TorrentFile = {
@@ -277,12 +415,27 @@ export class TorrentDownloadService {
         torrent: torrentFile,
       }
     } catch (error) {
-      console.error('[TorrentDownloadService] Download failed:', error)
+      console.error('[TorrentDownloadService] Download failed with error:', error)
+      console.error('[TorrentDownloadService] Error name:', error instanceof Error ? error.name : 'Unknown')
+      console.error('[TorrentDownloadService] Error message:', error instanceof Error ? error.message : 'Unknown')
+      console.error('[TorrentDownloadService] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+
       await this.closeBrowser()
+
+      // Provide more specific error messages
+      let errorMessage = error instanceof Error ? error.message : 'Download failed'
+
+      if (errorMessage.includes('ERR_ABORTED')) {
+        errorMessage = 'Download was aborted. This may indicate session expiry or authentication issues. Please try logging in again.'
+      } else if (errorMessage.includes('timeout')) {
+        errorMessage = 'Request timed out. Please check your internet connection and try again.'
+      } else if (errorMessage.includes('net::')) {
+        errorMessage = `Network error: ${errorMessage}. This may indicate session or authentication issues.`
+      }
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Download failed',
+        error: errorMessage,
       }
     }
   }
