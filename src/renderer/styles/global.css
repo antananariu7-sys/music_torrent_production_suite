@@ -18,3 +18,9 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Ensure all buttons have minimum padding */
+button {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
