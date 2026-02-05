@@ -63,6 +63,9 @@ const api = {
   getRecentProjects: (): Promise<ApiResponse<RecentProject[]>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LIST),
 
+  deleteProject: (projectId: string): Promise<ApiResponse<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE, projectId),
+
   // File operations
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.FILE_SELECT_DIRECTORY),

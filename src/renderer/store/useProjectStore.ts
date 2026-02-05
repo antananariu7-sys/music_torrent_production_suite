@@ -20,6 +20,7 @@ interface ProjectState {
   createProject: (name: string, location: string, description?: string) => Promise<void>
   openProject: (filePath: string) => Promise<void>
   closeProject: () => Promise<void>
+  deleteProject: (projectId: string) => Promise<boolean>
 }
 
 export const useProjectStore = create<ProjectState>((set) => ({
@@ -123,6 +124,26 @@ export const useProjectStore = create<ProjectState>((set) => ({
       set({
         error: error instanceof Error ? error.message : 'Failed to close project',
       })
+    }
+  },
+
+  deleteProject: async (projectId: string) => {
+    try {
+      const response = await window.api.deleteProject(projectId)
+      if (response.success) {
+        // Remove from local state
+        const { recentProjects } = useProjectStore.getState()
+        set({ recentProjects: recentProjects.filter((p) => p.projectId !== projectId) })
+        return true
+      } else {
+        set({ error: response.error || 'Failed to delete project' })
+        return false
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to delete project',
+      })
+      return false
     }
   },
 }))

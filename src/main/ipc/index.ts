@@ -213,6 +213,19 @@ export function registerIpcHandlers(): void {
     }
   })
 
+  ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, async (_event, projectId: string) => {
+    try {
+      configService.removeRecentProject(projectId)
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to delete project:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete project',
+      }
+    }
+  })
+
   // File operation handlers
   ipcMain.handle(IPC_CHANNELS.FILE_SELECT_DIRECTORY, async () => {
     try {
