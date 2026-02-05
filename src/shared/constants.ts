@@ -36,6 +36,11 @@ export const IPC_CHANNELS = {
   TORRENT_UPDATE_SETTINGS: 'torrent:update-settings',
   TORRENT_PROGRESS: 'torrent:progress',
 
+  // Torrent collection operations
+  TORRENT_COLLECTION_LOAD: 'torrent:collection:load',
+  TORRENT_COLLECTION_SAVE: 'torrent:collection:save',
+  TORRENT_COLLECTION_CLEAR: 'torrent:collection:clear',
+
   // MusicBrainz operations
   MUSICBRAINZ_FIND_ALBUMS: 'musicbrainz:find-albums',
   MUSICBRAINZ_GET_ALBUM: 'musicbrainz:get-album',

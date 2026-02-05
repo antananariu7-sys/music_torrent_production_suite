@@ -23,6 +23,9 @@ import type {
   TorrentDownloadResponse,
   TorrentFile,
   TorrentSettings,
+  LoadTorrentCollectionRequest,
+  SaveTorrentCollectionRequest,
+  TorrentCollectionResponse,
 } from '@shared/types/torrent.types'
 import type {
   SaveSearchHistoryRequest,
@@ -131,6 +134,18 @@ const api = {
 
     save: (request: SaveSearchHistoryRequest & { projectDirectory: string }): Promise<SearchHistoryResponse> =>
       ipcRenderer.invoke('searchHistory:save', request),
+  },
+
+  // Torrent collection methods
+  torrentCollection: {
+    load: (request: LoadTorrentCollectionRequest): Promise<TorrentCollectionResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_COLLECTION_LOAD, request),
+
+    save: (request: SaveTorrentCollectionRequest): Promise<TorrentCollectionResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_COLLECTION_SAVE, request),
+
+    clear: (projectDirectory: string): Promise<TorrentCollectionResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_COLLECTION_CLEAR, projectDirectory),
   },
 }
 

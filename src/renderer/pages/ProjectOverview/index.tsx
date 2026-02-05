@@ -1,20 +1,22 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { VStack } from '@chakra-ui/react'
+import { VStack, HStack, Box, Icon, Text, Button } from '@chakra-ui/react'
+import { FiSearch, FiDownload, FiMusic } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
+import { useCollectionCount } from '@/store/torrentCollectionStore'
 import type { AppInfo } from '@shared/types/app.types'
 import { PageLayout } from '@/components/common'
 import { projectOverviewStyles } from './ProjectOverview.styles'
 import { ProjectHeader } from './components/ProjectHeader'
 import { StatsGrid } from './components/StatsGrid'
-import { MetadataSection } from './components/MetadataSection'
-import { SongsList } from './components/SongsList'
-import { SearchSection } from './components/SearchSection'
+import { SearchTab, TorrentTab, MixTab } from './components/tabs'
 import {
   calculateTotalDuration,
   calculateTotalSize,
   getUniqueFormats,
 } from './utils'
+
+type TabValue = 'search' | 'torrent' | 'mix'
 
 interface ProjectOverviewProps {
   appInfo: AppInfo | null
@@ -23,6 +25,8 @@ interface ProjectOverviewProps {
 export default function ProjectOverview({ appInfo }: ProjectOverviewProps): JSX.Element | null {
   const navigate = useNavigate()
   const currentProject = useProjectStore((state) => state.currentProject)
+  const collectionCount = useCollectionCount()
+  const [activeTab, setActiveTab] = useState<TabValue>('search')
 
   // Route guard: redirect to launcher if no project loaded
   useEffect(() => {
@@ -40,6 +44,12 @@ export default function ProjectOverview({ appInfo }: ProjectOverviewProps): JSX.
   const totalDuration = calculateTotalDuration(currentProject.songs)
   const totalSize = calculateTotalSize(currentProject.songs)
   const formats = getUniqueFormats(currentProject.songs)
+
+  const tabs: { value: TabValue; label: string; icon: typeof FiSearch; badge?: number }[] = [
+    { value: 'search', label: 'Search', icon: FiSearch },
+    { value: 'torrent', label: 'Torrent', icon: FiDownload, badge: collectionCount },
+    { value: 'mix', label: 'Mix', icon: FiMusic },
+  ]
 
   return (
     <PageLayout appInfo={appInfo} maxW="container.xl" customStyles={projectOverviewStyles}>
@@ -61,18 +71,55 @@ export default function ProjectOverview({ appInfo }: ProjectOverviewProps): JSX.
           updatedAt={currentProject.updatedAt}
         />
 
-        {/* Metadata Section */}
-        <MetadataSection
-          genre={currentProject.mixMetadata?.genre}
-          tags={currentProject.mixMetadata?.tags || []}
-          directory={currentProject.projectDirectory}
-        />
+        {/* Tab Navigation */}
+        <Box>
+          <HStack
+            gap={1}
+            p={1}
+            bg="bg.surface"
+            borderRadius="md"
+            borderWidth="1px"
+            borderColor="border.base"
+            w="fit-content"
+          >
+            {tabs.map((tab) => (
+              <Button
+                key={tab.value}
+                variant={activeTab === tab.value ? 'solid' : 'ghost'}
+                colorPalette={activeTab === tab.value ? 'blue' : 'gray'}
+                size="sm"
+                onClick={() => setActiveTab(tab.value)}
+                px={4}
+              >
+                <HStack gap={2}>
+                  <Icon as={tab.icon} boxSize={4} />
+                  <Text>{tab.label}</Text>
+                  {tab.badge !== undefined && tab.badge > 0 && (
+                    <Text
+                      fontSize="xs"
+                      bg={activeTab === tab.value ? 'white' : 'interactive.base'}
+                      color={activeTab === tab.value ? 'blue.600' : 'white'}
+                      px={1.5}
+                      py={0.5}
+                      borderRadius="full"
+                      minW={5}
+                      textAlign="center"
+                    >
+                      {tab.badge}
+                    </Text>
+                  )}
+                </HStack>
+              </Button>
+            ))}
+          </HStack>
+        </Box>
 
-        {/* Search Section */}
-        <SearchSection />
-
-        {/* Songs List */}
-        <SongsList songs={currentProject.songs} maxDisplay={10} />
+        {/* Tab Content */}
+        <Box>
+          {activeTab === 'search' && <SearchTab />}
+          {activeTab === 'torrent' && <TorrentTab />}
+          {activeTab === 'mix' && <MixTab />}
+        </Box>
       </VStack>
     </PageLayout>
   )

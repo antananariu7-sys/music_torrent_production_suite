@@ -59,3 +59,68 @@ export interface TorrentSettings {
   /** Prefer magnet links over .torrent file downloads */
   preferMagnetLinks?: boolean
 }
+
+/**
+ * A torrent that has been collected from search results but not yet downloaded
+ */
+export interface CollectedTorrent {
+  /** Unique ID for this collection entry */
+  id: string
+  /** RuTracker topic/torrent ID */
+  torrentId: string
+  /** Magnet link for the torrent */
+  magnetLink: string
+  /** Torrent title */
+  title: string
+  /** Original page URL */
+  pageUrl: string
+  /** When this torrent was added to collection (ISO string) */
+  addedAt: string
+  /** Associated metadata */
+  metadata?: {
+    size?: string
+    sizeBytes?: number
+    seeders?: number
+    leechers?: number
+    category?: string
+  }
+  /** Project this torrent belongs to */
+  projectId: string
+}
+
+/**
+ * Torrent collection file format (saved to project directory)
+ */
+export interface TorrentCollectionFile {
+  projectId: string
+  projectName: string
+  torrents: CollectedTorrent[]
+  lastUpdated: string
+}
+
+/**
+ * Request to load torrent collection
+ */
+export interface LoadTorrentCollectionRequest {
+  projectId: string
+  projectDirectory: string
+}
+
+/**
+ * Request to save torrent collection
+ */
+export interface SaveTorrentCollectionRequest {
+  projectId: string
+  projectName: string
+  projectDirectory: string
+  torrents: CollectedTorrent[]
+}
+
+/**
+ * Response for torrent collection operations
+ */
+export interface TorrentCollectionResponse {
+  success: boolean
+  torrents?: CollectedTorrent[]
+  error?: string
+}

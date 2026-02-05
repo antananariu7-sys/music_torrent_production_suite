@@ -39,7 +39,8 @@ export type SearchWorkflowStep =
   | 'selecting-action' // User choosing action (download album/song/discography)
   | 'searching-rutracker' // Searching RuTracker with query
   | 'selecting-torrent' // User selecting torrent from RuTracker results
-  | 'downloading' // Downloading torrent file
+  | 'collecting' // Adding torrent to collection
+  | 'downloading' // Downloading torrent file (kept for direct download option)
   | 'completed' // Workflow completed
   | 'error' // Error occurred
 
@@ -265,8 +266,8 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
   selectTorrent: (torrent: SearchResult) =>
     set({
       selectedTorrent: torrent,
-      step: 'downloading',
-      isLoading: true,
+      step: 'collecting',
+      isLoading: false,
     }),
 
   setDownloadComplete: (filePath: string) =>

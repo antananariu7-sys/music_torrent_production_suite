@@ -9,6 +9,7 @@ import { RuTrackerSearchService } from '../services/RuTrackerSearchService'
 import { TorrentDownloadService } from '../services/TorrentDownloadService'
 import { MusicBrainzService } from '../services/MusicBrainzService'
 import { searchHistoryService } from '../services/SearchHistoryService'
+import { torrentCollectionService } from '../services/TorrentCollectionService'
 import type { CreateProjectRequest, OpenProjectRequest } from '@shared/types/project.types'
 import type {
   SaveSearchHistoryRequest,
@@ -17,7 +18,13 @@ import type {
 } from '@shared/types/searchHistory.types'
 import type { LoginCredentials } from '@shared/types/auth.types'
 import type { SearchRequest } from '@shared/types/search.types'
-import type { TorrentDownloadRequest, TorrentSettings } from '@shared/types/torrent.types'
+import type {
+  TorrentDownloadRequest,
+  TorrentSettings,
+  LoadTorrentCollectionRequest,
+  SaveTorrentCollectionRequest,
+  TorrentCollectionResponse,
+} from '@shared/types/torrent.types'
 import type {
   AlbumSearchRequest,
   SearchClassificationRequest,
@@ -428,6 +435,88 @@ export function registerIpcHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to save search history',
+        }
+      }
+    }
+  )
+
+  // Torrent collection handlers
+  ipcMain.handle(
+    IPC_CHANNELS.TORRENT_COLLECTION_LOAD,
+    async (_event, request: LoadTorrentCollectionRequest): Promise<TorrentCollectionResponse> => {
+      try {
+        const { projectId, projectDirectory } = request
+
+        if (!projectDirectory) {
+          return {
+            success: false,
+            error: 'Project directory not provided',
+          }
+        }
+
+        const torrents = await torrentCollectionService.loadCollection(projectId, projectDirectory)
+
+        return {
+          success: true,
+          torrents,
+        }
+      } catch (error) {
+        console.error('Error loading torrent collection:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to load torrent collection',
+        }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.TORRENT_COLLECTION_SAVE,
+    async (_event, request: SaveTorrentCollectionRequest): Promise<TorrentCollectionResponse> => {
+      try {
+        const { projectId, projectName, projectDirectory, torrents } = request
+
+        if (!projectDirectory) {
+          return {
+            success: false,
+            error: 'Project directory not provided',
+          }
+        }
+
+        await torrentCollectionService.saveCollection(
+          projectId,
+          projectName,
+          projectDirectory,
+          torrents
+        )
+
+        return {
+          success: true,
+        }
+      } catch (error) {
+        console.error('Error saving torrent collection:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to save torrent collection',
+        }
+      }
+    }
+  )
+
+  ipcMain.handle(
+    IPC_CHANNELS.TORRENT_COLLECTION_CLEAR,
+    async (_event, projectDirectory: string): Promise<TorrentCollectionResponse> => {
+      try {
+        await torrentCollectionService.clearCollection(projectDirectory)
+
+        return {
+          success: true,
+        }
+      } catch (error) {
+        console.error('Error clearing torrent collection:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clear torrent collection',
         }
       }
     }

@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react'
 import { Box, Flex, Text, Button, Icon } from '@chakra-ui/react'
-import { FiCheckCircle, FiAlertCircle } from 'react-icons/fi'
+import { FiAlertCircle, FiDownload } from 'react-icons/fi'
 import { useSmartSearchStore } from '@/store/smartSearchStore'
+import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
 import { InlineSearchResults } from './InlineSearchResults'
 import type { SearchClassificationResult, MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
@@ -272,47 +273,37 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
     }
   }
 
-  // Handle torrent selection and download
+  // Handle torrent selection - add to collection instead of downloading
   const handleSelectTorrent = async (torrent: SearchResult) => {
     selectTorrent(torrent)
-    addActivityLog(`Downloading torrent: ${torrent.title}`, 'info')
 
     try {
-      const response = await window.api.torrent.download({
-        torrentId: torrent.id,
-        pageUrl: torrent.url,
-        title: torrent.title,
+      // Add to torrent collection
+      const { addToCollection } = useTorrentCollectionStore.getState()
+      addToCollection(torrent)
+
+      addActivityLog(`Added to collection: ${torrent.title}`, 'success')
+
+      // Add to search history
+      addToHistory({
+        query: originalQuery,
+        status: 'completed',
+        result: `Added to collection: ${torrent.title}`,
       })
 
-      if (response.success && response.torrent) {
-        // Use magnet link or file path
-        const result = response.torrent.magnetLink || response.torrent.filePath || 'Torrent ready'
-        addActivityLog('Torrent downloaded successfully!', 'success')
-        setDownloadComplete(result)
+      // Mark as completed
+      setDownloadComplete('Added to collection')
 
-        // Add to search history
-        addToHistory({
-          query: originalQuery,
-          status: 'completed',
-          result: `Downloaded: ${torrent.title}`,
-        })
-
-        if (onComplete) {
-          onComplete(result)
-        }
-
-        // Auto-close after 2 seconds
-        setTimeout(() => {
-          reset()
-        }, 2000)
-      } else {
-        const errorMsg = response.error || 'Failed to download torrent'
-        addActivityLog(errorMsg, 'error')
-        setError(errorMsg)
-        addToHistory({ query: originalQuery, status: 'error' })
+      if (onComplete) {
+        onComplete('Added to collection')
       }
+
+      // Auto-close after 2 seconds
+      setTimeout(() => {
+        reset()
+      }, 2000)
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to download torrent'
+      const errorMsg = err instanceof Error ? err.message : 'Failed to add to collection'
       addActivityLog(errorMsg, 'error')
       setError(errorMsg)
       addToHistory({ query: originalQuery, status: 'error' })
@@ -351,7 +342,7 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
   const getInlineStep = (): 'classification' | 'albums' | 'torrents' | null => {
     if (step === 'user-choice') return 'classification'
     if (step === 'selecting-album') return 'albums'
-    if (step === 'selecting-torrent' || step === 'downloading') return 'torrents'
+    if (step === 'selecting-torrent' || step === 'collecting' || step === 'downloading') return 'torrents'
     return null
   }
 
@@ -388,13 +379,13 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
           borderColor="green.500/30"
         >
           <Flex align="center" gap={3}>
-            <Icon as={FiCheckCircle} boxSize={5} color="green.500" />
+            <Icon as={FiDownload} boxSize={5} color="green.500" />
             <Box>
               <Text fontWeight="medium" color="green.500">
-                Torrent Downloaded!
+                Added to Collection!
               </Text>
               <Text fontSize="sm" color="text.secondary">
-                Ready to open in your torrent client
+                Go to Torrent tab to manage downloads
               </Text>
             </Box>
           </Flex>
