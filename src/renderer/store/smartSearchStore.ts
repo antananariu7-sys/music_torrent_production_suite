@@ -5,6 +5,10 @@ import type {
 } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
 import type { SearchHistoryEntry as PersistentSearchHistoryEntry } from '@shared/types/searchHistory.types'
+import type {
+  DiscographySearchProgress,
+  PageContentScanResult,
+} from '@shared/types/discography.types'
 
 /**
  * Search History Entry
@@ -76,6 +80,12 @@ interface SmartSearchState {
   // Loading state
   isLoading: boolean
 
+  // Discography scan state
+  isScannningDiscography: boolean
+  discographyScanProgress: DiscographySearchProgress | null
+  discographyScanResults: PageContentScanResult[]
+  scannedTorrentIds: Set<string>
+
   // Search history
   searchHistory: SearchHistoryEntry[]
 
@@ -108,6 +118,12 @@ interface SmartSearchState {
   clearHistory: () => void
   clearActivityLog: () => void
   reset: () => void
+
+  // Discography scan actions
+  startDiscographyScan: () => void
+  setDiscographyScanProgress: (progress: DiscographySearchProgress | null) => void
+  setDiscographyScanResults: (results: PageContentScanResult[]) => void
+  stopDiscographyScan: () => void
 }
 
 const initialState = {
@@ -126,6 +142,11 @@ const initialState = {
   isLoading: false,
   searchHistory: [] as SearchHistoryEntry[],
   activityLog: [] as ActivityLogEntry[],
+  // Discography scan initial state
+  isScannningDiscography: false,
+  discographyScanProgress: null as DiscographySearchProgress | null,
+  discographyScanResults: [] as PageContentScanResult[],
+  scannedTorrentIds: new Set<string>(),
 }
 
 /**
@@ -353,6 +374,37 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
       searchHistory: useSmartSearchStore.getState().searchHistory,
       activityLog: useSmartSearchStore.getState().activityLog,
     }),
+
+  // Discography scan actions
+  startDiscographyScan: () =>
+    set({
+      isScannningDiscography: true,
+      discographyScanProgress: null,
+      discographyScanResults: [],
+    }),
+
+  setDiscographyScanProgress: (progress: DiscographySearchProgress | null) =>
+    set({ discographyScanProgress: progress }),
+
+  setDiscographyScanResults: (results: PageContentScanResult[]) =>
+    set((state) => {
+      // Track which torrents have been scanned
+      const scannedIds = new Set(state.scannedTorrentIds)
+      results.forEach((r) => scannedIds.add(r.searchResult.id))
+
+      return {
+        discographyScanResults: results,
+        scannedTorrentIds: scannedIds,
+        isScannningDiscography: false,
+        discographyScanProgress: null,
+      }
+    }),
+
+  stopDiscographyScan: () =>
+    set({
+      isScannningDiscography: false,
+      discographyScanProgress: null,
+    }),
 }))
 
 // Selector hooks for better performance
@@ -369,3 +421,13 @@ export const useRuTrackerResults = () => useSmartSearchStore((state) => state.ru
 export const useSelectedTorrent = () => useSmartSearchStore((state) => state.selectedTorrent)
 export const useSearchHistory = () => useSmartSearchStore((state) => state.searchHistory)
 export const useActivityLog = () => useSmartSearchStore((state) => state.activityLog)
+
+// Discography scan selectors
+export const useIsScannningDiscography = () =>
+  useSmartSearchStore((state) => state.isScannningDiscography)
+export const useDiscographyScanProgress = () =>
+  useSmartSearchStore((state) => state.discographyScanProgress)
+export const useDiscographyScanResults = () =>
+  useSmartSearchStore((state) => state.discographyScanResults)
+export const useScannedTorrentIds = () =>
+  useSmartSearchStore((state) => state.scannedTorrentIds)

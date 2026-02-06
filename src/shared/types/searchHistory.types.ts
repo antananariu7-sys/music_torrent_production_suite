@@ -20,11 +20,13 @@ export interface SearchHistoryFile {
 export interface SaveSearchHistoryRequest {
   projectId: string
   projectName: string
+  projectDirectory: string
   history: SearchHistoryEntry[]
 }
 
 export interface LoadSearchHistoryRequest {
   projectId: string
+  projectDirectory: string
 }
 
 export interface SearchHistoryResponse {

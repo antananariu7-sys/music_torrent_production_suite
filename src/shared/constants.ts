@@ -49,6 +49,10 @@ export const IPC_CHANNELS = {
   MUSICBRAINZ_CLASSIFY_SEARCH: 'musicbrainz:classify-search',
   MUSICBRAINZ_GET_ARTIST_ALBUMS: 'musicbrainz:get-artist-albums',
 
+  // Discography search operations
+  DISCOGRAPHY_SEARCH: 'discography:search',
+  DISCOGRAPHY_SEARCH_PROGRESS: 'discography:search-progress',
+
   // Settings
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',

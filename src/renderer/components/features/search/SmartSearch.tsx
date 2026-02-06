@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useCallback } from 'react'
 import { Box, Flex, Text, Button, Icon } from '@chakra-ui/react'
 import { FiAlertCircle, FiDownload } from 'react-icons/fi'
 import { useSmartSearchStore } from '@/store/smartSearchStore'
@@ -22,8 +22,12 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
     classificationResults,
     selectedClassification,
     albums,
+    selectedAlbum,
     ruTrackerResults,
     error,
+    isScannningDiscography,
+    discographyScanProgress,
+    discographyScanResults,
     setClassificationResults,
     selectClassification,
     setAlbums,
@@ -36,6 +40,10 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
     addActivityLog,
     addToHistory,
     reset,
+    startDiscographyScan,
+    setDiscographyScanProgress,
+    setDiscographyScanResults,
+    stopDiscographyScan,
   } = useSmartSearchStore()
 
   // Handle classification
@@ -223,6 +231,92 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
     }
   }
 
+  // Handle discography content scan (scan pages for album)
+  const handleStartDiscographyScan = useCallback(async () => {
+    if (!selectedAlbum || ruTrackerResults.length === 0) return
+
+    // Filter to only discography/collection pages
+    const discographyPages = ruTrackerResults.filter((t) => {
+      const titleLower = t.title.toLowerCase()
+      return (
+        titleLower.includes('discography') ||
+        titleLower.includes('дискография') ||
+        titleLower.includes('complete') ||
+        titleLower.includes('collection') ||
+        titleLower.includes('anthology') ||
+        titleLower.includes('box set') ||
+        titleLower.includes('all albums')
+      )
+    })
+
+    if (discographyPages.length === 0) {
+      addActivityLog('No discography pages found to scan', 'warning')
+      return
+    }
+
+    addActivityLog(`Scanning ${discographyPages.length} discography pages for "${selectedAlbum.title}"...`, 'info')
+    startDiscographyScan()
+
+    // Set up progress listener
+    const cleanupProgress = window.api.discography.onProgress((progress) => {
+      setDiscographyScanProgress(progress)
+    })
+
+    try {
+      const response = await window.api.discography.search({
+        searchResults: discographyPages,
+        albumName: selectedAlbum.title,
+        artistName: selectedAlbum.artist,
+        maxConcurrent: 3,
+        pageTimeout: 30000,
+      })
+
+      cleanupProgress()
+
+      if (response.success) {
+        setDiscographyScanResults(response.scanResults)
+        if (response.matchCount > 0) {
+          addActivityLog(
+            `Found "${selectedAlbum.title}" in ${response.matchCount} of ${response.totalScanned} pages`,
+            'success'
+          )
+          toaster.create({
+            title: 'Album found!',
+            description: `"${selectedAlbum.title}" found in ${response.matchCount} discography pages`,
+            type: 'success',
+            duration: 5000,
+          })
+        } else {
+          addActivityLog(
+            `Album not found in ${response.totalScanned} scanned pages`,
+            'warning'
+          )
+        }
+      } else {
+        addActivityLog(response.error || 'Scan failed', 'error')
+        stopDiscographyScan()
+      }
+    } catch (err) {
+      cleanupProgress()
+      const errorMsg = err instanceof Error ? err.message : 'Scan failed'
+      addActivityLog(errorMsg, 'error')
+      stopDiscographyScan()
+    }
+  }, [
+    selectedAlbum,
+    ruTrackerResults,
+    addActivityLog,
+    startDiscographyScan,
+    setDiscographyScanProgress,
+    setDiscographyScanResults,
+    stopDiscographyScan,
+  ])
+
+  const handleStopDiscographyScan = useCallback(() => {
+    addActivityLog('Discography scan stopped by user', 'warning')
+    stopDiscographyScan()
+  }, [addActivityLog, stopDiscographyScan])
+
   // Search RuTracker for album
   const searchRuTracker = async (album: MusicBrainzAlbum) => {
     try {
@@ -350,12 +444,15 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
   useEffect(() => {
     if (error) {
       console.error('SmartSearch error:', error)
-      toaster.create({
-        title: 'Search error',
-        description: error,
-        type: 'error',
-        duration: 5000,
-      })
+      // Defer toast to avoid flushSync warning during React lifecycle
+      setTimeout(() => {
+        toaster.create({
+          title: 'Search error',
+          description: error,
+          type: 'error',
+          duration: 5000,
+        })
+      }, 0)
     }
   }, [error])
 
@@ -387,6 +484,13 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
           onSelectTorrent={handleSelectTorrent}
           isDownloading={step === 'downloading'}
           onCancel={handleCancel}
+          // Discography scan props
+          selectedAlbum={selectedAlbum}
+          isScannningDiscography={isScannningDiscography}
+          discographyScanProgress={discographyScanProgress}
+          discographyScanResults={discographyScanResults}
+          onStartDiscographyScan={selectedAlbum ? handleStartDiscographyScan : undefined}
+          onStopDiscographyScan={handleStopDiscographyScan}
         />
       )}
 

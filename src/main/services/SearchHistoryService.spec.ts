@@ -37,13 +37,15 @@ describe('SearchHistoryService', () => {
           id: 'entry-1',
           query: 'test query 1',
           timestamp: '2024-01-01T10:00:00Z',
-          resultCount: 10,
+          status: 'completed',
+          result: 'Found 10 results',
         },
         {
           id: 'entry-2',
           query: 'test query 2',
           timestamp: '2024-01-02T10:00:00Z',
-          resultCount: 5,
+          status: 'completed',
+          result: 'Found 5 results',
         },
       ]
 
@@ -73,7 +75,7 @@ describe('SearchHistoryService', () => {
           id: 'entry-1',
           query: 'test query',
           timestamp: '2024-01-01T10:00:00Z',
-          resultCount: 10,
+          status: 'completed',
         },
       ]
 
@@ -132,7 +134,7 @@ describe('SearchHistoryService', () => {
           id: 'entry-1',
           query: 'test query',
           timestamp: '2024-01-01T10:00:00Z',
-          resultCount: 10,
+          status: 'completed',
         },
       ]
 
@@ -156,12 +158,12 @@ describe('SearchHistoryService', () => {
 
       // Save initial history
       await service.saveHistory(projectId, projectName, tempDir, [
-        { id: 'entry-1', query: 'old query', timestamp: '2024-01-01T10:00:00Z', resultCount: 5 },
+        { id: 'entry-1', query: 'old query', timestamp: '2024-01-01T10:00:00Z', status: 'completed' },
       ])
 
       // Save new history
       await service.saveHistory(projectId, projectName, tempDir, [
-        { id: 'entry-2', query: 'new query', timestamp: '2024-01-02T10:00:00Z', resultCount: 15 },
+        { id: 'entry-2', query: 'new query', timestamp: '2024-01-02T10:00:00Z', status: 'completed' },
       ])
 
       // Verify file was overwritten
@@ -231,18 +233,15 @@ describe('SearchHistoryService', () => {
           id: 'entry-1',
           query: 'Beatles Abbey Road',
           timestamp: '2024-01-01T10:00:00Z',
-          resultCount: 42,
-          selectedAlbum: {
-            id: 'album-1',
-            title: 'Abbey Road',
-            artist: 'The Beatles',
-          },
+          status: 'completed',
+          result: 'Downloaded Abbey Road',
         },
         {
           id: 'entry-2',
           query: 'Pink Floyd Dark Side',
           timestamp: '2024-01-02T10:00:00Z',
-          resultCount: 28,
+          status: 'completed',
+          result: 'Downloaded Dark Side of the Moon',
         },
       ]
 
@@ -254,7 +253,7 @@ describe('SearchHistoryService', () => {
 
       expect(loadedHistory).toHaveLength(2)
       expect(loadedHistory[0].query).toBe('Beatles Abbey Road')
-      expect(loadedHistory[0].selectedAlbum?.title).toBe('Abbey Road')
+      expect(loadedHistory[0].result).toBe('Downloaded Abbey Road')
       expect(loadedHistory[1].query).toBe('Pink Floyd Dark Side')
     })
   })

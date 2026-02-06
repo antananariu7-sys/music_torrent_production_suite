@@ -66,7 +66,7 @@ export function DeleteProjectDialog({
           <Box p={6}>
             <VStack align="stretch" gap={4}>
               <Text color="text.secondary">
-                Remove <strong>"{projectName}"</strong> from recent projects?
+                Remove <strong>&quot;{projectName}&quot;</strong> from recent projects?
               </Text>
               <Text fontSize="sm" color="text.muted" fontFamily="monospace">
                 {projectDirectory}

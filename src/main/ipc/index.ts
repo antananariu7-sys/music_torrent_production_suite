@@ -8,6 +8,7 @@ import { AuthService } from '../services/AuthService'
 import { RuTrackerSearchService } from '../services/RuTrackerSearchService'
 import { TorrentDownloadService } from '../services/TorrentDownloadService'
 import { MusicBrainzService } from '../services/MusicBrainzService'
+import { DiscographySearchService } from '../services/DiscographySearchService'
 import { searchHistoryService } from '../services/SearchHistoryService'
 import { torrentCollectionService } from '../services/TorrentCollectionService'
 import type { CreateProjectRequest, OpenProjectRequest } from '@shared/types/project.types'
@@ -30,6 +31,7 @@ import type {
   SearchClassificationRequest,
   ArtistAlbumsRequest,
 } from '@shared/types/musicbrainz.types'
+import type { DiscographySearchRequest } from '@shared/types/discography.types'
 
 // Initialize services
 const fileSystemService = new FileSystemService()
@@ -39,6 +41,7 @@ const authService = new AuthService()
 const searchService = new RuTrackerSearchService(authService)
 const torrentService = new TorrentDownloadService(authService)
 const musicBrainzService = new MusicBrainzService()
+const discographySearchService = new DiscographySearchService(authService)
 const projectService = new ProjectService(
   fileSystemService,
   configService,
@@ -411,6 +414,30 @@ export function registerIpcHandlers(): void {
     }
   )
 
+  // Discography search handlers
+  ipcMain.handle(
+    IPC_CHANNELS.DISCOGRAPHY_SEARCH,
+    async (event, request: DiscographySearchRequest) => {
+      try {
+        const response = await discographySearchService.searchInPages(request, (progress) => {
+          // Send progress updates to renderer
+          event.sender.send(IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS, progress)
+        })
+        return response
+      } catch (error) {
+        console.error('Discography search failed:', error)
+        return {
+          success: false,
+          scanResults: [],
+          matchedPages: [],
+          totalScanned: 0,
+          matchCount: 0,
+          error: error instanceof Error ? error.message : 'Discography search failed',
+        }
+      }
+    }
+  )
+
   // Search history handlers
   ipcMain.handle(
     'searchHistory:load',
@@ -566,5 +593,6 @@ export async function cleanupServices(): Promise<void> {
   console.log('Cleaning up services...')
   await authService.cleanup()
   await torrentService.closeBrowser()
+  await discographySearchService.closeBrowser()
   console.log('Services cleaned up successfully')
 }

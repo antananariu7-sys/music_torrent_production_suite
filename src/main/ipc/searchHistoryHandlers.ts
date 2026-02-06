@@ -15,12 +15,7 @@ export function registerSearchHistoryHandlers(): void {
     'searchHistory:load',
     async (_event, request: LoadSearchHistoryRequest): Promise<SearchHistoryResponse> => {
       try {
-        const { projectId } = request
-
-        // Get current project to get directory
-        // Note: You'll need to pass projectDirectory or get it from project store
-        // For now, we'll need to modify the request to include it
-        const projectDirectory = (request as any).projectDirectory
+        const { projectId, projectDirectory } = request
 
         if (!projectDirectory) {
           return {
@@ -50,10 +45,7 @@ export function registerSearchHistoryHandlers(): void {
     'searchHistory:save',
     async (_event, request: SaveSearchHistoryRequest): Promise<SearchHistoryResponse> => {
       try {
-        const { projectId, projectName, history } = request
-
-        // Get project directory from request
-        const projectDirectory = (request as any).projectDirectory
+        const { projectId, projectName, projectDirectory, history } = request
 
         if (!projectDirectory) {
           return {

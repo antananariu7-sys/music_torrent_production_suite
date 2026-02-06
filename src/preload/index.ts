@@ -32,6 +32,11 @@ import type {
   LoadSearchHistoryRequest,
   SearchHistoryResponse,
 } from '@shared/types/searchHistory.types'
+import type {
+  DiscographySearchRequest,
+  DiscographySearchResponse,
+  DiscographySearchProgress,
+} from '@shared/types/discography.types'
 
 // API response wrapper
 interface ApiResponse<T> {
@@ -95,6 +100,23 @@ const api = {
 
     openUrl: (url: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.SEARCH_OPEN_URL, url),
+  },
+
+  // Discography search methods
+  discography: {
+    search: (request: DiscographySearchRequest): Promise<DiscographySearchResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DISCOGRAPHY_SEARCH, request),
+
+    onProgress: (callback: (progress: DiscographySearchProgress) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: DiscographySearchProgress) => {
+        callback(progress)
+      }
+      ipcRenderer.on(IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS, handler)
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS, handler)
+      }
+    },
   },
 
   // MusicBrainz methods
