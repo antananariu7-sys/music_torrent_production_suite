@@ -18,7 +18,7 @@ import type {
   SearchHistoryResponse,
 } from '@shared/types/searchHistory.types'
 import type { LoginCredentials } from '@shared/types/auth.types'
-import type { SearchRequest } from '@shared/types/search.types'
+import type { SearchRequest, ProgressiveSearchRequest } from '@shared/types/search.types'
 import type {
   TorrentDownloadRequest,
   TorrentSettings,
@@ -158,6 +158,26 @@ export function registerIpcHandlers(): void {
       }
     }
   })
+
+  // Progressive search handler (multi-page with progress updates)
+  ipcMain.handle(
+    IPC_CHANNELS.SEARCH_START_PROGRESSIVE,
+    async (event, request: ProgressiveSearchRequest) => {
+      try {
+        const response = await searchService.searchProgressive(request, (progress) => {
+          // Send progress updates to renderer
+          event.sender.send(IPC_CHANNELS.SEARCH_PROGRESS, progress)
+        })
+        return response
+      } catch (error) {
+        console.error('Progressive search failed:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Progressive search failed',
+        }
+      }
+    }
+  )
 
   // Project handlers
   ipcMain.handle(IPC_CHANNELS.PROJECT_CREATE, async (_event, request: CreateProjectRequest) => {

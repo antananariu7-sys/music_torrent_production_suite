@@ -8,6 +8,8 @@ import type {
   FileFormat,
   SearchFilters,
   SearchSort,
+  ProgressiveSearchRequest,
+  SearchProgressEvent,
 } from '@shared/types/search.types'
 import type { AuthService } from './AuthService'
 
@@ -337,6 +339,248 @@ export class RuTrackerSearchService {
         error: error instanceof Error ? error.message : 'Search failed',
         query: request.query,
       }
+    }
+  }
+
+  /**
+   * Search RuTracker with pagination support (progressive results)
+   * Fetches multiple pages in parallel and reports progress
+   *
+   * @param request - Progressive search request
+   * @param onProgress - Callback for progress updates with partial results
+   * @returns Final search response with all results
+   */
+  async searchProgressive(
+    request: ProgressiveSearchRequest,
+    onProgress?: (event: SearchProgressEvent) => void
+  ): Promise<SearchResponse> {
+    const allResults: SearchResult[] = []
+    const maxPages = Math.min(request.maxPages || 10, 10) // Cap at 10 pages
+    const CONCURRENT_PAGES = 3 // Number of pages to fetch in parallel
+
+    try {
+      // Check if user is logged in
+      const authState = this.authService.getAuthStatus()
+      if (!authState.isLoggedIn) {
+        return {
+          success: false,
+          error: 'User is not logged in. Please login first.',
+        }
+      }
+
+      console.log(`[RuTrackerSearchService] Progressive search for: "${request.query}" (max ${maxPages} pages, ${CONCURRENT_PAGES} concurrent)`)
+
+      // Get session cookies from AuthService
+      const sessionCookies = this.authService.getSessionCookies()
+
+      // Initialize browser
+      const browser = await this.initBrowser()
+
+      // Helper to create a page with cookies
+      const createPageWithCookies = async (): Promise<Page> => {
+        const page = await browser.newPage()
+        await page.setViewport({ width: 1280, height: 800 })
+
+        // Navigate to RuTracker to set cookies
+        await page.goto('https://rutracker.org/forum/', {
+          waitUntil: 'networkidle2',
+          timeout: 30000,
+        })
+
+        // Restore session cookies
+        if (sessionCookies.length > 0) {
+          await page.setCookie(...sessionCookies.map(cookie => ({
+            name: cookie.name,
+            value: cookie.value,
+            domain: cookie.domain,
+            path: cookie.path,
+            expires: cookie.expires,
+          })))
+        }
+
+        return page
+      }
+
+      // Helper to fetch and parse a single page
+      const fetchPage = async (page: Page, pageNum: number, encodedQuery: string): Promise<SearchResult[]> => {
+        const startOffset = (pageNum - 1) * 50
+        const pageUrl = pageNum === 1
+          ? `https://rutracker.org/forum/tracker.php?nm=${encodedQuery}`
+          : `https://rutracker.org/forum/tracker.php?nm=${encodedQuery}&start=${startOffset}`
+
+        console.log(`[RuTrackerSearchService] Fetching page ${pageNum}: ${pageUrl}`)
+
+        await page.goto(pageUrl, {
+          waitUntil: 'networkidle2',
+          timeout: 30000,
+        })
+
+        await page.waitForSelector('#tor-tbl', { visible: true, timeout: 10000 })
+        await new Promise(resolve => setTimeout(resolve, 500))
+
+        let results = await this.parseSearchResults(page)
+        results = this.calculateRelevanceScores(results, request.query)
+
+        if (request.filters) {
+          results = this.applyFilters(results, request.filters)
+        }
+
+        return results
+      }
+
+      const encodedQuery = encodeURIComponent(request.query)
+
+      // First, fetch page 1 to get total pages
+      const firstPage = await createPageWithCookies()
+      const firstPageResults = await fetchPage(firstPage, 1, encodedQuery)
+      const totalPagesAvailable = await this.getTotalPages(firstPage)
+      const totalPages = Math.min(totalPagesAvailable, maxPages)
+
+      // Add first page results
+      allResults.push(...firstPageResults)
+
+      console.log(`[RuTrackerSearchService] Page 1: ${firstPageResults.length} results, total pages: ${totalPagesAvailable}, will fetch: ${totalPages}`)
+
+      // Report first page progress
+      onProgress?.({
+        currentPage: 1,
+        totalPages,
+        results: [...allResults],
+        isComplete: totalPages <= 1,
+      })
+
+      // If only 1 page, we're done
+      if (totalPages <= 1) {
+        await firstPage.close()
+        if (this.browserOptions.headless) {
+          await this.closeBrowser()
+        }
+        return {
+          success: true,
+          results: allResults,
+          query: request.query,
+          appliedFilters: request.filters,
+          totalResults: allResults.length,
+        }
+      }
+
+      // Create additional pages for parallel fetching
+      const pages: Page[] = [firstPage]
+      for (let i = 1; i < Math.min(CONCURRENT_PAGES, totalPages - 1); i++) {
+        pages.push(await createPageWithCookies())
+      }
+
+      // Fetch remaining pages in parallel batches
+      const remainingPageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2)
+      let pagesCompleted = 1
+
+      // Process pages in batches using available browser pages
+      while (remainingPageNums.length > 0) {
+        const batch = remainingPageNums.splice(0, pages.length)
+
+        const batchPromises = batch.map((pageNum, idx) => {
+          const browserPage = pages[idx % pages.length]
+          return fetchPage(browserPage, pageNum, encodedQuery)
+            .then(results => ({ pageNum, results, error: null }))
+            .catch(error => ({ pageNum, results: [] as SearchResult[], error }))
+        })
+
+        const batchResults = await Promise.all(batchPromises)
+
+        // Process batch results
+        const existingIds = new Set(allResults.map(r => r.id))
+
+        for (const { pageNum, results, error } of batchResults) {
+          if (error) {
+            console.error(`[RuTrackerSearchService] Page ${pageNum} failed:`, error)
+            continue
+          }
+
+          const uniqueResults = results.filter(r => !existingIds.has(r.id))
+          uniqueResults.forEach(r => existingIds.add(r.id))
+          allResults.push(...uniqueResults)
+
+          console.log(`[RuTrackerSearchService] Page ${pageNum}: ${results.length} results (${uniqueResults.length} new)`)
+          pagesCompleted++
+        }
+
+        // Report progress after each batch
+        onProgress?.({
+          currentPage: pagesCompleted,
+          totalPages,
+          results: [...allResults],
+          isComplete: remainingPageNums.length === 0,
+        })
+      }
+
+      // Close all pages
+      for (const page of pages) {
+        await page.close()
+      }
+
+      // Close browser
+      if (this.browserOptions.headless) {
+        await this.closeBrowser()
+      }
+
+      console.log(`[RuTrackerSearchService] Progressive search complete: ${allResults.length} total results`)
+
+      return {
+        success: true,
+        results: allResults,
+        query: request.query,
+        appliedFilters: request.filters,
+        totalResults: allResults.length,
+      }
+    } catch (error) {
+      console.error('[RuTrackerSearchService] Progressive search failed:', error)
+
+      // Report error in progress
+      onProgress?.({
+        currentPage: 0,
+        totalPages: 0,
+        results: allResults,
+        isComplete: true,
+        error: error instanceof Error ? error.message : 'Search failed',
+      })
+
+      if (this.browserOptions.headless) {
+        await this.closeBrowser()
+      }
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Search failed',
+        query: request.query,
+        results: allResults.length > 0 ? allResults : undefined,
+      }
+    }
+  }
+
+  /**
+   * Get total number of pages from pagination
+   */
+  private async getTotalPages(page: Page): Promise<number> {
+    try {
+      const totalPages = await page.evaluate(() => {
+        // Look for pagination links with class="pg"
+        const pgLinks = document.querySelectorAll('a.pg')
+        let maxPage = 1
+
+        pgLinks.forEach(link => {
+          const text = link.textContent?.trim() || ''
+          const pageNum = parseInt(text, 10)
+          if (!isNaN(pageNum) && pageNum > maxPage) {
+            maxPage = pageNum
+          }
+        })
+
+        return maxPage
+      })
+
+      return totalPages
+    } catch {
+      return 1
     }
   }
 

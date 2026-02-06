@@ -23,6 +23,7 @@ export const IPC_CHANNELS = {
 
   // Search
   SEARCH_START: 'search:start',
+  SEARCH_START_PROGRESSIVE: 'search:start-progressive',
   SEARCH_STOP: 'search:stop',
   SEARCH_PROGRESS: 'search:progress',
   SEARCH_RESULTS: 'search:results',

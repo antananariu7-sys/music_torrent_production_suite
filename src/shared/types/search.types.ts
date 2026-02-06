@@ -38,6 +38,9 @@ export interface SearchRequest {
   maxResults?: number
 }
 
+/** Source of the search result */
+export type SearchSource = 'album' | 'discography'
+
 export interface SearchResult {
   id: string
   title: string
@@ -55,6 +58,8 @@ export interface SearchResult {
   relevanceScore?: number
   /** Detected file format from title/description */
   format?: FileFormat
+  /** Source of the result: direct album search or discography search */
+  searchSource?: SearchSource
 }
 
 export interface SearchResponse {
@@ -75,4 +80,27 @@ export interface SearchState {
   error?: string
   filters?: SearchFilters
   sort?: SearchSort
+}
+
+/** Request for progressive multi-page search */
+export interface ProgressiveSearchRequest {
+  query: string
+  /** Optional search filters */
+  filters?: SearchFilters
+  /** Maximum number of pages to fetch (default: 10, max: 10) */
+  maxPages?: number
+}
+
+/** Progress event for progressive search */
+export interface SearchProgressEvent {
+  /** Current page being processed (1-based) */
+  currentPage: number
+  /** Total pages to process */
+  totalPages: number
+  /** Results found so far */
+  results: SearchResult[]
+  /** Whether search is complete */
+  isComplete: boolean
+  /** Error message if any */
+  error?: string
 }

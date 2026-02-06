@@ -470,6 +470,19 @@ const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isDownload
         </Text>
         <HStack gap={3} flexWrap="wrap">
           {scanResult && <AlbumFoundBadge scanResult={scanResult} />}
+          {torrent.searchSource === 'discography' && !scanResult && (
+            <Text
+              fontSize="xs"
+              color="purple.300"
+              bg="purple.500/20"
+              px={2}
+              py={0.5}
+              borderRadius="sm"
+              fontWeight="medium"
+            >
+              From discography
+            </Text>
+          )}
           {torrent.size && (
             <Text fontSize="xs" color="text.muted">
               {torrent.sizeBytes ? formatSize(torrent.sizeBytes) : torrent.size}

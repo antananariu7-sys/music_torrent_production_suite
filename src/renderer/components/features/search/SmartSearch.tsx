@@ -1,12 +1,19 @@
 import React, { useEffect, useCallback } from 'react'
-import { Box, Flex, Text, Button, Icon } from '@chakra-ui/react'
-import { FiAlertCircle, FiDownload } from 'react-icons/fi'
+import { Box, Flex, Text, Button, Icon, VStack } from '@chakra-ui/react'
+import { FiAlertCircle, FiDownload, FiSearch } from 'react-icons/fi'
+import { keyframes } from '@emotion/react'
+
+// Animated line loader keyframes
+const slideAnimation = keyframes`
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+`
 import { useSmartSearchStore } from '@/store/smartSearchStore'
 import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
 import { toaster } from '@/components/ui/toaster'
 import { InlineSearchResults } from './InlineSearchResults'
 import type { SearchClassificationResult, MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
-import type { SearchResult } from '@shared/types/search.types'
+import type { SearchResult, SearchProgressEvent } from '@shared/types/search.types'
 
 interface SmartSearchProps {
   /** Optional callback when workflow completes */
@@ -317,7 +324,7 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
     stopDiscographyScan()
   }, [addActivityLog, stopDiscographyScan])
 
-  // Search RuTracker for album
+  // Search RuTracker for album (parallel: direct album search + progressive discography search)
   const searchRuTracker = async (album: MusicBrainzAlbum) => {
     try {
       addActivityLog('Creating optimized RuTracker search query...', 'info')
@@ -329,35 +336,110 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
         return
       }
 
-      const query = queryResponse.data
-      console.log('[SmartSearch] RuTracker search query:', query)
+      const albumQuery = queryResponse.data
+      // Use just artist name for broader discography search (not "artist discography")
+      const discographyQuery = album.artist
+
+      console.log('[SmartSearch] RuTracker search queries:', { albumQuery, discographyQuery })
       console.log('[SmartSearch] Album details:', { title: album.title, artist: album.artist, id: album.id })
-      addActivityLog(`Searching RuTracker: "${query}"`, 'info')
+      addActivityLog(`Searching RuTracker: "${albumQuery}" + artist pages...`, 'info')
 
-      const response = await window.api.search.start({
-        query,
-        filters: {
-          format: 'any',
-          minSeeders: 5,
-        },
-        sort: {
-          by: 'relevance',
-          order: 'desc',
-        },
-        maxResults: 20,
+      // Track merged results for progressive updates
+      let albumResults: SearchResult[] = []
+      const seenIds = new Set<string>()
+
+      // Helper to merge and update results
+      const mergeAndUpdateResults = (newDiscographyResults: SearchResult[]) => {
+        const mergedResults: SearchResult[] = []
+
+        // Add album results first (higher priority)
+        for (const result of albumResults) {
+          if (!seenIds.has(result.id)) {
+            seenIds.add(result.id)
+            mergedResults.push(result)
+          }
+        }
+
+        // Add discography results (only if not already present)
+        for (const result of newDiscographyResults) {
+          if (!seenIds.has(result.id)) {
+            seenIds.add(result.id)
+            mergedResults.push({ ...result, searchSource: 'discography' as const })
+          }
+        }
+
+        return mergedResults
+      }
+
+      // Set up progress listener for discography search
+      const cleanupProgress = window.api.search.onProgress((progress: SearchProgressEvent) => {
+        console.log(`[SmartSearch] Discography progress: page ${progress.currentPage}/${progress.totalPages}, ${progress.results.length} results`)
+
+        if (progress.results.length > 0) {
+          const merged = mergeAndUpdateResults(progress.results)
+          if (merged.length > 0) {
+            addActivityLog(`Found ${merged.length} results (page ${progress.currentPage}/${progress.totalPages})...`, 'info')
+            setRuTrackerResults(albumQuery, merged)
+          }
+        }
       })
 
-      console.log('[SmartSearch] RuTracker search response:', {
-        success: response.success,
-        resultCount: response.results?.length || 0,
-        error: response.error
+      // Run album search and progressive discography search in parallel
+      const [albumResponse, discographyResponse] = await Promise.allSettled([
+        // Album search: single page, quick
+        window.api.search.start({
+          query: albumQuery,
+          filters: {
+            format: 'any',
+            minSeeders: 5,
+          },
+          sort: {
+            by: 'relevance',
+            order: 'desc',
+          },
+          maxResults: 50,
+        }),
+        // Discography search: multi-page progressive (up to 10 pages)
+        window.api.search.startProgressive({
+          query: discographyQuery,
+          filters: {
+            minSeeders: 5,
+          },
+          maxPages: 10,
+        }),
+      ])
+
+      // Cleanup progress listener
+      cleanupProgress()
+
+      // Process album search results
+      albumResults = albumResponse.status === 'fulfilled' && albumResponse.value.success
+        ? (albumResponse.value.results || []).map(r => ({ ...r, searchSource: 'album' as const }))
+        : []
+
+      // Process final discography search results
+      const discographyResults = discographyResponse.status === 'fulfilled' && discographyResponse.value.success
+        ? (discographyResponse.value.results || [])
+        : []
+
+      console.log('[SmartSearch] RuTracker search responses:', {
+        albumResults: albumResults.length,
+        discographyResults: discographyResults.length,
       })
 
-      if (response.success && response.results) {
-        addActivityLog(`Found ${response.results.length} torrents on RuTracker`, 'success')
-        setRuTrackerResults(query, response.results)
+      // Final merge
+      const mergedResults = mergeAndUpdateResults(discographyResults)
+
+      if (mergedResults.length > 0) {
+        const albumCount = albumResults.length
+        const discographyCount = mergedResults.filter(r => r.searchSource === 'discography').length
+        const logMsg = discographyCount > 0
+          ? `Found ${albumCount} direct + ${discographyCount} from artist search`
+          : `Found ${albumCount} torrents on RuTracker`
+        addActivityLog(logMsg, 'success')
+        setRuTrackerResults(albumQuery, mergedResults)
       } else {
-        const errorMsg = response.error || 'No torrents found on RuTracker'
+        const errorMsg = 'No torrents found on RuTracker'
         addActivityLog(errorMsg, 'warning')
         setError(errorMsg)
       }
@@ -466,8 +548,56 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
 
   const inlineStep = getInlineStep()
 
+  // Get loading message based on step
+  const getLoadingMessage = (): string | null => {
+    if (step === 'classifying') return 'Classifying search term...'
+    if (step === 'searching-rutracker') return 'Searching RuTracker (up to 10 pages)...'
+    return null
+  }
+
+  const loadingMessage = getLoadingMessage()
+
   return (
     <>
+      {/* Loading Indicator */}
+      {loadingMessage && (
+        <Box
+          p={4}
+          borderRadius="md"
+          bg="bg.surface"
+          borderWidth="1px"
+          borderColor="border.focus"
+        >
+          <VStack align="stretch" gap={3}>
+            <Flex align="center" gap={3}>
+              <Icon as={FiSearch} boxSize={5} color="interactive.base" />
+              <Text fontSize="sm" fontWeight="medium" color="text.primary">
+                {loadingMessage}
+              </Text>
+            </Flex>
+            {/* Animated progress bar */}
+            <Box
+              position="relative"
+              h="4px"
+              bg="bg.elevated"
+              borderRadius="full"
+              overflow="hidden"
+            >
+              <Box
+                position="absolute"
+                top={0}
+                left={0}
+                h="full"
+                w="50%"
+                bg="interactive.base"
+                borderRadius="full"
+                css={{ animation: `${slideAnimation} 1.2s ease-in-out infinite` }}
+              />
+            </Box>
+          </VStack>
+        </Box>
+      )}
+
       {/* Inline Search Results */}
       {inlineStep && (
         <InlineSearchResults

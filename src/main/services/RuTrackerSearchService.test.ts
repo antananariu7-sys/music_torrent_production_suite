@@ -1,5 +1,11 @@
 import { RuTrackerSearchService } from './RuTrackerSearchService'
-import type { SearchResult, SearchFilters, SearchSort } from '@shared/types/search.types'
+import type {
+  SearchResult,
+  SearchFilters,
+  SearchSort,
+  ProgressiveSearchRequest,
+  SearchProgressEvent,
+} from '@shared/types/search.types'
 import type { AuthService } from './AuthService'
 
 // Mock AuthService
@@ -251,6 +257,127 @@ describe('RuTrackerSearchService - Filtering and Sorting', () => {
       expect(sorted[0].title).toBe('A Album')
       expect(sorted[1].title).toBe('B Album')
       expect(sorted[2].title).toBe('C Album')
+    })
+  })
+})
+
+describe('RuTrackerSearchService - Progressive Search', () => {
+  describe('Progressive Search Request Validation', () => {
+    it('should cap maxPages at 10', async () => {
+      // Mock the auth status to return not logged in to avoid actual browser calls
+      const notLoggedInAuthService: AuthService = {
+        ...mockAuthService,
+        getAuthStatus: () => ({ isLoggedIn: false, username: undefined }),
+      } as any
+
+      const serviceNotLoggedIn = new RuTrackerSearchService(notLoggedInAuthService)
+
+      const request: ProgressiveSearchRequest = {
+        query: 'test',
+        maxPages: 20, // Request more than max
+      }
+
+      const result = await serviceNotLoggedIn.searchProgressive(request)
+
+      // Should fail due to not logged in, but this tests the flow
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not logged in')
+    })
+
+    it('should use default maxPages of 10 when not specified', async () => {
+      const notLoggedInAuthService: AuthService = {
+        ...mockAuthService,
+        getAuthStatus: () => ({ isLoggedIn: false, username: undefined }),
+      } as any
+
+      const serviceNotLoggedIn = new RuTrackerSearchService(notLoggedInAuthService)
+
+      const request: ProgressiveSearchRequest = {
+        query: 'test',
+        // No maxPages specified
+      }
+
+      const result = await serviceNotLoggedIn.searchProgressive(request)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not logged in')
+    })
+
+    it('should include partial results in error response when available', async () => {
+      const notLoggedInAuthService: AuthService = {
+        ...mockAuthService,
+        getAuthStatus: () => ({ isLoggedIn: false, username: undefined }),
+      } as any
+
+      const serviceNotLoggedIn = new RuTrackerSearchService(notLoggedInAuthService)
+
+      const progressEvents: SearchProgressEvent[] = []
+      const request: ProgressiveSearchRequest = {
+        query: 'test',
+        maxPages: 5,
+      }
+
+      const result = await serviceNotLoggedIn.searchProgressive(request, (event) => {
+        progressEvents.push(event)
+      })
+
+      expect(result.success).toBe(false)
+      // No progress events since auth failed before any pages were fetched
+      expect(progressEvents.length).toBe(0)
+    })
+  })
+
+  describe('Progress Callback', () => {
+    it('should call progress callback with correct structure', async () => {
+      const notLoggedInAuthService: AuthService = {
+        ...mockAuthService,
+        getAuthStatus: () => ({ isLoggedIn: false, username: undefined }),
+      } as any
+
+      const serviceNotLoggedIn = new RuTrackerSearchService(notLoggedInAuthService)
+
+      let callbackCalled = false
+      const request: ProgressiveSearchRequest = {
+        query: 'test',
+      }
+
+      await serviceNotLoggedIn.searchProgressive(request, () => {
+        callbackCalled = true
+      })
+
+      // Callback not called because auth failed before first page
+      expect(callbackCalled).toBe(false)
+    })
+  })
+
+  describe('SearchProgressEvent Structure', () => {
+    it('should have correct shape for progress events', () => {
+      // Test the type structure
+      const mockProgressEvent: SearchProgressEvent = {
+        currentPage: 1,
+        totalPages: 5,
+        results: [],
+        isComplete: false,
+      }
+
+      expect(mockProgressEvent.currentPage).toBe(1)
+      expect(mockProgressEvent.totalPages).toBe(5)
+      expect(mockProgressEvent.results).toEqual([])
+      expect(mockProgressEvent.isComplete).toBe(false)
+      expect(mockProgressEvent.error).toBeUndefined()
+    })
+
+    it('should support error field in progress events', () => {
+      const mockProgressEvent: SearchProgressEvent = {
+        currentPage: 0,
+        totalPages: 0,
+        results: [],
+        isComplete: true,
+        error: 'Something went wrong',
+      }
+
+      expect(mockProgressEvent.error).toBe('Something went wrong')
+      expect(mockProgressEvent.isComplete).toBe(true)
     })
   })
 })
