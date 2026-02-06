@@ -42,7 +42,7 @@ describe('MusicBrainzService', () => {
         recordings: [
           {
             score: 100,
-            'artist-credit': [{ name: 'The Beatles' }],
+            'artist-credit': [{ artist: { name: 'The Beatles' } }],
             releases: [
               {
                 id: 'album1',

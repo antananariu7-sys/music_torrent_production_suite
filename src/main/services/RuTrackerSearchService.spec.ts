@@ -135,7 +135,8 @@ describe('RuTrackerSearchService', () => {
       query: 'test music',
     }
 
-    const mockSearchResults = [
+    // Raw results from page.evaluate (before processing)
+    const mockRawResults = [
       {
         id: '123456',
         title: 'Test Music Album',
@@ -148,14 +149,23 @@ describe('RuTrackerSearchService', () => {
     ]
 
     beforeEach(() => {
-      (mockPage.evaluate as jest.Mock<any>).mockResolvedValue(mockSearchResults as any)
+      (mockPage.evaluate as jest.Mock<any>).mockResolvedValue(mockRawResults as any)
     })
 
     it('should perform search successfully', async () => {
       const response = await searchService.search(mockSearchRequest)
 
       expect(response.success).toBe(true)
-      expect(response.results).toEqual(mockSearchResults)
+      expect(response.results).toHaveLength(1)
+      // Check core fields from raw results
+      expect(response.results![0].id).toBe('123456')
+      expect(response.results![0].title).toBe('Test Music Album')
+      expect(response.results![0].author).toBe('Test Artist')
+      expect(response.results![0].seeders).toBe(10)
+      expect(response.results![0].leechers).toBe(2)
+      // Check processed fields added by the service
+      expect(response.results![0].sizeBytes).toBe(500 * 1024 * 1024) // 500 MB in bytes
+      expect(response.results![0].relevanceScore).toBeDefined()
       expect(response.query).toBe(mockSearchRequest.query)
     })
 
