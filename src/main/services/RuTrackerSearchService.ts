@@ -310,13 +310,6 @@ export class RuTrackerSearchService {
         console.log(`[RuTrackerSearchService] Limited to ${request.maxResults} results`)
       }
 
-      // Close browser after successful search (in headless mode)
-      if (this.browserOptions.headless) {
-        await this.closeBrowser()
-      } else {
-        console.log('[RuTrackerSearchService] Browser left open for inspection (non-headless mode)')
-      }
-
       return {
         success: true,
         results,
@@ -327,17 +320,15 @@ export class RuTrackerSearchService {
     } catch (error) {
       console.error('[RuTrackerSearchService] Search failed:', error)
 
-      // Leave browser open in non-headless mode for debugging
-      if (!this.browserOptions.headless) {
-        console.log('[RuTrackerSearchService] Browser left open for inspection')
-      } else {
-        await this.closeBrowser()
-      }
-
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Search failed',
         query: request.query,
+      }
+    } finally {
+      // Close the page but keep the browser alive for reuse
+      if (page) {
+        await page.close().catch(() => {})
       }
     }
   }
@@ -451,10 +442,7 @@ export class RuTrackerSearchService {
 
       // If only 1 page, we're done
       if (totalPages <= 1) {
-        await firstPage.close()
-        if (this.browserOptions.headless) {
-          await this.closeBrowser()
-        }
+        await firstPage.close().catch(() => {})
         return {
           success: true,
           results: allResults,
@@ -513,14 +501,9 @@ export class RuTrackerSearchService {
         })
       }
 
-      // Close all pages
+      // Close all pages (keep browser alive for reuse)
       for (const page of pages) {
-        await page.close()
-      }
-
-      // Close browser
-      if (this.browserOptions.headless) {
-        await this.closeBrowser()
+        await page.close().catch(() => {})
       }
 
       console.log(`[RuTrackerSearchService] Progressive search complete: ${allResults.length} total results`)
@@ -543,10 +526,6 @@ export class RuTrackerSearchService {
         isComplete: true,
         error: error instanceof Error ? error.message : 'Search failed',
       })
-
-      if (this.browserOptions.headless) {
-        await this.closeBrowser()
-      }
 
       return {
         success: false,

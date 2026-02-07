@@ -427,17 +427,39 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
         discographyResults: discographyResults.length,
       })
 
-      // Final merge
-      const mergedResults = mergeAndUpdateResults(discographyResults)
+      // Fresh merge (seenIds was drained by progressive updates, so rebuild from scratch)
+      const finalSeenIds = new Set<string>()
+      const finalResults: SearchResult[] = []
 
-      if (mergedResults.length > 0) {
+      // Add album results first (higher priority)
+      for (const r of albumResults) {
+        if (!finalSeenIds.has(r.id)) {
+          finalSeenIds.add(r.id)
+          finalResults.push(r)
+        }
+      }
+
+      // Add discography results
+      for (const r of discographyResults) {
+        if (!finalSeenIds.has(r.id)) {
+          finalSeenIds.add(r.id)
+          finalResults.push({ ...r, searchSource: 'discography' as const })
+        }
+      }
+
+      if (finalResults.length > 0) {
         const albumCount = albumResults.length
-        const discographyCount = mergedResults.filter(r => r.searchSource === 'discography').length
-        const logMsg = discographyCount > 0
-          ? `Found ${albumCount} direct + ${discographyCount} from artist search`
-          : `Found ${albumCount} torrents on RuTracker`
-        addActivityLog(logMsg, 'success')
-        setRuTrackerResults(albumQuery, mergedResults)
+        const discographyCount = finalResults.filter(r => r.searchSource === 'discography').length
+
+        if (albumCount === 0 && discographyCount > 0) {
+          addActivityLog(`No direct results for "${album.title}", showing ${discographyCount} results from artist discography`, 'warning')
+        } else {
+          const logMsg = discographyCount > 0
+            ? `Found ${albumCount} direct + ${discographyCount} from artist search`
+            : `Found ${albumCount} torrents on RuTracker`
+          addActivityLog(logMsg, 'success')
+        }
+        setRuTrackerResults(albumQuery, finalResults)
       } else {
         const errorMsg = 'No torrents found on RuTracker'
         addActivityLog(errorMsg, 'warning')

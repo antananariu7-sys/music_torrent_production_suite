@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Box, VStack, Text, Button, HStack, Icon, Heading, Grid, Image } from '@chakra-ui/react'
-import { FiMusic, FiDisc, FiUser, FiDownload, FiChevronRight } from 'react-icons/fi'
+import { FiMusic, FiDisc, FiUser, FiDownload, FiChevronRight, FiInfo } from 'react-icons/fi'
 import type { SearchClassificationResult, MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
 import type { DiscographySearchProgress, PageContentScanResult } from '@shared/types/discography.types'
@@ -78,6 +78,11 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
     })
     return map
   }, [discographyScanResults])
+
+  // Check if all results are from discography (no direct album results)
+  const isDiscographyOnly = useMemo(() => {
+    return torrents.length > 0 && torrents.every(t => t.searchSource === 'discography')
+  }, [torrents])
 
   // Sort torrents: matched first, then by seeders
   const sortedTorrents = useMemo(() => {
@@ -186,6 +191,24 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
               </Button>
             )}
           </HStack>
+
+          {/* No direct results notice */}
+          {isDiscographyOnly && (
+            <HStack
+              p={3}
+              borderRadius="sm"
+              bg="yellow.500/10"
+              borderWidth="1px"
+              borderColor="yellow.500/30"
+              gap={2}
+            >
+              <Icon as={FiInfo} boxSize={4} color="yellow.500" flexShrink={0} />
+              <Text fontSize="sm" color="yellow.500">
+                No direct results for {selectedAlbum ? `"${selectedAlbum.title}"` : 'this album'}.
+                Showing results from artist discography — your album may be inside these torrents.
+              </Text>
+            </HStack>
+          )}
 
           {/* Discography Scan Panel */}
           {discographyTorrents.length > 0 && onStartDiscographyScan && onStopDiscographyScan && (

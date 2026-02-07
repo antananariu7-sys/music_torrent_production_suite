@@ -15,6 +15,7 @@ const mockPage = {
   setCookie: jest.fn(),
   waitForSelector: jest.fn(),
   evaluate: jest.fn(),
+  close: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
 }
 
 const mockBrowser = {
@@ -246,16 +247,13 @@ describe('RuTrackerSearchService', () => {
       expect(mockPage.evaluate).toHaveBeenCalled()
     })
 
-    it('should close browser after successful search in headless mode', async () => {
+    it('should close page after successful search', async () => {
       await searchService.search(mockSearchRequest)
 
-      expect(mockBrowser.close).toHaveBeenCalled()
+      expect(mockPage.close).toHaveBeenCalled()
     })
 
-    it('should not close browser in non-headless mode', async () => {
-      searchService.setBrowserOptions({ headless: false })
-      jest.clearAllMocks()
-
+    it('should keep browser alive after search for reuse', async () => {
       await searchService.search(mockSearchRequest)
 
       expect(mockBrowser.close).not.toHaveBeenCalled()
@@ -272,12 +270,12 @@ describe('RuTrackerSearchService', () => {
       expect(response.query).toBe(mockSearchRequest.query)
     })
 
-    it('should close browser on error in headless mode', async () => {
+    it('should close page on error', async () => {
       (mockPage.goto as jest.Mock<any>).mockRejectedValue(new Error('Test error') as any)
 
       await searchService.search(mockSearchRequest)
 
-      expect(mockBrowser.close).toHaveBeenCalled()
+      expect(mockPage.close).toHaveBeenCalled()
     })
 
     it('should handle empty search results', async () => {

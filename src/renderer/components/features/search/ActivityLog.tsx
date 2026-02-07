@@ -23,8 +23,11 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
       bg="bg.surface"
       borderWidth="1px"
       borderColor="border.base"
+      h="full"
+      display="flex"
+      flexDirection="column"
     >
-      <HStack justify="space-between" mb={3}>
+      <HStack justify="space-between" mb={3} flexShrink={0}>
         <HStack gap={2}>
           <Icon as={FiActivity} boxSize={4} color="text.muted" />
           <Text fontSize="sm" fontWeight="medium" color="text.secondary">
@@ -53,7 +56,7 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
       </HStack>
 
       {activityLog.length === 0 ? (
-        <Box p={4} textAlign="center">
+        <Box p={4} textAlign="center" flex="1" display="flex" alignItems="center" justifyContent="center" flexDirection="column">
           <Text fontSize="sm" color="text.muted">
             No activity yet
           </Text>
@@ -62,7 +65,7 @@ export const ActivityLog: React.FC<ActivityLogProps> = ({
           </Text>
         </Box>
       ) : (
-        <VStack align="stretch" gap={1.5} maxH="300px" overflowY="auto">
+        <VStack align="stretch" gap={1.5} flex="1" overflowY="auto">
           {displayLog.map((entry) => (
             <ActivityLogItem key={entry.id} entry={entry} />
           ))}
