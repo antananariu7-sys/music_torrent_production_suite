@@ -9,6 +9,8 @@ export interface TorrentDownloadRequest {
   pageUrl: string
   /** Optional torrent title */
   title?: string
+  /** Project directory for saving download history */
+  projectDirectory?: string
 }
 
 export interface TorrentFile {

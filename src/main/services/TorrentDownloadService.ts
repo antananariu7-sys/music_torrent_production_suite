@@ -63,20 +63,31 @@ export class TorrentDownloadService {
   }
 
   /**
+   * Get the history file path for a given project directory (or fallback).
+   */
+  private getHistoryPath(projectDirectory?: string): string {
+    if (projectDirectory) {
+      return path.join(projectDirectory, '.download-history.json')
+    }
+    return this.historyFilePath
+  }
+
+  /**
    * Load download history from disk
    */
-  private loadHistory(): void {
+  private loadHistory(projectDirectory?: string): void {
     if (!this.settings.keepHistory) return
 
+    const filePath = this.getHistoryPath(projectDirectory)
     try {
-      if (existsSync(this.historyFilePath)) {
-        const data = readFileSync(this.historyFilePath, 'utf-8')
+      if (existsSync(filePath)) {
+        const data = readFileSync(filePath, 'utf-8')
         const items = JSON.parse(data) as Array<Omit<TorrentFile, 'downloadedAt'> & { downloadedAt: string }>
         this.downloadHistory = items.map((item) => ({
           ...item,
           downloadedAt: new Date(item.downloadedAt),
         }))
-        console.log(`[TorrentDownloadService] Loaded ${this.downloadHistory.length} items from history`)
+        console.log(`[TorrentDownloadService] Loaded ${this.downloadHistory.length} items from history (${filePath})`)
       }
     } catch (error) {
       console.error('[TorrentDownloadService] Failed to load history:', error)
@@ -87,12 +98,13 @@ export class TorrentDownloadService {
   /**
    * Save download history to disk
    */
-  private saveHistory(): void {
+  private saveHistory(projectDirectory?: string): void {
     if (!this.settings.keepHistory) return
 
+    const filePath = this.getHistoryPath(projectDirectory)
     try {
-      writeFileSync(this.historyFilePath, JSON.stringify(this.downloadHistory, null, 2))
-      console.log('[TorrentDownloadService] Saved download history')
+      writeFileSync(filePath, JSON.stringify(this.downloadHistory, null, 2))
+      console.log(`[TorrentDownloadService] Saved download history (${filePath})`)
     } catch (error) {
       console.error('[TorrentDownloadService] Failed to save history:', error)
     }
@@ -318,10 +330,11 @@ export class TorrentDownloadService {
           downloadedAt: new Date(),
         }
 
-        // Add to history
+        // Add to history (save to project directory if provided)
         if (this.settings.keepHistory) {
+          this.loadHistory(request.projectDirectory)
           this.downloadHistory.push(torrentFile)
-          this.saveHistory()
+          this.saveHistory(request.projectDirectory)
         }
 
         // Close browser
@@ -439,10 +452,11 @@ export class TorrentDownloadService {
         downloadedAt: new Date(),
       }
 
-      // Add to history
+      // Add to history (save to project directory if provided)
       if (this.settings.keepHistory) {
+        this.loadHistory(request.projectDirectory)
         this.downloadHistory.push(torrentFile)
-        this.saveHistory()
+        this.saveHistory(request.projectDirectory)
       }
 
       // Close browser
@@ -481,20 +495,19 @@ export class TorrentDownloadService {
   }
 
   /**
-   * Get download history
-   *
-   * @returns Array of downloaded torrent files
+   * Get download history for a project directory (or fallback global history).
    */
-  getHistory(): TorrentFile[] {
+  getHistory(projectDirectory?: string): TorrentFile[] {
+    this.loadHistory(projectDirectory)
     return this.downloadHistory
   }
 
   /**
-   * Clear download history
+   * Clear download history for a project directory (or fallback global history).
    */
-  clearHistory(): void {
+  clearHistory(projectDirectory?: string): void {
     this.downloadHistory = []
-    this.saveHistory()
+    this.saveHistory(projectDirectory)
     console.log('[TorrentDownloadService] Download history cleared')
   }
 

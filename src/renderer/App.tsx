@@ -8,6 +8,8 @@ import Settings from '@/pages/Settings'
 import { Toaster } from '@/components/ui/toaster'
 import { useThemeStore } from '@/store/useThemeStore'
 import { useAuthStore } from '@/store/useAuthStore'
+import { useDownloadQueueListener } from '@/hooks/useDownloadQueueListener'
+import { useDownloadQueueStore } from '@/store/downloadQueueStore'
 
 function AppContent() {
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
@@ -15,10 +17,19 @@ function AppContent() {
   const mode = useThemeStore((state) => state.mode)
   const setAuthState = useAuthStore((state) => state.setAuthState)
 
+  // Subscribe to WebTorrent progress/status events globally
+  useDownloadQueueListener()
+  const loadAllQueue = useDownloadQueueStore((s) => s.loadAll)
+
   useEffect(() => {
     // Apply theme to document root
     document.documentElement.setAttribute('data-theme', mode)
   }, [mode])
+
+  // Load download queue on app start
+  useEffect(() => {
+    loadAllQueue()
+  }, [loadAllQueue])
 
   useEffect(() => {
     // Initialize app: get app info and sync auth state

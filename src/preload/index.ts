@@ -88,6 +88,9 @@ const api = {
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.FILE_SELECT_DIRECTORY),
 
+  openPath: (filePath: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_PATH, filePath),
+
   // Authentication methods
   auth: {
     login: (credentials: LoginCredentials): Promise<LoginResult> =>
@@ -166,11 +169,11 @@ const api = {
     download: (request: TorrentDownloadRequest): Promise<TorrentDownloadResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_DOWNLOAD, request),
 
-    getHistory: (): Promise<ApiResponse<TorrentFile[]>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_GET_HISTORY),
+    getHistory: (projectDirectory?: string): Promise<ApiResponse<TorrentFile[]>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_GET_HISTORY, projectDirectory),
 
-    clearHistory: (): Promise<ApiResponse<void>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_CLEAR_HISTORY),
+    clearHistory: (projectDirectory?: string): Promise<ApiResponse<void>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_CLEAR_HISTORY, projectDirectory),
 
     getSettings: (): Promise<ApiResponse<TorrentSettings>> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_GET_SETTINGS),
@@ -242,6 +245,12 @@ const api = {
         ipcRenderer.removeListener(IPC_CHANNELS.WEBTORRENT_STATUS_CHANGE, handler)
       }
     },
+
+    getDownloadPath: (projectId: string): Promise<ApiResponse<string>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_GET_DOWNLOAD_PATH, projectId),
+
+    setDownloadPath: (projectId: string, downloadPath: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_SET_DOWNLOAD_PATH, projectId, downloadPath),
   },
 }
 

@@ -25,9 +25,9 @@ export function registerTorrentHandlers(torrentService: TorrentDownloadService):
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.TORRENT_GET_HISTORY, async () => {
+  ipcMain.handle(IPC_CHANNELS.TORRENT_GET_HISTORY, async (_event, projectDirectory?: string) => {
     try {
-      const history = torrentService.getHistory()
+      const history = torrentService.getHistory(projectDirectory)
       return { success: true, data: history }
     } catch (error) {
       console.error('Failed to get torrent history:', error)
@@ -38,9 +38,9 @@ export function registerTorrentHandlers(torrentService: TorrentDownloadService):
     }
   })
 
-  ipcMain.handle(IPC_CHANNELS.TORRENT_CLEAR_HISTORY, async () => {
+  ipcMain.handle(IPC_CHANNELS.TORRENT_CLEAR_HISTORY, async (_event, projectDirectory?: string) => {
     try {
-      torrentService.clearHistory()
+      torrentService.clearHistory(projectDirectory)
       return { success: true }
     } catch (error) {
       console.error('Failed to clear torrent history:', error)

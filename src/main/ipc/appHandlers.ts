@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { ipcMain, shell } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { ConfigService } from '../services/ConfigService'
 
@@ -31,5 +31,18 @@ export function registerAppHandlers(configService: ConfigService): void {
     const merged = { ...defaultSettings, ...current, ...settings }
     configService.setSetting('appSettings', merged)
     return merged
+  })
+
+  // Open a folder/file path in the system file manager
+  ipcMain.handle(IPC_CHANNELS.FILE_OPEN_PATH, async (_event, filePath: string) => {
+    try {
+      const result = await shell.openPath(filePath)
+      if (result) {
+        return { success: false, error: result }
+      }
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Failed to open path' }
+    }
   })
 }

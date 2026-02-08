@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Box, HStack, VStack, Text, Button, Icon, IconButton } from '@chakra-ui/react'
 import { FiDownload, FiCopy, FiTrash2, FiCheck, FiExternalLink } from 'react-icons/fi'
 import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
+import { useProjectStore } from '@/store/useProjectStore'
 import { toaster } from '@/components/ui/toaster'
 import type { CollectedTorrent } from '@shared/types/torrent.types'
 
@@ -11,6 +12,7 @@ interface CollectedTorrentItemProps {
 
 export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JSX.Element {
   const removeFromCollection = useTorrentCollectionStore((state) => state.removeFromCollection)
+  const currentProject = useProjectStore((state) => state.currentProject)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
@@ -80,6 +82,7 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
           torrentId: torrent.torrentId,
           pageUrl: torrent.pageUrl,
           title: torrent.title,
+          projectDirectory: currentProject?.projectDirectory,
         })
 
         if (!extractResponse.success || !extractResponse.torrent?.magnetLink) {
@@ -88,13 +91,24 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
         magnetUri = extractResponse.torrent.magnetLink
       }
 
-      // Get download path from torrent settings
-      const settingsResponse = await window.api.torrent.getSettings()
-      const downloadPath = settingsResponse.data?.torrentsFolder || ''
+      // Get saved per-project download path, fallback to project directory
+      const savedPathResponse = await window.api.webtorrent.getDownloadPath(torrent.projectId)
+      const defaultPath = savedPathResponse.data || currentProject?.projectDirectory || ''
 
-      if (!downloadPath) {
-        throw new Error('Download directory not set. Please configure it in Settings.')
+      // Prompt user to select download folder
+      const selectedPath = await window.api.selectDirectory()
+      if (!selectedPath) {
+        // User cancelled the dialog
+        return
       }
+
+      const downloadPath = selectedPath || defaultPath
+      if (!downloadPath) {
+        throw new Error('Download directory not set. Please select a folder.')
+      }
+
+      // Save the chosen path for this project
+      await window.api.webtorrent.setDownloadPath(torrent.projectId, downloadPath)
 
       // Add to WebTorrent download queue
       const result = await window.api.webtorrent.add({

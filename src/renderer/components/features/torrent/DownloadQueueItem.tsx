@@ -1,5 +1,5 @@
 import { Box, HStack, VStack, Text, IconButton, Icon, Badge } from '@chakra-ui/react'
-import { FiPause, FiPlay, FiX } from 'react-icons/fi'
+import { FiPause, FiPlay, FiX, FiFolder } from 'react-icons/fi'
 import { useDownloadQueueStore } from '@/store/downloadQueueStore'
 import type { QueuedTorrent } from '@shared/types/torrent.types'
 
@@ -48,6 +48,12 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   const canPause = torrent.status === 'downloading' || torrent.status === 'seeding'
   const canResume = torrent.status === 'paused' || torrent.status === 'error'
   const showProgress = torrent.status === 'downloading' || torrent.status === 'seeding' || torrent.status === 'paused'
+
+  const handleOpenFolder = async () => {
+    if (torrent.downloadPath) {
+      await window.api.openPath(torrent.downloadPath)
+    }
+  }
 
   return (
     <Box
@@ -99,6 +105,16 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
           </VStack>
 
           <HStack gap={1} flexShrink={0}>
+            <IconButton
+              aria-label="Open folder"
+              size="sm"
+              variant="ghost"
+              onClick={handleOpenFolder}
+              title="Open download folder"
+              disabled={!torrent.downloadPath}
+            >
+              <Icon as={FiFolder} boxSize={4} />
+            </IconButton>
             {canPause && (
               <IconButton
                 aria-label="Pause"
@@ -138,15 +154,26 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
         {/* Progress bar */}
         {showProgress && (
           <Box>
-            <Box h="6px" bg="bg.surface" borderRadius="full" overflow="hidden">
-              <Box
-                h="full"
-                bg={torrent.status === 'paused' ? 'yellow.500' : 'interactive.base'}
-                borderRadius="full"
-                transition="width 0.5s ease"
-                style={{ width: `${torrent.progress}%` }}
+            <div
+              style={{
+                height: 8,
+                background: 'var(--chakra-colors-bg-surface, #1a1a2e)',
+                borderRadius: 9999,
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  height: '100%',
+                  width: `${torrent.progress}%`,
+                  background: torrent.status === 'paused'
+                    ? 'var(--chakra-colors-yellow-500, #ecc94b)'
+                    : 'var(--chakra-colors-blue-500, #3b82f6)',
+                  borderRadius: 9999,
+                  transition: 'width 0.5s ease',
+                }}
               />
-            </Box>
+            </div>
             <Text fontSize="xs" color="text.muted" mt={1}>
               {torrent.progress}%
               {torrent.status === 'downloading' && torrent.downloadSpeed > 0 && torrent.totalSize > 0 && (

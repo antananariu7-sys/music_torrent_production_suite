@@ -6,14 +6,17 @@ import { IPC_CHANNELS } from '@shared/constants'
 import type {
   QueuedTorrent,
   QueuedTorrentProgress,
-  QueuedTorrentStatus,
   TorrentContentFile,
   AddTorrentRequest,
   AddTorrentResponse,
   WebTorrentSettings,
 } from '@shared/types/torrent.types'
+import type { ConfigService } from './ConfigService'
 import type WebTorrentClient from 'webtorrent'
 import type { Torrent } from 'webtorrent'
+
+const SETTINGS_KEY = 'webtorrentSettings'
+const DOWNLOAD_PATH_PREFIX = 'webtorrent-download-path:'
 
 /**
  * WebTorrentService
@@ -28,6 +31,8 @@ import type { Torrent } from 'webtorrent'
 export class WebTorrentService {
   private client: WebTorrentClient | null = null
   private queue: Map<string, QueuedTorrent> = new Map()
+  /** Maps queue entry ID -> active WebTorrent Torrent instance (for reliable progress lookup) */
+  private activeTorrents: Map<string, Torrent> = new Map()
   private progressInterval: ReturnType<typeof setInterval> | null = null
   private settings: WebTorrentSettings = {
     maxConcurrentDownloads: 3,
@@ -36,9 +41,12 @@ export class WebTorrentService {
     maxDownloadSpeed: 0,
   }
   private persistPath: string
+  private configService: ConfigService
 
-  constructor() {
+  constructor(configService: ConfigService) {
+    this.configService = configService
     this.persistPath = path.join(app.getPath('userData'), 'webtorrent-queue.json')
+    this.loadSettings()
     this.loadPersistedQueue()
   }
 
@@ -132,7 +140,7 @@ export class WebTorrentService {
     }
 
     // Destroy the WebTorrent instance for this torrent
-    this.destroyClientTorrent(qt)
+    this.destroyClientTorrent(qt.id)
 
     qt.status = 'paused'
     qt.downloadSpeed = 0
@@ -176,7 +184,7 @@ export class WebTorrentService {
     if (!qt) return { success: false, error: 'Torrent not found' }
 
     // Destroy WebTorrent instance if active
-    this.destroyClientTorrent(qt)
+    this.destroyClientTorrent(id)
 
     this.queue.delete(id)
     this.persistQueue()
@@ -233,6 +241,11 @@ export class WebTorrentService {
         path: qt.downloadPath,
       })
 
+      // Store torrent instance for reliable progress lookup
+      this.activeTorrents.set(qt.id, torrent)
+
+      // infoHash is available immediately from the magnet URI
+      qt.infoHash = torrent.infoHash
       qt.status = 'downloading'
       qt.startedAt = new Date().toISOString()
       this.persistQueue()
@@ -259,6 +272,7 @@ export class WebTorrentService {
         console.log(`[WebTorrentService] Download complete: ${qt.name}`)
 
         if (!this.settings.seedAfterDownload) {
+          this.activeTorrents.delete(qt.id)
           torrent.destroy()
           this.processQueue() // Start next in queue
         }
@@ -270,6 +284,7 @@ export class WebTorrentService {
         qt.error = err.message
         qt.downloadSpeed = 0
         qt.uploadSpeed = 0
+        this.activeTorrents.delete(qt.id)
         this.persistQueue()
         this.broadcastStatusChange(qt)
         this.processQueue()
@@ -284,14 +299,13 @@ export class WebTorrentService {
   }
 
   /**
-   * Destroy a WebTorrent instance for a specific queue entry.
+   * Destroy a WebTorrent instance for a specific queue entry by ID.
    */
-  private destroyClientTorrent(qt: QueuedTorrent): void {
-    if (!this.client || !qt.infoHash) return
-
-    const torrent = this.client.torrents.find(t => t.infoHash === qt.infoHash)
+  private destroyClientTorrent(id: string): void {
+    const torrent = this.activeTorrents.get(id)
     if (torrent) {
       torrent.destroy()
+      this.activeTorrents.delete(id)
     }
   }
 
@@ -320,14 +334,13 @@ export class WebTorrentService {
     if (this.progressInterval) return
 
     this.progressInterval = setInterval(() => {
-      if (!this.client) return
-
       const updates: QueuedTorrentProgress[] = []
 
       for (const [, qt] of this.queue) {
         if (qt.status !== 'downloading' && qt.status !== 'seeding') continue
 
-        const torrent = this.client.torrents.find(t => t.infoHash === qt.infoHash)
+        // Use the activeTorrents map for reliable lookup (no infoHash matching needed)
+        const torrent = this.activeTorrents.get(qt.id)
         if (!torrent) continue
 
         // Update queue entry with live data
@@ -439,8 +452,19 @@ export class WebTorrentService {
   }
 
   // ====================================
-  // SETTINGS
+  // SETTINGS (persisted via ConfigService)
   // ====================================
+
+  /**
+   * Load settings from ConfigService on startup.
+   */
+  private loadSettings(): void {
+    const saved = this.configService.getSetting<WebTorrentSettings>(SETTINGS_KEY)
+    if (saved) {
+      this.settings = { ...this.settings, ...saved }
+      console.log('[WebTorrentService] Loaded persisted settings:', this.settings)
+    }
+  }
 
   /**
    * Get current WebTorrent settings.
@@ -450,10 +474,13 @@ export class WebTorrentService {
   }
 
   /**
-   * Update WebTorrent settings.
+   * Update WebTorrent settings and persist them.
    */
   updateSettings(newSettings: Partial<WebTorrentSettings>): WebTorrentSettings {
     this.settings = { ...this.settings, ...newSettings }
+
+    // Persist to disk
+    this.configService.setSetting(SETTINGS_KEY, this.settings)
 
     // Apply speed limits to running client
     if (this.client) {
@@ -463,6 +490,24 @@ export class WebTorrentService {
 
     console.log('[WebTorrentService] Settings updated:', this.settings)
     return { ...this.settings }
+  }
+
+  // ====================================
+  // PER-PROJECT DOWNLOAD PATH
+  // ====================================
+
+  /**
+   * Get the saved download path for a project.
+   */
+  getProjectDownloadPath(projectId: string): string {
+    return this.configService.getSetting<string>(`${DOWNLOAD_PATH_PREFIX}${projectId}`) || ''
+  }
+
+  /**
+   * Save the download path for a project.
+   */
+  setProjectDownloadPath(projectId: string, downloadPath: string): void {
+    this.configService.setSetting(`${DOWNLOAD_PATH_PREFIX}${projectId}`, downloadPath)
   }
 
   // ====================================
@@ -477,6 +522,8 @@ export class WebTorrentService {
       clearInterval(this.progressInterval)
       this.progressInterval = null
     }
+
+    this.activeTorrents.clear()
 
     if (this.client) {
       return new Promise<void>((resolve) => {

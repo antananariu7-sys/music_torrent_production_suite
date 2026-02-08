@@ -97,4 +97,23 @@ export function registerWebtorrentHandlers(webtorrentService: WebTorrentService)
       }
     }
   })
+
+  // Get per-project download path
+  ipcMain.handle(IPC_CHANNELS.WEBTORRENT_GET_DOWNLOAD_PATH, async (_event, projectId: string) => {
+    try {
+      return { success: true, data: webtorrentService.getProjectDownloadPath(projectId) }
+    } catch (error) {
+      return { success: false, error: 'Failed to get download path' }
+    }
+  })
+
+  // Set per-project download path
+  ipcMain.handle(IPC_CHANNELS.WEBTORRENT_SET_DOWNLOAD_PATH, async (_event, projectId: string, downloadPath: string) => {
+    try {
+      webtorrentService.setProjectDownloadPath(projectId, downloadPath)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: 'Failed to save download path' }
+    }
+  })
 }

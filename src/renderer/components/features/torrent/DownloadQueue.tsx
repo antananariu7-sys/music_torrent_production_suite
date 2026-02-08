@@ -1,25 +1,14 @@
-import { useEffect } from 'react'
 import { Box, VStack, HStack, Text, Heading, Icon } from '@chakra-ui/react'
 import { FiActivity } from 'react-icons/fi'
 import {
   useDownloadQueueStore,
   useQueuedTorrents,
 } from '@/store/downloadQueueStore'
-import { useDownloadQueueListener } from '@/hooks/useDownloadQueueListener'
 import { DownloadQueueItem } from './DownloadQueueItem'
 
 export function DownloadQueue(): JSX.Element {
-  const loadAll = useDownloadQueueStore((s) => s.loadAll)
   const isLoading = useDownloadQueueStore((s) => s.isLoading)
   const torrents = useQueuedTorrents()
-
-  // Subscribe to progress and status change events
-  useDownloadQueueListener()
-
-  // Load queue on mount
-  useEffect(() => {
-    loadAll()
-  }, [loadAll])
 
   const activeCount = torrents.filter(
     t => t.status === 'downloading' || t.status === 'queued'

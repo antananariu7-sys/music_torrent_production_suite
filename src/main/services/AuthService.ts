@@ -192,7 +192,7 @@ export class AuthService {
       page = await browser.newPage()
 
       // Set session cookies
-      await page.goto('https://rutracker.org/forum/', { waitUntil: 'domcontentloaded' })
+      await page.goto('https://rutracker.org/forum/', { waitUntil: 'domcontentloaded', timeout: 30000 })
       await page.setCookie(...this.sessionCookies.map(cookie => ({
         name: cookie.name,
         value: cookie.value,
@@ -204,7 +204,7 @@ export class AuthService {
       // Navigate to a page that requires authentication
       await page.goto('https://rutracker.org/forum/index.php', {
         waitUntil: 'domcontentloaded',
-        timeout: 15000,
+        timeout: 30000,
       })
 
       // Check if we're still logged in by looking for login form

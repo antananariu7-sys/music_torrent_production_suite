@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Box, VStack, HStack, Text, Button, Icon, Heading } from '@chakra-ui/react'
 import { FiClock, FiTrash2, FiFolder, FiExternalLink } from 'react-icons/fi'
+import { useProjectStore } from '@/store/useProjectStore'
 import type { TorrentFile } from '@shared/types/torrent.types'
 
 export function DownloadManager(): JSX.Element {
   const [history, setHistory] = useState<TorrentFile[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const currentProject = useProjectStore((state) => state.currentProject)
 
   const loadHistory = async () => {
     try {
-      const response = await window.api.torrent.getHistory()
+      const response = await window.api.torrent.getHistory(currentProject?.projectDirectory)
       if (response.success && response.data) {
         setHistory(response.data)
       }
@@ -22,7 +24,7 @@ export function DownloadManager(): JSX.Element {
 
   const clearHistory = async () => {
     try {
-      await window.api.torrent.clearHistory()
+      await window.api.torrent.clearHistory(currentProject?.projectDirectory)
       setHistory([])
     } catch (err) {
       console.error('Failed to clear history:', err)

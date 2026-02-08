@@ -69,8 +69,13 @@ export const IPC_CHANNELS = {
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
 
+  // WebTorrent per-project download path
+  WEBTORRENT_GET_DOWNLOAD_PATH: 'webtorrent:get-download-path',
+  WEBTORRENT_SET_DOWNLOAD_PATH: 'webtorrent:set-download-path',
+
   // File operations
   FILE_SELECT_DIRECTORY: 'file:select-directory',
+  FILE_OPEN_PATH: 'file:open-path',
 } as const
 
 // Application settings
