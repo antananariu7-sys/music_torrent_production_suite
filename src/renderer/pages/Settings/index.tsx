@@ -435,7 +435,7 @@ function Settings({ appInfo }: SettingsProps) {
                 </VStack>
                 <Switch.Root
                   checked={autoScanDiscography}
-                  onCheckedChange={(e) => setAutoScanDiscography(e.checked)}
+                  onCheckedChange={(e: { checked: boolean }) => setAutoScanDiscography(e.checked)}
                   colorPalette="brand"
                   size="lg"
                   data-testid="auto-scan-switch"

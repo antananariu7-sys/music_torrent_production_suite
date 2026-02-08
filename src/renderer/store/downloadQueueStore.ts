@@ -109,8 +109,9 @@ export const useDownloadQueueStore = create<DownloadQueueState>((set) => ({
     const response = await window.api.webtorrent.remove(id)
     if (response.success) {
       set((state) => {
-        const { [id]: _, ...rest } = state.torrents
-        return { torrents: rest }
+        const torrents = { ...state.torrents }
+        delete torrents[id]
+        return { torrents }
       })
     }
   },

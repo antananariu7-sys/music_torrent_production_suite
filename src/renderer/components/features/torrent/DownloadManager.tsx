@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Box, VStack, HStack, Text, Button, Icon, Heading } from '@chakra-ui/react'
 import { FiClock, FiTrash2, FiFolder, FiExternalLink } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
@@ -9,7 +9,7 @@ export function DownloadManager(): JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const currentProject = useProjectStore((state) => state.currentProject)
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     try {
       const response = await window.api.torrent.getHistory(currentProject?.projectDirectory)
       if (response.success && response.data) {
@@ -20,7 +20,7 @@ export function DownloadManager(): JSX.Element {
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [currentProject?.projectDirectory])
 
   const clearHistory = async () => {
     try {
@@ -33,7 +33,7 @@ export function DownloadManager(): JSX.Element {
 
   useEffect(() => {
     loadHistory()
-  }, [])
+  }, [loadHistory])
 
   const formatDate = (date: Date | string): string => {
     const d = typeof date === 'string' ? new Date(date) : date
