@@ -4,6 +4,7 @@ import {
   DownloadQueue,
   DownloadManager,
   TorrentSettings,
+  TorrentActivityLog,
 } from '@/components/features/torrent'
 
 export function TorrentTab(): JSX.Element {
@@ -14,6 +15,9 @@ export function TorrentTab(): JSX.Element {
 
       {/* Active Download Queue */}
       <DownloadQueue />
+
+      {/* Activity Log */}
+      <TorrentActivityLog />
 
       {/* Download History (legacy .torrent file extractions) */}
       <DownloadManager />

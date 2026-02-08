@@ -1,5 +1,8 @@
 import { ipcMain } from 'electron'
+import path from 'path'
+import { existsSync } from 'fs'
 import { IPC_CHANNELS } from '@shared/constants'
+import { CheckLocalTorrentRequestSchema } from '@shared/schemas/torrent.schema'
 import type { TorrentDownloadService } from '../services/TorrentDownloadService'
 import { torrentCollectionService } from '../services/TorrentCollectionService'
 import type {
@@ -8,6 +11,7 @@ import type {
   LoadTorrentCollectionRequest,
   SaveTorrentCollectionRequest,
   TorrentCollectionResponse,
+  CheckLocalTorrentResponse,
 } from '@shared/types/torrent.types'
 
 export function registerTorrentHandlers(torrentService: TorrentDownloadService): void {
@@ -76,6 +80,23 @@ export function registerTorrentHandlers(torrentService: TorrentDownloadService):
       }
     }
   })
+
+  // Check for local .torrent file in project directory
+  ipcMain.handle(
+    IPC_CHANNELS.TORRENT_CHECK_LOCAL_FILE,
+    async (_event, request: unknown): Promise<CheckLocalTorrentResponse> => {
+      try {
+        const { torrentId, projectDirectory } = CheckLocalTorrentRequestSchema.parse(request)
+        const filePath = path.join(projectDirectory, 'torrents', `${torrentId}.torrent`)
+        const found = existsSync(filePath)
+        console.log(`[torrentHandlers] Check local .torrent: ${filePath} => ${found ? 'FOUND' : 'NOT FOUND'}`)
+        return { found, filePath: found ? filePath : undefined }
+      } catch (error) {
+        console.error('Failed to check local torrent file:', error)
+        return { found: false }
+      }
+    }
+  )
 
   // Torrent collection
   ipcMain.handle(

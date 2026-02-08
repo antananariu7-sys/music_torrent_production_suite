@@ -3,6 +3,7 @@ import { Box, HStack, VStack, Text, Button, Icon, IconButton } from '@chakra-ui/
 import { FiDownload, FiCopy, FiTrash2, FiCheck, FiExternalLink } from 'react-icons/fi'
 import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
 import { useProjectStore } from '@/store/useProjectStore'
+import { useTorrentActivityStore } from '@/store/torrentActivityStore'
 import { toaster } from '@/components/ui/toaster'
 import type { CollectedTorrent } from '@shared/types/torrent.types'
 
@@ -13,6 +14,7 @@ interface CollectedTorrentItemProps {
 export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JSX.Element {
   const removeFromCollection = useTorrentCollectionStore((state) => state.removeFromCollection)
   const currentProject = useProjectStore((state) => state.currentProject)
+  const addLog = useTorrentActivityStore((state) => state.addLog)
   const [isDownloading, setIsDownloading] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
@@ -73,11 +75,35 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
     setIsDownloading(true)
     setDownloadError(null)
 
-    try {
-      let magnetUri = torrent.magnetLink
+    const label = torrent.title.length > 40 ? torrent.title.slice(0, 40) + '...' : torrent.title
 
-      // If no magnet link, extract it via the existing Puppeteer service
-      if (!magnetUri) {
+    try {
+      addLog(`[${label}] Starting download...`, 'info')
+
+      let magnetUri = torrent.magnetLink
+      let torrentFilePath: string | undefined
+
+      // Step 1: Check for local .torrent file in project directory
+      if (currentProject?.projectDirectory) {
+        addLog(`[${label}] Checking for local .torrent file...`, 'info')
+
+        const checkResult = await window.api.torrent.checkLocalFile({
+          torrentId: torrent.torrentId,
+          projectDirectory: currentProject.projectDirectory,
+        })
+
+        if (checkResult.found && checkResult.filePath) {
+          torrentFilePath = checkResult.filePath
+          addLog(`[${label}] Found local .torrent file: ${checkResult.filePath}`, 'success')
+        } else {
+          addLog(`[${label}] No local .torrent file found, will use magnet link`, 'info')
+        }
+      }
+
+      // Step 2: If no .torrent file AND no magnet link, extract via Puppeteer
+      if (!torrentFilePath && !magnetUri) {
+        addLog(`[${label}] No magnet link available, extracting from RuTracker...`, 'info')
+
         const extractResponse = await window.api.torrent.download({
           torrentId: torrent.torrentId,
           pageUrl: torrent.pageUrl,
@@ -86,40 +112,51 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
         })
 
         if (!extractResponse.success || !extractResponse.torrent?.magnetLink) {
-          throw new Error(extractResponse.error || 'Could not extract magnet link')
+          const err = extractResponse.error || 'Could not extract magnet link'
+          addLog(`[${label}] Magnet extraction failed: ${err}`, 'error')
+          throw new Error(err)
         }
+
         magnetUri = extractResponse.torrent.magnetLink
+        addLog(`[${label}] Magnet link extracted successfully`, 'success')
       }
 
-      // Get saved per-project download path, fallback to project directory
+      // Step 3: Prompt for download location
+      addLog(`[${label}] Prompting for download location...`, 'info')
+
       const savedPathResponse = await window.api.webtorrent.getDownloadPath(torrent.projectId)
       const defaultPath = savedPathResponse.data || currentProject?.projectDirectory || ''
 
-      // Prompt user to select download folder
       const selectedPath = await window.api.selectDirectory('Select Download Location')
       if (!selectedPath) {
-        // User cancelled the dialog
+        addLog(`[${label}] Download cancelled by user`, 'warning')
         return
       }
 
       const downloadPath = selectedPath || defaultPath
       if (!downloadPath) {
+        addLog(`[${label}] No download directory selected`, 'error')
         throw new Error('Download directory not set. Please select a folder.')
       }
 
-      // Save the chosen path for this project
       await window.api.webtorrent.setDownloadPath(torrent.projectId, downloadPath)
+      addLog(`[${label}] Download path: ${downloadPath}`, 'info')
 
-      // Add to WebTorrent download queue
+      // Step 4: Add to WebTorrent download queue
+      const source = torrentFilePath ? '.torrent file' : 'magnet link'
+      addLog(`[${label}] Adding to download queue via ${source}...`, 'info')
+
       const result = await window.api.webtorrent.add({
-        magnetUri,
+        magnetUri: magnetUri || '',
         projectId: torrent.projectId,
         name: torrent.title,
         downloadPath,
         fromCollectedTorrentId: torrent.id,
+        torrentFilePath,
       })
 
       if (result.success) {
+        addLog(`[${label}] Successfully added to download queue`, 'success')
         toaster.create({
           title: 'Added to download queue',
           description: torrent.title,
@@ -127,11 +164,13 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
           duration: 5000,
         })
       } else {
+        addLog(`[${label}] Failed to add to queue: ${result.error}`, 'error')
         throw new Error(result.error || 'Failed to add to queue')
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Download failed'
       setDownloadError(errorMsg)
+      addLog(`[${label}] Error: ${errorMsg}`, 'error')
 
       toaster.create({
         title: 'Download failed',

@@ -38,6 +38,9 @@ export const IPC_CHANNELS = {
   TORRENT_UPDATE_SETTINGS: 'torrent:update-settings',
   TORRENT_PROGRESS: 'torrent:progress',
 
+  // Torrent local file check
+  TORRENT_CHECK_LOCAL_FILE: 'torrent:check-local-file',
+
   // Torrent collection operations
   TORRENT_COLLECTION_LOAD: 'torrent:collection:load',
   TORRENT_COLLECTION_SAVE: 'torrent:collection:save',

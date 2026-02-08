@@ -36,6 +36,8 @@ import type {
   QueuedTorrent,
   QueuedTorrentProgress,
   WebTorrentSettings,
+  CheckLocalTorrentRequest,
+  CheckLocalTorrentResponse,
 } from '@shared/types/torrent.types'
 import type {
   SaveSearchHistoryRequest,
@@ -180,6 +182,9 @@ const api = {
 
     updateSettings: (settings: TorrentSettings): Promise<ApiResponse<TorrentSettings>> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_UPDATE_SETTINGS, settings),
+
+    checkLocalFile: (request: CheckLocalTorrentRequest): Promise<CheckLocalTorrentResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_CHECK_LOCAL_FILE, request),
   },
 
   // Search history methods

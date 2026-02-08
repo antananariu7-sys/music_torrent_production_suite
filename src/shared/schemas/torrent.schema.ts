@@ -53,11 +53,20 @@ export const QueuedTorrentStatusSchema = z.enum([
 ])
 
 export const AddTorrentRequestSchema = z.object({
-  magnetUri: z.string().min(1, 'Magnet URI is required'),
+  magnetUri: z.string(),
   projectId: z.string().min(1, 'Project ID is required'),
   name: z.string().min(1, 'Name is required'),
   downloadPath: z.string().min(1, 'Download path is required'),
   fromCollectedTorrentId: z.string().optional(),
+  torrentFilePath: z.string().optional(),
+}).refine(
+  (data) => data.magnetUri.length > 0 || (data.torrentFilePath && data.torrentFilePath.length > 0),
+  { message: 'Either magnetUri or torrentFilePath must be provided', path: ['magnetUri'] }
+)
+
+export const CheckLocalTorrentRequestSchema = z.object({
+  torrentId: z.string().min(1, 'Torrent ID is required'),
+  projectDirectory: z.string().min(1, 'Project directory is required'),
 })
 
 export const WebTorrentSettingsSchema = z.object({

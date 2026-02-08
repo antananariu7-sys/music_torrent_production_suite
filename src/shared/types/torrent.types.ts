@@ -196,6 +196,8 @@ export interface QueuedTorrent {
   fromCollectedTorrentId?: string
   /** Error message if status is 'error' */
   error?: string
+  /** Path to the .torrent file used (if any) */
+  torrentFilePath?: string
 }
 
 /** Progress event pushed from main to renderer for active torrents */
@@ -227,6 +229,8 @@ export interface AddTorrentRequest {
   downloadPath: string
   /** Optional link back to CollectedTorrent.id */
   fromCollectedTorrentId?: string
+  /** Path to a local .torrent file (used instead of magnetUri when available) */
+  torrentFilePath?: string
 }
 
 /** Response after adding a torrent to the queue */
@@ -234,6 +238,30 @@ export interface AddTorrentResponse {
   success: boolean
   torrent?: QueuedTorrent
   error?: string
+}
+
+/** Request to check for a local .torrent file in the project directory */
+export interface CheckLocalTorrentRequest {
+  /** RuTracker topic/torrent ID */
+  torrentId: string
+  /** Project directory to check in */
+  projectDirectory: string
+}
+
+/** Response from local .torrent file check */
+export interface CheckLocalTorrentResponse {
+  /** Whether the .torrent file was found */
+  found: boolean
+  /** Full file path if found */
+  filePath?: string
+}
+
+/** Entry in the torrent activity log */
+export interface TorrentActivityLogEntry {
+  id: string
+  timestamp: string
+  message: string
+  type: 'info' | 'success' | 'error' | 'warning'
 }
 
 /** Settings for the WebTorrent download client */

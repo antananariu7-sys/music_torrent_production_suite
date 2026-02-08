@@ -90,10 +90,15 @@ export class WebTorrentService {
    * Add a torrent to the download queue.
    */
   async add(request: AddTorrentRequest): Promise<AddTorrentResponse> {
-    // Check for duplicate magnetUri in active queue
+    // Check for duplicate in active queue
     for (const [, qt] of this.queue) {
-      if (qt.magnetUri === request.magnetUri && qt.status !== 'error' && qt.status !== 'completed') {
-        return { success: false, error: 'This torrent is already in the queue' }
+      if (qt.status !== 'error' && qt.status !== 'completed') {
+        if (
+          (request.magnetUri && qt.magnetUri === request.magnetUri) ||
+          (request.torrentFilePath && qt.torrentFilePath === request.torrentFilePath)
+        ) {
+          return { success: false, error: 'This torrent is already in the queue' }
+        }
       }
     }
 
@@ -118,6 +123,7 @@ export class WebTorrentService {
       addedAt: new Date().toISOString(),
       downloadPath: request.downloadPath,
       fromCollectedTorrentId: request.fromCollectedTorrentId,
+      torrentFilePath: request.torrentFilePath,
     }
 
     this.queue.set(id, queuedTorrent)
@@ -237,7 +243,16 @@ export class WebTorrentService {
         mkdirSync(qt.downloadPath, { recursive: true })
       }
 
-      const torrent = client.add(qt.magnetUri, {
+      // Determine torrent source: prefer local .torrent file, fall back to magnet URI
+      let torrentSource: string | Buffer = qt.magnetUri
+      if (qt.torrentFilePath && existsSync(qt.torrentFilePath)) {
+        console.log(`[WebTorrentService] Using local .torrent file: ${qt.torrentFilePath}`)
+        torrentSource = readFileSync(qt.torrentFilePath)
+      } else if (qt.torrentFilePath) {
+        console.log(`[WebTorrentService] .torrent file not found at ${qt.torrentFilePath}, falling back to magnet URI`)
+      }
+
+      const torrent = client.add(torrentSource, {
         path: qt.downloadPath,
       })
 
