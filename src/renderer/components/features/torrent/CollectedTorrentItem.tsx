@@ -96,7 +96,7 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
       const defaultPath = savedPathResponse.data || currentProject?.projectDirectory || ''
 
       // Prompt user to select download folder
-      const selectedPath = await window.api.selectDirectory()
+      const selectedPath = await window.api.selectDirectory('Select Download Location')
       if (!selectedPath) {
         // User cancelled the dialog
         return

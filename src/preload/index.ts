@@ -85,8 +85,8 @@ const api = {
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE_FROM_DISK, projectId, projectDirectory),
 
   // File operations
-  selectDirectory: (): Promise<string | null> =>
-    ipcRenderer.invoke(IPC_CHANNELS.FILE_SELECT_DIRECTORY),
+  selectDirectory: (title?: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.FILE_SELECT_DIRECTORY, title),
 
   openPath: (filePath: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_PATH, filePath),

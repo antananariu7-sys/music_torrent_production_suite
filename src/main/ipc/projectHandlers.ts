@@ -97,11 +97,11 @@ export function registerProjectHandlers(
   )
 
   // File operation
-  ipcMain.handle(IPC_CHANNELS.FILE_SELECT_DIRECTORY, async () => {
+  ipcMain.handle(IPC_CHANNELS.FILE_SELECT_DIRECTORY, async (_event, title?: string) => {
     try {
       const result = await dialog.showOpenDialog({
         properties: ['openDirectory', 'createDirectory'],
-        title: 'Select Project Location',
+        title: title || 'Select Project Location',
       })
 
       if (result.canceled || result.filePaths.length === 0) {

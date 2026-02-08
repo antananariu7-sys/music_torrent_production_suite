@@ -55,13 +55,6 @@ export function TorrentSettings(): JSX.Element {
     await saveSettings(newSettings)
   }
 
-  const handleToggleAutoOpen = async () => {
-    if (!settings) return
-    const newSettings = { ...settings, autoOpen: !settings.autoOpen }
-    setSettings(newSettings)
-    await saveSettings(newSettings)
-  }
-
   const handleToggleKeepHistory = async () => {
     if (!settings) return
     const newSettings = { ...settings, keepHistory: !settings.keepHistory }
@@ -138,25 +131,6 @@ export function TorrentSettings(): JSX.Element {
               <Switch.Root
                 checked={settings.preferMagnetLinks ?? true}
                 onCheckedChange={handleTogglePreferMagnet}
-                disabled={isSaving}
-              >
-                <Switch.HiddenInput />
-                <Switch.Control />
-              </Switch.Root>
-            </HStack>
-
-            <HStack justify="space-between">
-              <VStack align="start" gap={0}>
-                <Text fontSize="sm" fontWeight="medium" color="text.primary">
-                  Auto-Open in Torrent Client
-                </Text>
-                <Text fontSize="xs" color="text.muted">
-                  Automatically open torrents in your default torrent application
-                </Text>
-              </VStack>
-              <Switch.Root
-                checked={settings.autoOpen ?? false}
-                onCheckedChange={handleToggleAutoOpen}
                 disabled={isSaving}
               >
                 <Switch.HiddenInput />
