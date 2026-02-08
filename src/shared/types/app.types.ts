@@ -13,6 +13,7 @@ export interface AppSettings {
   autoStart: boolean
   minimizeToTray: boolean
   notifications: boolean
+  autoScanDiscography: boolean
 }
 
 export type AppStatus = 'idle' | 'busy' | 'error'

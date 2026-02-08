@@ -1,4 +1,6 @@
-import { Box, Heading, Text, Badge, HStack } from '@chakra-ui/react'
+import { Box, Heading, Text, Badge, HStack, IconButton } from '@chakra-ui/react'
+import { FiSettings } from 'react-icons/fi'
+import { useNavigate } from 'react-router-dom'
 
 interface ProjectHeaderProps {
   name: string
@@ -7,6 +9,8 @@ interface ProjectHeaderProps {
 }
 
 export function ProjectHeader({ name, description, isActive }: ProjectHeaderProps): JSX.Element {
+  const navigate = useNavigate()
+
   return (
     <Box>
       <HStack justify="space-between" align="start" mb={2}>
@@ -18,11 +22,23 @@ export function ProjectHeader({ name, description, isActive }: ProjectHeaderProp
         >
           {name}
         </Heading>
-        {isActive && (
-          <Badge colorPalette="green" size="lg" px={3}>
-            ACTIVE
-          </Badge>
-        )}
+        <HStack gap={2}>
+          {isActive && (
+            <Badge colorPalette="green" size="lg" px={3}>
+              ACTIVE
+            </Badge>
+          )}
+          <IconButton
+            aria-label="Open settings"
+            onClick={() => navigate('/settings')}
+            variant="ghost"
+            size="sm"
+            colorPalette="gray"
+            data-testid="project-settings-button"
+          >
+            <FiSettings />
+          </IconButton>
+        </HStack>
       </HStack>
       {description && (
         <Text
