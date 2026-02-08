@@ -22,7 +22,8 @@ electron-app/
 │   │   │   ├── project-handlers.ts   # Project management
 │   │   │   ├── auth-handlers.ts
 │   │   │   ├── search-handlers.ts
-│   │   │   ├── torrent-handlers.ts   # Torrent operations
+│   │   │   ├── torrent-handlers.ts   # Torrent file operations
+│   │   │   ├── webtorrentHandlers.ts # WebTorrent download queue
 │   │   │   ├── file-handlers.ts
 │   │   │   └── settings-handlers.ts
 │   │   │
@@ -32,6 +33,7 @@ electron-app/
 │   │   │   ├── search.service.ts     # Search orchestration
 │   │   │   ├── scraper.service.ts    # Web scraping with Puppeteer
 │   │   │   ├── torrent.service.ts    # Torrent download engine
+│   │   │   ├── WebTorrentService.ts  # WebTorrent download queue manager
 │   │   │   ├── download.service.ts   # Download queue management
 │   │   │   ├── audiofile.service.ts  # Audio file management
 │   │   │   ├── credential.service.ts # Secure credential storage
@@ -39,6 +41,9 @@ electron-app/
 │   │   │   ├── file.service.ts
 │   │   │   ├── settings.service.ts
 │   │   │   └── logger.service.ts
+│   │   │
+│   │   ├── types/               # Type declarations for untyped packages
+│   │   │   └── webtorrent.d.ts  # WebTorrent client type definitions
 │   │   │
 │   │   └── utils/               # Main utilities
 │   │       └── validation.ts
@@ -91,12 +96,14 @@ electron-app/
 │   │   │       │   ├── ResultCard.tsx
 │   │   │       │   ├── AddToDownloadButton.tsx
 │   │   │       │   └── ExportButton.tsx
-│   │   │       ├── TorrentManager/
-│   │   │       │   ├── DownloadQueue.tsx
-│   │   │       │   ├── TorrentItem.tsx
-│   │   │       │   ├── DownloadProgress.tsx
-│   │   │       │   ├── SeedingStatus.tsx
-│   │   │       │   └── TorrentControls.tsx
+│   │   │       ├── torrent/
+│   │   │       │   ├── index.ts              # Barrel exports
+│   │   │       │   ├── TorrentCollection.tsx  # Collected torrents list
+│   │   │       │   ├── CollectedTorrentItem.tsx # Single collected torrent
+│   │   │       │   ├── DownloadQueue.tsx       # WebTorrent queue container
+│   │   │       │   ├── DownloadQueueItem.tsx   # Single queue item with progress
+│   │   │       │   ├── DownloadManager.tsx     # Legacy .torrent downloads
+│   │   │       │   └── TorrentSettings.tsx     # Torrent + WebTorrent settings
 │   │   │       ├── AudioLibrary/
 │   │   │       │   ├── FileList.tsx
 │   │   │       │   ├── FileCard.tsx
@@ -109,6 +116,7 @@ electron-app/
 │   │   ├── hooks/               # Custom React hooks
 │   │   │   ├── useAuth.ts            # Authentication hook
 │   │   │   ├── useSearch.ts          # Search operations hook
+│   │   │   ├── useDownloadQueueListener.ts # WebTorrent progress/status events
 │   │   │   ├── useSettings.ts
 │   │   │   └── useIpc.ts
 │   │   │
@@ -118,6 +126,8 @@ electron-app/
 │   │   │   ├── useAuthStore.ts       # Auth state
 │   │   │   ├── useSearchStore.ts     # Search state & results
 │   │   │   ├── useTorrentStore.ts    # Torrent downloads & queue
+│   │   │   ├── downloadQueueStore.ts # WebTorrent download queue state
+│   │   │   ├── torrentCollectionStore.ts # Per-project torrent collection
 │   │   │   ├── useLibraryStore.ts    # Audio library
 │   │   │   ├── useMixerStore.ts      # Mixer state (Component 3 - TBD)
 │   │   │   ├── useAppStore.ts

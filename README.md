@@ -13,7 +13,7 @@ A project-based music production suite with three integrated components:
 
 - **Project Management**: Create, save, and load music production projects
 - **Bulk Torrent Search**: Find multiple music tracks simultaneously
-- **Torrent Management**: Download, seed, and organize torrent files
+- **Torrent Management**: In-app WebTorrent download queue with real-time progress, speed limits, and seeding controls
 - **Music Mixing**: Mix and edit downloaded audio files *(Component 3 - TBD)*
 - **Authenticated Sessions**: Secure RuTracker login with credential storage
 - **Real-time Monitoring**: Progress tracking for searches, downloads, and processing
@@ -202,9 +202,9 @@ This project follows a project-based workflow similar to DAWs:
 **Component Library**: Chakra UI v3 with custom theming
 
 **Theme**:
-- **Color Scheme**: Dark mode by default (gray.900 background)
-- **Brand Colors**: Purple/violet palette (50-900 shades)
-- **Accent Colors**: Indigo palette for highlights
+- **Color Scheme**: Dark mode by default (studio dark aesthetic)
+- **Brand Colors**: Electric blue palette (blue-500 to blue-900)
+- **Accent Colors**: Cyan shades for secondary highlights
 - **Typography**: Built-in Chakra UI font system
 - **Responsive**: Adaptive layouts with Chakra's responsive props
 
@@ -268,10 +268,15 @@ MIT
 
 ## Status
 
-**Current Phase**: Foundation - Basic application structure complete
+**Current Phase**: Component 2 (Torrent Manager) core complete
+
+**Completed**:
+- Project management system
+- RuTracker authentication with session persistence
+- Smart search with MusicBrainz integration
+- Torrent collection system (per-project)
+- WebTorrent download queue with real-time progress
 
 **Next Steps**:
-- Implement project management system
-- Create RuTracker authentication service
-- Build search interface
-- Implement torrent download manager
+- Audio library with metadata extraction
+- Music mixer interface (Component 3)

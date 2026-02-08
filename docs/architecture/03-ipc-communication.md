@@ -41,6 +41,16 @@ This document describes the Inter-Process Communication (IPC) design between mai
 | `torrent:collection:load` | R→M | Load project torrent collection | `LoadTorrentCollectionRequest` → `TorrentCollectionResponse` |
 | `torrent:collection:save` | R→M | Save project torrent collection | `SaveTorrentCollectionRequest` → `{success: boolean}` |
 | `torrent:collection:clear` | R→M | Clear project torrent collection | `{projectDirectory: string}` → `{success: boolean}` |
+| **WebTorrent Download Queue** |  |  |  |
+| `webtorrent:add` | R→M | Add torrent to download queue | `AddTorrentRequest` → `AddTorrentResponse` |
+| `webtorrent:pause` | R→M | Pause a queued torrent | `{id: string}` → `{success: boolean, error?: string}` |
+| `webtorrent:resume` | R→M | Resume a paused torrent | `{id: string}` → `{success: boolean, error?: string}` |
+| `webtorrent:remove` | R→M | Remove torrent from queue | `{id: string}` → `{success: boolean, error?: string}` |
+| `webtorrent:get-all` | R→M | Get all queued torrents | `void` → `ApiResponse<QueuedTorrent[]>` |
+| `webtorrent:get-settings` | R→M | Get WebTorrent settings | `void` → `ApiResponse<WebTorrentSettings>` |
+| `webtorrent:update-settings` | R→M | Update WebTorrent settings | `Partial<WebTorrentSettings>` → `ApiResponse<WebTorrentSettings>` |
+| `webtorrent:progress` | M→R | Real-time progress broadcast (1s interval) | `QueuedTorrentProgress[]` |
+| `webtorrent:status-change` | M→R | Torrent status change notification | `QueuedTorrent` |
 | **MusicBrainz** |  |  |  |
 | `musicbrainz:find-albums` | R→M | Find albums by song | `{songTitle: string, artist?: string}` → `MusicBrainzAlbum[]` |
 | `musicbrainz:get-album` | R→M | Get album details | `{albumId: string}` → `MusicBrainzAlbum` |

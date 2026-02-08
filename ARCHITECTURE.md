@@ -178,13 +178,21 @@ For coding standards, commit message format, and development best practices, see
 - Comprehensive unit tests for services
 - Test coverage for RuTracker and MusicBrainz services
 
+✅ **WebTorrent Download Queue**
+- In-app torrent downloading via WebTorrent (lazy-loaded ESM)
+- FIFO download queue with configurable concurrency (1-10, default 3)
+- Real-time progress broadcasting (1s interval) with speed, ETA, peer stats
+- Pause/resume/remove controls per torrent
+- Queue persistence across app restarts (`webtorrent-queue.json`)
+- Configurable speed limits and seed-after-download option
+- Integrated flow: Collected Torrent → Download Queue
+
 ### In Progress
 
 🚧 **Mix Tab** - Audio mixing interface (placeholder)
 
 ### Planned
 
-📋 **Download Manager** - WebTorrent integration for in-app downloads
 📋 **Music Mixer** - Full audio mixing capabilities
 📋 **E2E Testing** - Playwright test automation
 
@@ -192,17 +200,17 @@ For coding standards, commit message format, and development best practices, see
 
 ## 📝 Document Status
 
-- **Version**: 2.1
-- **Last Updated**: 2026-02-05
-- **Status**: Architecture documentation updated with recent features
+- **Version**: 2.2
+- **Last Updated**: 2026-02-08
+- **Status**: Architecture documentation updated with WebTorrent download queue
 - **Recent Updates**:
-  - Added IPC channels for torrent collection and search history
-  - Documented Smart Search workflow enhancements
-  - Added TorrentCollectionService architecture
-  - Updated UI architecture with tabbed interface
-  - Updated data models with new types
-  - Marked completed features in implementation status
-- **Next Steps**: Continue Phase 2 implementation (Mix component)
+  - Added 9 WebTorrent IPC channels (`webtorrent:*`) to IPC communication docs
+  - Added WebTorrent data models (QueuedTorrent, QueuedTorrentProgress, WebTorrentSettings, etc.)
+  - Updated directory structure with new files (WebTorrentService, webtorrentHandlers, downloadQueueStore, hooks)
+  - Updated UI architecture with download queue components and real-time progress pattern
+  - Marked Phase 3 (Torrent Manager) core as complete in development plan
+  - Moved Download Manager from Planned to Completed in implementation status
+- **Next Steps**: Audio library with metadata extraction, then Phase 4 (Mixer)
 
 ---
 

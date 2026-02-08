@@ -47,8 +47,13 @@ src/renderer/
 │       │   ├── AlbumSelectionDialog.tsx
 │       │   ├── TorrentResultsDialog.tsx
 │       │   └── index.ts
-│       └── torrent/            # Torrent collection components
-│           ├── TorrentCollectionPanel.tsx
+│       └── torrent/            # Torrent management components
+│           ├── TorrentCollection.tsx    # Collected torrents list
+│           ├── CollectedTorrentItem.tsx  # Single collected torrent with actions
+│           ├── DownloadQueue.tsx         # WebTorrent queue container
+│           ├── DownloadQueueItem.tsx     # Queue item with progress/controls
+│           ├── DownloadManager.tsx       # Legacy .torrent download history
+│           ├── TorrentSettings.tsx       # Torrent + WebTorrent settings
 │           └── index.ts
 ├── theme/                      # Chakra UI theme configuration
 │   └── index.ts                # Custom theme with brand colors
@@ -57,12 +62,13 @@ src/renderer/
 ├── store/                      # Zustand state stores
 │   ├── smartSearchStore.ts     # Multi-step search workflow state
 │   ├── torrentCollectionStore.ts # Per-project torrent collection
+│   ├── downloadQueueStore.ts   # WebTorrent download queue state
 │   ├── useAuthStore.ts         # Authentication state
 │   ├── useProjectStore.ts      # Project CRUD operations
 │   ├── useSearchStore.ts       # Basic search state
 │   └── useThemeStore.ts        # Theme state
 └── hooks/                      # Custom React hooks
-    └── (to be added)
+    └── useDownloadQueueListener.ts # WebTorrent progress/status events
 ```
 
 ### Page Architecture
@@ -73,12 +79,24 @@ The main workspace uses a tabbed interface with three sections:
 | Tab | Icon | Purpose | Component |
 |-----|------|---------|-----------|
 | **Search** | 🔍 | Smart search workflow | `SearchTab` |
-| **Torrent** | ⬇️ | View/manage collected torrents | `TorrentTab` |
+| **Torrent** | ⬇️ | Torrent collection, download queue, settings | `TorrentTab` |
 | **Mix** | 🎵 | Audio mixing (placeholder) | `MixTab` |
 
 - Tab navigation uses local state (`useState`)
 - Badge on Torrent tab shows collection count
 - Each tab is a separate component for code splitting potential
+
+**TorrentTab Layout** (vertical stack):
+1. `TorrentCollection` — Collected torrents from search results
+2. `DownloadQueue` — Active WebTorrent download queue with real-time progress
+3. `DownloadManager` — Legacy .torrent file download history
+4. `TorrentSettings` — Configuration for both torrent and WebTorrent settings
+
+**Real-Time Download Queue Pattern**:
+- `useDownloadQueueListener` hook subscribes to `webtorrent:progress` (1s interval) and `webtorrent:status-change` events
+- Progress updates flow through Zustand (`downloadQueueStore`) for efficient re-renders
+- `DownloadQueueItem` displays live speed, ETA, progress bar, peer stats, and pause/resume/remove controls
+- `CollectedTorrentItem` can enqueue torrents directly to the WebTorrent queue via `window.api.webtorrent.add()`
 
 ### Styling Strategy
 

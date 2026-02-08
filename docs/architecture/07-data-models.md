@@ -356,6 +356,97 @@ interface TorrentInfo {
 }
 
 // ====================================
+// WEBTORRENT DOWNLOAD QUEUE
+// ====================================
+
+// Status lifecycle: queued → downloading → seeding/completed/error
+//                   downloading ↔ paused
+type QueuedTorrentStatus = 'queued' | 'downloading' | 'seeding' | 'paused' | 'completed' | 'error'
+
+// Individual file within a torrent
+interface TorrentContentFile {
+  path: string
+  name: string
+  size: number          // bytes
+  downloaded: number    // bytes
+  progress: number      // 0-100
+  selected: boolean     // whether to download this file
+}
+
+// Full torrent state in the download queue
+interface QueuedTorrent {
+  id: string            // UUID
+  projectId: string
+  magnetUri: string
+  infoHash: string      // resolved from torrent metadata
+  name: string
+  status: QueuedTorrentStatus
+
+  // Progress metrics
+  progress: number      // 0-100
+  downloadSpeed: number // bytes/sec
+  uploadSpeed: number   // bytes/sec
+  downloaded: number    // bytes
+  uploaded: number      // bytes
+  totalSize: number     // bytes
+
+  // Content & peers
+  files: TorrentContentFile[]
+  seeders: number
+  leechers: number
+  ratio: number         // upload/download ratio
+
+  // Timestamps (ISO strings)
+  addedAt: string
+  startedAt?: string
+  completedAt?: string
+
+  // Configuration
+  downloadPath: string
+  fromCollectedTorrentId?: string // links back to CollectedTorrent
+
+  error?: string        // error message if status is 'error'
+}
+
+// Lightweight progress update (broadcast every 1s via webtorrent:progress)
+interface QueuedTorrentProgress {
+  id: string
+  status: QueuedTorrentStatus
+  progress: number
+  downloadSpeed: number
+  uploadSpeed: number
+  downloaded: number
+  uploaded: number
+  totalSize: number
+  seeders: number
+  leechers: number
+  ratio: number
+}
+
+// Request to add a torrent to the download queue
+interface AddTorrentRequest {
+  magnetUri: string
+  projectId: string
+  name: string
+  downloadPath: string
+  fromCollectedTorrentId?: string
+}
+
+interface AddTorrentResponse {
+  success: boolean
+  torrent?: QueuedTorrent
+  error?: string
+}
+
+// WebTorrent service settings (persisted)
+interface WebTorrentSettings {
+  maxConcurrentDownloads: number // 1-10, default 3
+  seedAfterDownload: boolean     // default false
+  maxUploadSpeed: number         // bytes/sec, 0 = unlimited
+  maxDownloadSpeed: number       // bytes/sec, 0 = unlimited
+}
+
+// ====================================
 // AUDIO FILE MANAGEMENT
 // ====================================
 

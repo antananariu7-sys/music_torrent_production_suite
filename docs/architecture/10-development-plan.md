@@ -22,13 +22,15 @@ This document describes the migration and rollout plan, including Architecture D
 - Real-time logging and progress tracking
 - Integration with project system
 
-**Phase 3: Component 2 - Torrent Manager (Week 5-6)**
-- Integrate WebTorrent client
-- Implement download queue management
-- Create torrent progress monitoring
+**Phase 3: Component 2 - Torrent Manager (Week 5-6)** ✅ Core Complete
+- ✅ Integrate WebTorrent client (lazy-loaded ESM via dynamic import)
+- ✅ Implement download queue management (FIFO with configurable concurrency)
+- ✅ Create torrent progress monitoring (1s broadcast interval)
+- ✅ Seeding controls and speed limits
+- ✅ Queue persistence across app restarts
+- ✅ Torrent collection → download queue flow
 - Build audio library with metadata extraction
 - File organization and storage
-- Seeding controls
 
 **Phase 4: Component 3 - Mixer (Week 7-8)** *(TBD - Details Pending)*
 - Audio playback integration
