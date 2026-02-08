@@ -43,3 +43,26 @@ export const TorrentSettingsSchema = z.object({
   autoOpen: z.boolean().optional(),
   keepHistory: z.boolean().optional(),
 })
+
+// ====================================
+// WEBTORRENT DOWNLOAD QUEUE SCHEMAS
+// ====================================
+
+export const QueuedTorrentStatusSchema = z.enum([
+  'queued', 'downloading', 'seeding', 'paused', 'completed', 'error',
+])
+
+export const AddTorrentRequestSchema = z.object({
+  magnetUri: z.string().min(1, 'Magnet URI is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  name: z.string().min(1, 'Name is required'),
+  downloadPath: z.string().min(1, 'Download path is required'),
+  fromCollectedTorrentId: z.string().optional(),
+})
+
+export const WebTorrentSettingsSchema = z.object({
+  maxConcurrentDownloads: z.number().int().min(1).max(10).default(3),
+  seedAfterDownload: z.boolean().default(false),
+  maxUploadSpeed: z.number().nonnegative().default(0),
+  maxDownloadSpeed: z.number().nonnegative().default(0),
+})

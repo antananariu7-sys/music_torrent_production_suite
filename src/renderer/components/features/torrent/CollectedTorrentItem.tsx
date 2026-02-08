@@ -72,32 +72,48 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
     setDownloadError(null)
 
     try {
-      const response = await window.api.torrent.download({
-        torrentId: torrent.torrentId,
-        pageUrl: torrent.pageUrl,
-        title: torrent.title,
+      let magnetUri = torrent.magnetLink
+
+      // If no magnet link, extract it via the existing Puppeteer service
+      if (!magnetUri) {
+        const extractResponse = await window.api.torrent.download({
+          torrentId: torrent.torrentId,
+          pageUrl: torrent.pageUrl,
+          title: torrent.title,
+        })
+
+        if (!extractResponse.success || !extractResponse.torrent?.magnetLink) {
+          throw new Error(extractResponse.error || 'Could not extract magnet link')
+        }
+        magnetUri = extractResponse.torrent.magnetLink
+      }
+
+      // Get download path from torrent settings
+      const settingsResponse = await window.api.torrent.getSettings()
+      const downloadPath = settingsResponse.data?.torrentsFolder || ''
+
+      if (!downloadPath) {
+        throw new Error('Download directory not set. Please configure it in Settings.')
+      }
+
+      // Add to WebTorrent download queue
+      const result = await window.api.webtorrent.add({
+        magnetUri,
+        projectId: torrent.projectId,
+        name: torrent.title,
+        downloadPath,
+        fromCollectedTorrentId: torrent.id,
       })
 
-      if (response.success) {
-        // Remove from collection after successful download
-        removeFromCollection(torrent.id)
-
+      if (result.success) {
         toaster.create({
-          title: 'Download started',
+          title: 'Added to download queue',
           description: torrent.title,
           type: 'success',
           duration: 5000,
         })
       } else {
-        const errorMsg = response.error || 'Download failed'
-        setDownloadError(errorMsg)
-
-        toaster.create({
-          title: 'Download failed',
-          description: errorMsg,
-          type: 'error',
-          duration: 5000,
-        })
+        throw new Error(result.error || 'Failed to add to queue')
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Download failed'

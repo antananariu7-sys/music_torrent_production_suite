@@ -43,6 +43,17 @@ export const IPC_CHANNELS = {
   TORRENT_COLLECTION_SAVE: 'torrent:collection:save',
   TORRENT_COLLECTION_CLEAR: 'torrent:collection:clear',
 
+  // WebTorrent download queue
+  WEBTORRENT_ADD: 'webtorrent:add',
+  WEBTORRENT_PAUSE: 'webtorrent:pause',
+  WEBTORRENT_RESUME: 'webtorrent:resume',
+  WEBTORRENT_REMOVE: 'webtorrent:remove',
+  WEBTORRENT_GET_ALL: 'webtorrent:get-all',
+  WEBTORRENT_GET_SETTINGS: 'webtorrent:get-settings',
+  WEBTORRENT_UPDATE_SETTINGS: 'webtorrent:update-settings',
+  WEBTORRENT_PROGRESS: 'webtorrent:progress',
+  WEBTORRENT_STATUS_CHANGE: 'webtorrent:status-change',
+
   // MusicBrainz operations
   MUSICBRAINZ_FIND_ALBUMS: 'musicbrainz:find-albums',
   MUSICBRAINZ_GET_ALBUM: 'musicbrainz:get-album',

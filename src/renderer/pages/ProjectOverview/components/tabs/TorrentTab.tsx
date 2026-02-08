@@ -1,6 +1,7 @@
 import { VStack } from '@chakra-ui/react'
 import {
   TorrentCollection,
+  DownloadQueue,
   DownloadManager,
   TorrentSettings,
 } from '@/components/features/torrent'
@@ -11,7 +12,10 @@ export function TorrentTab(): JSX.Element {
       {/* Collected Torrents from Search */}
       <TorrentCollection />
 
-      {/* Download Manager with History */}
+      {/* Active Download Queue */}
+      <DownloadQueue />
+
+      {/* Download History (legacy .torrent file extractions) */}
       <DownloadManager />
 
       {/* Torrent Settings */}

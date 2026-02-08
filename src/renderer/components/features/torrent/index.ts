@@ -1,4 +1,6 @@
 export { TorrentCollection } from './TorrentCollection'
 export { CollectedTorrentItem } from './CollectedTorrentItem'
+export { DownloadQueue } from './DownloadQueue'
+export { DownloadQueueItem } from './DownloadQueueItem'
 export { DownloadManager } from './DownloadManager'
 export { TorrentSettings } from './TorrentSettings'

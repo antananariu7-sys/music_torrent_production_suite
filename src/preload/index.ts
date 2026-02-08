@@ -31,6 +31,11 @@ import type {
   LoadTorrentCollectionRequest,
   SaveTorrentCollectionRequest,
   TorrentCollectionResponse,
+  AddTorrentRequest,
+  AddTorrentResponse,
+  QueuedTorrent,
+  QueuedTorrentProgress,
+  WebTorrentSettings,
 } from '@shared/types/torrent.types'
 import type {
   SaveSearchHistoryRequest,
@@ -193,6 +198,50 @@ const api = {
 
     clear: (projectDirectory: string): Promise<TorrentCollectionResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_COLLECTION_CLEAR, projectDirectory),
+  },
+
+  // WebTorrent download queue methods
+  webtorrent: {
+    add: (request: AddTorrentRequest): Promise<AddTorrentResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_ADD, request),
+
+    pause: (id: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_PAUSE, id),
+
+    resume: (id: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_RESUME, id),
+
+    remove: (id: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_REMOVE, id),
+
+    getAll: (): Promise<ApiResponse<QueuedTorrent[]>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_GET_ALL),
+
+    getSettings: (): Promise<ApiResponse<WebTorrentSettings>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_GET_SETTINGS),
+
+    updateSettings: (settings: Partial<WebTorrentSettings>): Promise<ApiResponse<WebTorrentSettings>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_UPDATE_SETTINGS, settings),
+
+    onProgress: (callback: (updates: QueuedTorrentProgress[]) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, updates: QueuedTorrentProgress[]) => {
+        callback(updates)
+      }
+      ipcRenderer.on(IPC_CHANNELS.WEBTORRENT_PROGRESS, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.WEBTORRENT_PROGRESS, handler)
+      }
+    },
+
+    onStatusChange: (callback: (torrent: QueuedTorrent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, torrent: QueuedTorrent) => {
+        callback(torrent)
+      }
+      ipcRenderer.on(IPC_CHANNELS.WEBTORRENT_STATUS_CHANGE, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.WEBTORRENT_STATUS_CHANGE, handler)
+      }
+    },
   },
 }
 
