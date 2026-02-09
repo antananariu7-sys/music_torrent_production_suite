@@ -33,6 +33,8 @@ export class WebTorrentService {
   private queue: Map<string, QueuedTorrent> = new Map()
   /** Maps queue entry ID -> active WebTorrent Torrent instance (for reliable progress lookup) */
   private activeTorrents: Map<string, Torrent> = new Map()
+  /** Tracks torrents awaiting file selection */
+  private torrentsAwaitingSelection: Set<string> = new Set()
   private progressInterval: ReturnType<typeof setInterval> | null = null
   private settings: WebTorrentSettings = {
     maxConcurrentDownloads: 3,
@@ -207,6 +209,47 @@ export class WebTorrentService {
     return [...this.queue.values()]
   }
 
+  /**
+   * Apply file selection and start downloading selected files only.
+   */
+  selectFiles(id: string, selectedFileIndices: number[]): { success: boolean; error?: string } {
+    const qt = this.queue.get(id)
+    if (!qt) return { success: false, error: 'Torrent not found' }
+
+    if (qt.status !== 'awaiting-file-selection') {
+      return { success: false, error: 'Torrent is not awaiting file selection' }
+    }
+
+    const torrent = this.activeTorrents.get(id)
+    if (!torrent) {
+      return { success: false, error: 'Active torrent instance not found' }
+    }
+
+    // Deselect all files first
+    torrent.files.forEach(file => file.deselect())
+
+    // Select only chosen files
+    selectedFileIndices.forEach(index => {
+      if (index >= 0 && index < torrent.files.length) {
+        torrent.files[index].select()
+      }
+    })
+
+    // Update our tracking
+    qt.files = this.mapTorrentFiles(torrent)
+    qt.status = 'downloading'
+    this.torrentsAwaitingSelection.delete(id)
+
+    // Resume the torrent
+    torrent.resume()
+
+    this.persistQueue()
+    this.broadcastStatusChange(qt)
+
+    console.log(`[WebTorrentService] File selection applied: ${selectedFileIndices.length}/${torrent.files.length} files selected`)
+    return { success: true }
+  }
+
   // ====================================
   // QUEUE PROCESSING
   // ====================================
@@ -271,9 +314,15 @@ export class WebTorrentService {
         qt.name = torrent.name || qt.name
         qt.totalSize = torrent.length
         qt.files = this.mapTorrentFiles(torrent)
+
+        // Pause immediately for file selection
+        qt.status = 'awaiting-file-selection'
+        this.torrentsAwaitingSelection.add(qt.id)
+        torrent.pause()
+
         this.persistQueue()
         this.broadcastStatusChange(qt)
-        console.log(`[WebTorrentService] Metadata received: ${qt.name} (${qt.totalSize} bytes)`)
+        console.log(`[WebTorrentService] Metadata received, awaiting file selection: ${qt.name} (${qt.totalSize} bytes)`)
       })
 
       torrent.on('done', () => {
@@ -445,6 +494,11 @@ export class WebTorrentService {
           qt.status = 'queued'
           qt.downloadSpeed = 0
           qt.uploadSpeed = 0
+        }
+        // Reset awaiting-file-selection to queued on restart
+        if (qt.status === 'awaiting-file-selection') {
+          qt.status = 'queued'
+          this.torrentsAwaitingSelection.delete(qt.id)
         }
         this.queue.set(qt.id, qt)
       }

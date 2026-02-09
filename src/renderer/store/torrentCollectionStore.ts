@@ -16,6 +16,7 @@ interface TorrentCollectionState {
   loadCollectionFromProject: (projectId: string, projectDirectory: string) => Promise<void>
   addToCollection: (torrent: SearchResult) => void
   removeFromCollection: (torrentId: string) => void
+  updateMagnetLink: (torrentId: string, magnetLink: string) => void
   clearCollection: () => void
   getCollection: () => CollectedTorrent[]
 }
@@ -146,6 +147,29 @@ export const useTorrentCollectionStore = create<TorrentCollectionState>((set, ge
 
     const currentCollection = collections[projectId] || []
     const newCollection = currentCollection.filter((t) => t.id !== torrentId)
+
+    set((state) => ({
+      collections: {
+        ...state.collections,
+        [projectId]: newCollection,
+      },
+    }))
+
+    // Auto-save to disk
+    saveCollectionToDisk(newCollection, projectId, projectName, projectDirectory)
+  },
+
+  updateMagnetLink: (torrentId: string, magnetLink: string) => {
+    const { projectId, projectName, projectDirectory, collections } = get()
+
+    if (!projectId) {
+      return
+    }
+
+    const currentCollection = collections[projectId] || []
+    const newCollection = currentCollection.map((t) =>
+      t.id === torrentId ? { ...t, magnetLink } : t
+    )
 
     set((state) => ({
       collections: {

@@ -1,14 +1,96 @@
 import { Box, VStack, HStack, Text, Heading, Icon } from '@chakra-ui/react'
 import { FiActivity } from 'react-icons/fi'
+import { useEffect, useState } from 'react'
 import {
   useDownloadQueueStore,
   useQueuedTorrents,
 } from '@/store/downloadQueueStore'
 import { DownloadQueueItem } from './DownloadQueueItem'
+import { FileSelectionDialog } from './FileSelectionDialog'
+import { useFileSelectionStore } from '@/store/fileSelectionStore'
+import { toaster } from '@/components/ui/toaster'
 
 export function DownloadQueue(): JSX.Element {
   const isLoading = useDownloadQueueStore((s) => s.isLoading)
   const torrents = useQueuedTorrents()
+  const removeTorrent = useDownloadQueueStore((s) => s.removeTorrent)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // File selection dialog state
+  const dialogState = useFileSelectionStore()
+  const isDialogOpen = useFileSelectionStore((s) => s.isOpen)
+
+  // Detect torrents awaiting file selection and open dialog
+  useEffect(() => {
+    const awaitingTorrent = torrents.find(t => t.status === 'awaiting-file-selection')
+    if (awaitingTorrent && !isDialogOpen) {
+      dialogState.openFileSelection(awaitingTorrent.id, awaitingTorrent.name, awaitingTorrent.files)
+    }
+  }, [torrents, isDialogOpen, dialogState])
+
+  // Handle file selection confirmation
+  const handleFileSelectionConfirm = async (selectedFileIndices: number[]) => {
+    if (!dialogState.torrentId) return
+
+    setIsSubmitting(true)
+    try {
+      const response = await window.api.webtorrent.selectFiles({
+        id: dialogState.torrentId,
+        selectedFileIndices,
+      })
+
+      if (response.success) {
+        toaster.create({
+          title: 'Download started',
+          description: `Downloading ${selectedFileIndices.length} file(s)`,
+          type: 'success',
+        })
+        dialogState.closeFileSelection()
+      } else {
+        toaster.create({
+          title: 'Failed to start download',
+          description: response.error || 'Unknown error',
+          type: 'error',
+        })
+      }
+    } catch (error) {
+      toaster.create({
+        title: 'Failed to start download',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        type: 'error',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // Handle file selection cancellation
+  const handleFileSelectionCancel = async () => {
+    if (!dialogState.torrentId) {
+      // Close dialog even if no torrent ID
+      dialogState.closeFileSelection()
+      return
+    }
+
+    try {
+      // Remove the torrent from queue if user cancels (using store action to ensure state updates)
+      await removeTorrent(dialogState.torrentId)
+      toaster.create({
+        title: 'Download cancelled',
+        type: 'info',
+      })
+    } catch (error) {
+      console.error('Failed to cancel download:', error)
+      toaster.create({
+        title: 'Failed to cancel download',
+        description: error instanceof Error ? error.message : 'Unknown error',
+        type: 'error',
+      })
+    } finally {
+      // Always close the dialog, even if removal failed
+      dialogState.closeFileSelection()
+    }
+  }
 
   const activeCount = torrents.filter(
     t => t.status === 'downloading' || t.status === 'queued'
@@ -66,6 +148,16 @@ export function DownloadQueue(): JSX.Element {
           ))}
         </VStack>
       )}
+
+      {/* File Selection Dialog */}
+      <FileSelectionDialog
+        isOpen={dialogState.isOpen}
+        torrentName={dialogState.torrentName}
+        files={dialogState.files}
+        onConfirm={handleFileSelectionConfirm}
+        onCancel={handleFileSelectionCancel}
+        isLoading={isSubmitting}
+      />
     </Box>
   )
 }

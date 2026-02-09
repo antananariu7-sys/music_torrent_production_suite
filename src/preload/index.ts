@@ -38,6 +38,8 @@ import type {
   WebTorrentSettings,
   CheckLocalTorrentRequest,
   CheckLocalTorrentResponse,
+  SelectTorrentFilesRequest,
+  SelectTorrentFilesResponse,
 } from '@shared/types/torrent.types'
 import type {
   SaveSearchHistoryRequest,
@@ -256,6 +258,9 @@ const api = {
 
     setDownloadPath: (projectId: string, downloadPath: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_SET_DOWNLOAD_PATH, projectId, downloadPath),
+
+    selectFiles: (request: SelectTorrentFilesRequest): Promise<SelectTorrentFilesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_SELECT_FILES, request),
   },
 }
 

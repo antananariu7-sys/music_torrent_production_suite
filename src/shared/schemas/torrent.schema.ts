@@ -49,7 +49,7 @@ export const TorrentSettingsSchema = z.object({
 // ====================================
 
 export const QueuedTorrentStatusSchema = z.enum([
-  'queued', 'downloading', 'seeding', 'paused', 'completed', 'error',
+  'queued', 'downloading', 'seeding', 'paused', 'completed', 'error', 'awaiting-file-selection',
 ])
 
 export const AddTorrentRequestSchema = z.object({
@@ -74,4 +74,9 @@ export const WebTorrentSettingsSchema = z.object({
   seedAfterDownload: z.boolean().default(false),
   maxUploadSpeed: z.number().nonnegative().default(0),
   maxDownloadSpeed: z.number().nonnegative().default(0),
+})
+
+export const SelectTorrentFilesRequestSchema = z.object({
+  id: z.string().uuid('Invalid torrent ID format'),
+  selectedFileIndices: z.array(z.number().int().nonnegative()),
 })

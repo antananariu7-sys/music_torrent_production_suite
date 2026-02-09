@@ -13,6 +13,7 @@ interface CollectedTorrentItemProps {
 
 export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JSX.Element {
   const removeFromCollection = useTorrentCollectionStore((state) => state.removeFromCollection)
+  const updateMagnetLink = useTorrentCollectionStore((state) => state.updateMagnetLink)
   const currentProject = useProjectStore((state) => state.currentProject)
   const addLog = useTorrentActivityStore((state) => state.addLog)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -119,6 +120,10 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
 
         magnetUri = extractResponse.torrent.magnetLink
         addLog(`[${label}] Magnet link extracted successfully`, 'success')
+
+        // Save the magnet link to collection for future downloads
+        updateMagnetLink(torrent.id, magnetUri)
+        addLog(`[${label}] Magnet link saved to collection`, 'info')
       }
 
       // Step 3: Prompt for download location

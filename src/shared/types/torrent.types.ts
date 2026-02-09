@@ -132,7 +132,7 @@ export interface TorrentCollectionResponse {
 // ====================================
 
 /** Status of a torrent in the download queue */
-export type QueuedTorrentStatus = 'queued' | 'downloading' | 'seeding' | 'paused' | 'completed' | 'error'
+export type QueuedTorrentStatus = 'queued' | 'downloading' | 'seeding' | 'paused' | 'completed' | 'error' | 'awaiting-file-selection'
 
 /** A single file inside a torrent being downloaded */
 export interface TorrentContentFile {
@@ -274,4 +274,18 @@ export interface WebTorrentSettings {
   maxUploadSpeed: number
   /** Maximum download speed in bytes/sec (0 = unlimited) */
   maxDownloadSpeed: number
+}
+
+/** Request to select files for a torrent */
+export interface SelectTorrentFilesRequest {
+  /** QueuedTorrent.id */
+  id: string
+  /** Array of file indices to select (0-based) */
+  selectedFileIndices: number[]
+}
+
+/** Response from file selection */
+export interface SelectTorrentFilesResponse {
+  success: boolean
+  error?: string
 }

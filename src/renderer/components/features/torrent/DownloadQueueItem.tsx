@@ -14,6 +14,7 @@ const STATUS_COLOR: Record<string, string> = {
   paused: 'yellow',
   completed: 'green',
   error: 'red',
+  'awaiting-file-selection': 'purple',
 }
 
 function formatSpeed(bytesPerSec: number): string {

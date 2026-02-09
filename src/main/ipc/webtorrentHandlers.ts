@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
-import { AddTorrentRequestSchema, WebTorrentSettingsSchema } from '@shared/schemas/torrent.schema'
+import { AddTorrentRequestSchema, WebTorrentSettingsSchema, SelectTorrentFilesRequestSchema } from '@shared/schemas/torrent.schema'
 import type { WebTorrentService } from '../services/WebTorrentService'
 
 export function registerWebtorrentHandlers(webtorrentService: WebTorrentService): void {
@@ -114,6 +114,20 @@ export function registerWebtorrentHandlers(webtorrentService: WebTorrentService)
       return { success: true }
     } catch (error) {
       return { success: false, error: 'Failed to save download path' }
+    }
+  })
+
+  // Select files for a torrent
+  ipcMain.handle(IPC_CHANNELS.WEBTORRENT_SELECT_FILES, async (_event, request: unknown) => {
+    try {
+      const parsed = SelectTorrentFilesRequestSchema.parse(request)
+      return webtorrentService.selectFiles(parsed.id, parsed.selectedFileIndices)
+    } catch (error) {
+      console.error('Failed to select files:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to select files',
+      }
     }
   })
 }
