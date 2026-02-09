@@ -490,6 +490,45 @@ interface DownloadSettings {
 }
 
 // ====================================
+// AUDIO PLAYER
+// ====================================
+
+interface Track {
+  filePath: string        // Absolute path to audio file
+  name: string            // Display name
+  duration?: number       // Duration in seconds
+}
+
+interface AudioPlayerState {
+  // Current track
+  currentTrack: Track | null
+
+  // Playback state
+  isPlaying: boolean
+  currentTime: number     // seconds
+  duration: number        // seconds
+  volume: number          // 0-1
+
+  // Playlist
+  playlist: Track[]
+  currentIndex: number    // -1 if no playlist
+
+  // Actions (methods in Zustand store)
+  playTrack: (track: Track) => void
+  playPlaylist: (tracks: Track[], startIndex?: number) => void
+  play: () => void
+  pause: () => void
+  togglePlayPause: () => void
+  seek: (time: number) => void
+  setVolume: (volume: number) => void
+  next: () => void
+  previous: () => void
+  setCurrentTime: (time: number) => void
+  setDuration: (duration: number) => void
+  clearPlaylist: () => void
+}
+
+// ====================================
 // MIXING (Component 3 - TBD)
 // ====================================
 

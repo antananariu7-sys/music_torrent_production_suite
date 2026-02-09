@@ -18,14 +18,14 @@ electron-app/
 │   │   │
 │   │   ├── ipc/                 # IPC handlers
 │   │   │   ├── index.ts         # Register all handlers
-│   │   │   ├── app-handlers.ts
-│   │   │   ├── project-handlers.ts   # Project management
-│   │   │   ├── auth-handlers.ts
-│   │   │   ├── search-handlers.ts
-│   │   │   ├── torrent-handlers.ts   # Torrent file operations
+│   │   │   ├── appHandlers.ts
+│   │   │   ├── projectHandlers.ts    # Project management
+│   │   │   ├── authHandlers.ts
+│   │   │   ├── searchHandlers.ts
+│   │   │   ├── musicBrainzHandlers.ts
+│   │   │   ├── torrentHandlers.ts    # Torrent file operations
 │   │   │   ├── webtorrentHandlers.ts # WebTorrent download queue
-│   │   │   ├── file-handlers.ts
-│   │   │   └── settings-handlers.ts
+│   │   │   └── audioHandlers.ts      # Audio file reading for playback
 │   │   │
 │   │   ├── services/            # Business logic
 │   │   │   ├── project.service.ts    # Project CRUD operations
@@ -65,12 +65,14 @@ electron-app/
 │   │   │
 │   │   ├── components/          # UI components
 │   │   │   ├── common/          # Shared components
-│   │   │   │   ├── Button.tsx
-│   │   │   │   ├── Input.tsx
-│   │   │   │   ├── Modal.tsx
-│   │   │   │   ├── ProgressBar.tsx
-│   │   │   │   ├── Table.tsx
-│   │   │   │   └── LogViewer.tsx         # Real-time log display
+│   │   │   │   ├── PageLayout.tsx
+│   │   │   │   ├── Footer.tsx
+│   │   │   │   ├── AudioPlayer.tsx       # Fixed bottom audio player
+│   │   │   │   ├── Waveform.tsx
+│   │   │   │   ├── FrequencyBars.tsx
+│   │   │   │   ├── ErrorAlert.tsx
+│   │   │   │   ├── ConfirmDialog.tsx
+│   │   │   │   └── DeleteProjectDialog.tsx
 │   │   │   │
 │   │   │   └── features/        # Feature components
 │   │   │       ├── ProjectManager/
@@ -121,17 +123,17 @@ electron-app/
 │   │   │   └── useIpc.ts
 │   │   │
 │   │   ├── store/               # Zustand stores
-│   │   │   ├── index.ts
 │   │   │   ├── useProjectStore.ts    # Current project state
 │   │   │   ├── useAuthStore.ts       # Auth state
 │   │   │   ├── useSearchStore.ts     # Search state & results
-│   │   │   ├── useTorrentStore.ts    # Torrent downloads & queue
+│   │   │   ├── smartSearchStore.ts   # Smart search workflow
 │   │   │   ├── downloadQueueStore.ts # WebTorrent download queue state
 │   │   │   ├── torrentCollectionStore.ts # Per-project torrent collection
-│   │   │   ├── useLibraryStore.ts    # Audio library
-│   │   │   ├── useMixerStore.ts      # Mixer state (Component 3 - TBD)
-│   │   │   ├── useAppStore.ts
-│   │   │   └── useSettingsStore.ts
+│   │   │   ├── audioPlayerStore.ts   # Audio player state, playlist, controls
+│   │   │   ├── fileSelectionStore.ts # Torrent file selection state
+│   │   │   ├── torrentActivityStore.ts # Torrent activity log
+│   │   │   ├── useSettingsStore.ts
+│   │   │   └── useThemeStore.ts
 │   │   │
 │   │   ├── services/            # API wrappers
 │   │   │   └── api.ts

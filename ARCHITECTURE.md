@@ -186,6 +186,19 @@ For coding standards, commit message format, and development best practices, see
 - Queue persistence across app restarts (`webtorrent-queue.json`)
 - Configurable speed limits and seed-after-download option
 - Integrated flow: Collected Torrent → Download Queue
+- File selection dialog for choosing which files to download
+- Hierarchical file tree view with folder support in DownloadQueueItem
+
+✅ **Audio Player**
+- Fixed bottom audio player for in-app music playback
+- Reads audio files through IPC (`audio:read-file`) as base64 data URLs for security
+- Click-to-play integration with DownloadQueueItem for completed audio files
+- Playlist playback with next/previous navigation
+- Auto-expand folder tree when navigating between tracks
+- Visual indication (blue highlight, play icon) for currently playing track
+- Volume control with mute toggle
+- Progress bar with seek functionality
+- Supported formats: MP3, FLAC, WAV, M4A, AAC, OGG, Opus, WMA, AIFF, APE
 
 ### In Progress
 
@@ -200,16 +213,17 @@ For coding standards, commit message format, and development best practices, see
 
 ## 📝 Document Status
 
-- **Version**: 2.2
-- **Last Updated**: 2026-02-08
-- **Status**: Architecture documentation updated with WebTorrent download queue
+- **Version**: 2.3
+- **Last Updated**: 2026-02-09
+- **Status**: Architecture documentation updated with Audio Player feature
 - **Recent Updates**:
-  - Added 9 WebTorrent IPC channels (`webtorrent:*`) to IPC communication docs
-  - Added WebTorrent data models (QueuedTorrent, QueuedTorrentProgress, WebTorrentSettings, etc.)
-  - Updated directory structure with new files (WebTorrentService, webtorrentHandlers, downloadQueueStore, hooks)
-  - Updated UI architecture with download queue components and real-time progress pattern
-  - Marked Phase 3 (Torrent Manager) core as complete in development plan
-  - Moved Download Manager from Planned to Completed in implementation status
+  - Added Audio Player feature documentation (IPC channel, data models, UI components)
+  - Added `audio:read-file` IPC channel for secure audio file loading
+  - Added Track and AudioPlayerState data models
+  - Updated UI architecture with AudioPlayer component and integration details
+  - Updated directory structure with audioPlayerStore, audioHandlers, and visual components
+  - Documented file tree view with folder support in DownloadQueueItem
+  - Documented click-to-play integration and playlist navigation
 - **Next Steps**: Audio library with metadata extraction, then Phase 4 (Mixer)
 
 ---

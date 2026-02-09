@@ -65,6 +65,9 @@ This document describes the Inter-Process Communication (IPC) design between mai
 | `settings:set` | R→M | Update settings | `Partial<Settings>` → `Settings` |
 | **File Operations** |  |  |  |
 | `file:select-directory` | R→M | Open directory picker | `void` → `string \| null` |
+| `file:open-path` | R→M | Open path in file manager | `{filePath: string}` → `{success: boolean, error?: string}` |
+| **Audio Playback** |  |  |  |
+| `audio:read-file` | R→M | Read audio file as base64 data URL | `{filePath: string}` → `{success: boolean, dataUrl?: string, error?: string}` |
 
 ### Communication Patterns
 - **Request-Response**: File operations, settings management, window control (use `ipcMain.handle` / `ipcRenderer.invoke`)

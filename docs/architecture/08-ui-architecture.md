@@ -38,7 +38,12 @@ src/renderer/
 ├── components/                 # Reusable UI components
 │   ├── common/                 # Layout, footer, shared utilities
 │   │   ├── PageLayout.tsx
-│   │   └── Footer.tsx
+│   │   ├── Footer.tsx
+│   │   ├── AudioPlayer.tsx     # Fixed bottom audio player with controls
+│   │   ├── Waveform.tsx
+│   │   ├── FrequencyBars.tsx
+│   │   ├── ErrorAlert.tsx
+│   │   └── ConfirmDialog.tsx
 │   └── features/
 │       ├── search/             # Smart search components
 │       │   ├── SmartSearchBar.tsx
@@ -63,9 +68,13 @@ src/renderer/
 │   ├── smartSearchStore.ts     # Multi-step search workflow state
 │   ├── torrentCollectionStore.ts # Per-project torrent collection
 │   ├── downloadQueueStore.ts   # WebTorrent download queue state
+│   ├── audioPlayerStore.ts     # Audio player state (playback, playlist, controls)
+│   ├── fileSelectionStore.ts   # Torrent file selection state
+│   ├── torrentActivityStore.ts # Torrent activity log
 │   ├── useAuthStore.ts         # Authentication state
 │   ├── useProjectStore.ts      # Project CRUD operations
 │   ├── useSearchStore.ts       # Basic search state
+│   ├── useSettingsStore.ts     # App settings state
 │   └── useThemeStore.ts        # Theme state
 └── hooks/                      # Custom React hooks
     └── useDownloadQueueListener.ts # WebTorrent progress/status events
@@ -97,6 +106,16 @@ The main workspace uses a tabbed interface with three sections:
 - Progress updates flow through Zustand (`downloadQueueStore`) for efficient re-renders
 - `DownloadQueueItem` displays live speed, ETA, progress bar, peer stats, and pause/resume/remove controls
 - `CollectedTorrentItem` can enqueue torrents directly to the WebTorrent queue via `window.api.webtorrent.add()`
+
+**Audio Player Integration**:
+- Fixed bottom audio player (`AudioPlayer.tsx`) for in-app music playback
+- Reads audio files through IPC (`audio:read-file`) as base64 data URLs for security
+- Integrates with `DownloadQueueItem` for click-to-play functionality on completed audio files
+- Supports playlist playback with next/previous navigation
+- Auto-expands folder tree when navigating between tracks
+- Visual indication (blue highlight, play icon) for currently playing track
+- Store: `audioPlayerStore.ts` manages playback state, playlist, and controls
+- Supported formats: MP3, FLAC, WAV, M4A, AAC, OGG, Opus, WMA, AIFF, APE
 
 ### Styling Strategy
 
