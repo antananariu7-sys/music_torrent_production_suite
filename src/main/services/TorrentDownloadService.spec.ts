@@ -359,7 +359,7 @@ describe('TorrentDownloadService', () => {
     })
 
     it('should handle shell.openExternal errors gracefully', async () => {
-      ;(shell.openExternal as jest.Mock<any>).mockRejectedValue(new Error('Shell error'))
+      (shell.openExternal as jest.Mock<any>).mockRejectedValue(new Error('Shell error'))
 
       const torrent: TorrentFile = {
         id: '1',

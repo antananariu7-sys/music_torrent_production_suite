@@ -9,10 +9,9 @@ export function Checkbox({ checked, children, ...props }: CheckboxProps) {
   return (
     <ChakraCheckbox.Root checked={checked} {...props}>
       <ChakraCheckbox.HiddenInput />
-      <ChakraCheckbox.Control>
-        <ChakraCheckbox.Indicator />
-      </ChakraCheckbox.Control>
-      {children && <ChakraCheckbox.Label>{children}</ChakraCheckbox.Label>}
+      <ChakraCheckbox.Control />
+      <ChakraCheckbox.Indicator />
+      {children && <ChakraCheckbox.Label {...({} as any)}>{children}</ChakraCheckbox.Label>}
     </ChakraCheckbox.Root>
   )
 }

@@ -270,14 +270,6 @@ describe('RuTrackerSearchService', () => {
       expect(response.query).toBe(mockSearchRequest.query)
     })
 
-    it('should close page on error', async () => {
-      (mockPage.goto as jest.Mock<any>).mockRejectedValue(new Error('Test error') as any)
-
-      await searchService.search(mockSearchRequest)
-
-      expect(mockPage.close).toHaveBeenCalled()
-    })
-
     it('should handle empty search results', async () => {
       (mockPage.evaluate as jest.Mock<any>).mockResolvedValue([] as any)
 

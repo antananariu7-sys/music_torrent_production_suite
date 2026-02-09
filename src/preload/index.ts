@@ -40,6 +40,7 @@ import type {
   CheckLocalTorrentResponse,
   SelectTorrentFilesRequest,
   SelectTorrentFilesResponse,
+  TorrentContentFile,
 } from '@shared/types/torrent.types'
 import type {
   SaveSearchHistoryRequest,

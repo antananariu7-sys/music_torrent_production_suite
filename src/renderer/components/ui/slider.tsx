@@ -10,14 +10,14 @@ export function Slider({ value, onValueChange, ...props }: SliderProps) {
   return (
     <ChakraSlider.Root
       value={value}
-      onValueChange={(details) => onValueChange?.(details.value)}
+      onValueChange={(details: any) => onValueChange?.(details.value)}
       {...props}
     >
-      <ChakraSlider.Control>
-        <ChakraSlider.Track>
+      <ChakraSlider.Control {...({} as any)}>
+        <ChakraSlider.Track {...({} as any)}>
           <ChakraSlider.Range />
         </ChakraSlider.Track>
-        <ChakraSlider.Thumb index={0} />
+        <ChakraSlider.Thumb {...({ index: 0 } as any)} />
       </ChakraSlider.Control>
     </ChakraSlider.Root>
   )

@@ -15,27 +15,40 @@ import { registerTorrentHandlers } from './torrentHandlers'
 import { registerMusicBrainzHandlers } from './musicBrainzHandlers'
 import { WebTorrentService } from '../services/WebTorrentService'
 import { registerWebtorrentHandlers } from './webtorrentHandlers'
-import './audioHandlers'
+import { registerAudioHandlers } from './audioHandlers'
 
-// Initialize services
-const fileSystemService = new FileSystemService()
-const configService = new ConfigService()
-const lockService = new LockService()
-const authService = new AuthService()
-const searchService = new RuTrackerSearchService(authService)
-const torrentService = new TorrentDownloadService(authService)
-const webtorrentService = new WebTorrentService(configService)
-const musicBrainzService = new MusicBrainzService()
-const discographySearchService = new DiscographySearchService(authService)
-const projectService = new ProjectService(
-  fileSystemService,
-  configService,
-  lockService
-)
+// Service instances (initialized in registerIpcHandlers)
+let fileSystemService: FileSystemService
+let configService: ConfigService
+let lockService: LockService
+let authService: AuthService
+let searchService: RuTrackerSearchService
+let torrentService: TorrentDownloadService
+let webtorrentService: WebTorrentService
+let musicBrainzService: MusicBrainzService
+let discographySearchService: DiscographySearchService
+let projectService: ProjectService
 
 export function registerIpcHandlers(): void {
   console.log('Registering IPC handlers...')
 
+  // Initialize services (after Electron app is ready)
+  fileSystemService = new FileSystemService()
+  configService = new ConfigService()
+  lockService = new LockService()
+  authService = new AuthService()
+  searchService = new RuTrackerSearchService(authService)
+  torrentService = new TorrentDownloadService(authService)
+  webtorrentService = new WebTorrentService(configService)
+  musicBrainzService = new MusicBrainzService()
+  discographySearchService = new DiscographySearchService(authService)
+  projectService = new ProjectService(
+    fileSystemService,
+    configService,
+    lockService
+  )
+
+  // Register IPC handlers
   registerAppHandlers(configService)
   registerAuthHandlers(authService)
   registerSearchHandlers(searchService, discographySearchService)
@@ -43,6 +56,7 @@ export function registerIpcHandlers(): void {
   registerTorrentHandlers(torrentService)
   registerWebtorrentHandlers(webtorrentService)
   registerMusicBrainzHandlers(musicBrainzService)
+  registerAudioHandlers()
 
   // Resume any persisted WebTorrent downloads
   webtorrentService.resumePersistedDownloads()

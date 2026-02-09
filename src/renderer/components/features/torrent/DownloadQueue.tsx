@@ -80,8 +80,6 @@ export function DownloadQueue(): JSX.Element {
     try {
       // Remove the torrent from queue if user cancels (using store action to ensure state updates)
       await removeTorrent(torrentId)
-      // Remove from tracking since torrent is removed
-      shownDialogsRef.current.delete(torrentId)
       toaster.create({
         title: 'Download cancelled',
         type: 'info',
