@@ -1,6 +1,6 @@
 import { Box, HStack, VStack, Text, IconButton, Icon, Badge, Flex } from '@chakra-ui/react'
 import { FiPause, FiPlay, FiX, FiFolder, FiChevronDown, FiChevronRight, FiFile, FiMusic } from 'react-icons/fi'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useDownloadQueueStore } from '@/store/downloadQueueStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import { isAudioFile, getFileName } from '@/utils/audioUtils'
@@ -162,6 +162,41 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   // Filter to show only selected files (the ones being downloaded)
   const selectedFiles = torrent.files.filter(f => f.selected)
   const hasMultipleFiles = selectedFiles.length > 1
+
+  // Auto-expand folder when current track changes
+  useEffect(() => {
+    if (!currentTrack || !torrent.downloadPath) return
+
+    // Check if the current track belongs to this torrent
+    const currentTrackInThisTorrent = selectedFiles.find(
+      file => currentTrack.filePath === `${torrent.downloadPath}/${file.path}`.replace(/\\/g, '/')
+    )
+
+    if (currentTrackInThisTorrent) {
+      // Extract all parent folder paths
+      const parts = currentTrackInThisTorrent.path.split(/[\\/]/).filter(Boolean)
+      const folderPaths: string[] = []
+
+      // Build folder paths (e.g., "folder1", "folder1/folder2", etc.)
+      for (let i = 0; i < parts.length - 1; i++) {
+        folderPaths.push(parts.slice(0, i + 1).join('/'))
+      }
+
+      // Add all parent folders to expandedFolders
+      if (folderPaths.length > 0) {
+        setExpandedFolders(prev => {
+          const newSet = new Set(prev)
+          folderPaths.forEach(path => newSet.add(path))
+          return newSet
+        })
+
+        // Also expand the file list if it's collapsed
+        if (!isExpanded && hasMultipleFiles) {
+          setIsExpanded(true)
+        }
+      }
+    }
+  }, [currentTrack, torrent.downloadPath, selectedFiles, hasMultipleFiles, isExpanded])
 
   // Build file tree from selected files
   const fileTree = useMemo(() => buildFileTree(selectedFiles), [selectedFiles])
