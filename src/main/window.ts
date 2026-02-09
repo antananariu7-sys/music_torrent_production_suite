@@ -3,13 +3,13 @@ import { join } from 'path'
 import { APP_CONFIG } from '../shared/constants'
 
 export function createWindow(): BrowserWindow {
-  // Set Content Security Policy headers to allow cover art images from HTTPS sources
+  // Set Content Security Policy headers to allow cover art images from HTTPS sources and audio data URLs
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
         'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:",
+          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data:",
         ],
       },
     })

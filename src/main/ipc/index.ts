@@ -15,6 +15,7 @@ import { registerTorrentHandlers } from './torrentHandlers'
 import { registerMusicBrainzHandlers } from './musicBrainzHandlers'
 import { WebTorrentService } from '../services/WebTorrentService'
 import { registerWebtorrentHandlers } from './webtorrentHandlers'
+import './audioHandlers'
 
 // Initialize services
 const fileSystemService = new FileSystemService()

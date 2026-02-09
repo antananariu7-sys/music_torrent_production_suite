@@ -57,6 +57,7 @@ export const IPC_CHANNELS = {
   WEBTORRENT_PROGRESS: 'webtorrent:progress',
   WEBTORRENT_STATUS_CHANGE: 'webtorrent:status-change',
   WEBTORRENT_SELECT_FILES: 'webtorrent:select-files',
+  WEBTORRENT_FILE_SELECTION_NEEDED: 'webtorrent:file-selection-needed',
 
   // MusicBrainz operations
   MUSICBRAINZ_FIND_ALBUMS: 'musicbrainz:find-albums',
@@ -80,6 +81,9 @@ export const IPC_CHANNELS = {
   // File operations
   FILE_SELECT_DIRECTORY: 'file:select-directory',
   FILE_OPEN_PATH: 'file:open-path',
+
+  // Audio playback
+  AUDIO_READ_FILE: 'audio:read-file',
 } as const
 
 // Application settings

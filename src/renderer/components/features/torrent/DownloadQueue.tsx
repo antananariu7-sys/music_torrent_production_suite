@@ -18,15 +18,18 @@ export function DownloadQueue(): JSX.Element {
 
   // File selection dialog state
   const dialogState = useFileSelectionStore()
-  const isDialogOpen = useFileSelectionStore((s) => s.isOpen)
 
-  // Detect torrents awaiting file selection and open dialog
+  // Listen for file selection needed events from backend
   useEffect(() => {
-    const awaitingTorrent = torrents.find(t => t.status === 'awaiting-file-selection')
-    if (awaitingTorrent && !isDialogOpen) {
-      dialogState.openFileSelection(awaitingTorrent.id, awaitingTorrent.name, awaitingTorrent.files)
-    }
-  }, [torrents, isDialogOpen, dialogState])
+    const cleanup = window.api.webtorrent.onFileSelectionNeeded((data) => {
+      // Only open dialog if not already open
+      if (!dialogState.isOpen) {
+        dialogState.openFileSelection(data.id, data.name, data.files)
+      }
+    })
+
+    return cleanup
+  }, [dialogState])
 
   // Handle file selection confirmation
   const handleFileSelectionConfirm = async (selectedFileIndices: number[]) => {
@@ -72,9 +75,13 @@ export function DownloadQueue(): JSX.Element {
       return
     }
 
+    const torrentId = dialogState.torrentId
+
     try {
       // Remove the torrent from queue if user cancels (using store action to ensure state updates)
-      await removeTorrent(dialogState.torrentId)
+      await removeTorrent(torrentId)
+      // Remove from tracking since torrent is removed
+      shownDialogsRef.current.delete(torrentId)
       toaster.create({
         title: 'Download cancelled',
         type: 'info',

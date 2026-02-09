@@ -253,6 +253,16 @@ const api = {
       }
     },
 
+    onFileSelectionNeeded: (callback: (data: { id: string; name: string; files: TorrentContentFile[] }) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: { id: string; name: string; files: TorrentContentFile[] }) => {
+        callback(data)
+      }
+      ipcRenderer.on(IPC_CHANNELS.WEBTORRENT_FILE_SELECTION_NEEDED, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.WEBTORRENT_FILE_SELECTION_NEEDED, handler)
+      }
+    },
+
     getDownloadPath: (projectId: string): Promise<ApiResponse<string>> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_GET_DOWNLOAD_PATH, projectId),
 
@@ -261,6 +271,12 @@ const api = {
 
     selectFiles: (request: SelectTorrentFilesRequest): Promise<SelectTorrentFilesResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_SELECT_FILES, request),
+  },
+
+  // Audio playback
+  audio: {
+    readFile: (filePath: string): Promise<{ success: boolean; dataUrl?: string; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUDIO_READ_FILE, filePath),
   },
 }
 

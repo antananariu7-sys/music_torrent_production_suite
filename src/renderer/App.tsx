@@ -6,6 +6,7 @@ import ProjectLauncher from '@/pages/ProjectLauncher'
 import ProjectOverview from '@/pages/ProjectOverview'
 import Settings from '@/pages/Settings'
 import { Toaster } from '@/components/ui/toaster'
+import { AudioPlayer } from '@/components/common/AudioPlayer'
 import { useThemeStore } from '@/store/useThemeStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useDownloadQueueListener } from '@/hooks/useDownloadQueueListener'
@@ -87,6 +88,7 @@ function App() {
     <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppContent />
       <Toaster />
+      <AudioPlayer />
     </HashRouter>
   )
 }

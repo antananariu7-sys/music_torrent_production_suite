@@ -1,11 +1,11 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, SimpleGrid, VStack, HStack, Spinner, Text, Badge, Icon } from '@chakra-ui/react'
-import { FiActivity } from 'react-icons/fi'
+import { Box, SimpleGrid, VStack, Spinner, Text } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useActiveTorrents } from '@/store/downloadQueueStore'
 import type { AppInfo } from '@shared/types/app.types'
 import { PageLayout, ErrorAlert } from '@/components/common'
+import { DownloadQueue } from '@/components/features/torrent/DownloadQueue'
 import { projectLauncherStyles } from './ProjectLauncher.styles'
 import { LauncherHeader } from './components/LauncherHeader'
 import { CreateProjectCard } from './components/CreateProjectCard'
@@ -128,69 +128,7 @@ export default function ProjectLauncher({
         {/* Active Downloads */}
         {!isLoading && activeTorrents.length > 0 && (
           <Box mb={10}>
-            <HStack gap={2} mb={4}>
-              <Icon as={FiActivity} boxSize={5} color="green.500" />
-              <Text
-                fontSize="sm"
-                fontWeight="bold"
-                fontFamily="monospace"
-                letterSpacing="wide"
-                color="text.primary"
-                textTransform="uppercase"
-              >
-                Active Downloads
-              </Text>
-              <Badge colorPalette="green" variant="subtle" fontSize="xs">
-                {activeTorrents.length}
-              </Badge>
-            </HStack>
-            <VStack align="stretch" gap={2}>
-              {activeTorrents.map((torrent) => (
-                <Box
-                  key={torrent.id}
-                  p={3}
-                  borderRadius="md"
-                  bg="bg.card"
-                  borderWidth="1px"
-                  borderColor="border.base"
-                >
-                  <HStack justify="space-between" gap={4}>
-                    <Text fontSize="sm" color="text.primary" lineClamp={1} flex="1" minW={0}>
-                      {torrent.name}
-                    </Text>
-                    <HStack gap={3} flexShrink={0}>
-                      {torrent.downloadSpeed > 0 && (
-                        <Text fontSize="xs" color="green.500" fontFamily="monospace">
-                          {(torrent.downloadSpeed / 1024).toFixed(0)} KB/s
-                        </Text>
-                      )}
-                      <Text fontSize="xs" color="text.muted" fontFamily="monospace" fontWeight="bold">
-                        {torrent.progress}%
-                      </Text>
-                    </HStack>
-                  </HStack>
-                  <div
-                    style={{
-                      marginTop: 8,
-                      height: 4,
-                      background: 'var(--chakra-colors-bg-surface, #1a1a2e)',
-                      borderRadius: 9999,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: '100%',
-                        width: `${torrent.progress}%`,
-                        background: 'var(--chakra-colors-green-500, #22c55e)',
-                        borderRadius: 9999,
-                        transition: 'width 0.5s ease',
-                      }}
-                    />
-                  </div>
-                </Box>
-              ))}
-            </VStack>
+            <DownloadQueue />
           </Box>
         )}
 

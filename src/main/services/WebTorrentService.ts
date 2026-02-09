@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import path from 'path'
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'fs'
 import { app, BrowserWindow } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
@@ -211,6 +211,7 @@ export class WebTorrentService {
 
   /**
    * Apply file selection and start downloading selected files only.
+   * Skips files that already exist and have matching size.
    */
   selectFiles(id: string, selectedFileIndices: number[]): { success: boolean; error?: string } {
     const qt = this.queue.get(id)
@@ -225,17 +226,57 @@ export class WebTorrentService {
       return { success: false, error: 'Active torrent instance not found' }
     }
 
+    if (!qt.downloadPath) {
+      return { success: false, error: 'Download path not set' }
+    }
+
+    // Check which files already exist with correct size
+    const filesToDownload: number[] = []
+    const skippedFiles: string[] = []
+
+    for (const index of selectedFileIndices) {
+      if (index < 0 || index >= torrent.files.length) continue
+
+      const file = torrent.files[index]
+      const fullPath = path.join(qt.downloadPath, file.path)
+
+      try {
+        const stats = statSync(fullPath)
+        // File exists - check if size matches (indicating it's complete)
+        if (stats.size === file.length) {
+          skippedFiles.push(file.name)
+          console.log(`[WebTorrentService] Skipping existing file: ${file.name} (${stats.size} bytes)`)
+          continue
+        } else {
+          console.log(`[WebTorrentService] File exists but size mismatch (${stats.size} vs ${file.length}), will re-download: ${file.name}`)
+          filesToDownload.push(index)
+        }
+      } catch (err) {
+        // File doesn't exist or can't be accessed - download it
+        filesToDownload.push(index)
+      }
+    }
+
+    // If all files already exist, mark as completed
+    if (filesToDownload.length === 0 && selectedFileIndices.length > 0) {
+      console.log(`[WebTorrentService] All selected files already exist, marking as completed`)
+      qt.status = 'completed'
+      qt.progress = 100
+      this.torrentsAwaitingSelection.delete(id)
+      this.persistQueue()
+      this.broadcastStatusChange(qt)
+      return { success: true }
+    }
+
     // Create a Set for O(1) lookup
     const selectedSet = new Set(selectedFileIndices)
 
     // Deselect all files first
     torrent.files.forEach(file => file.deselect())
 
-    // Select only chosen files
-    selectedFileIndices.forEach(index => {
-      if (index >= 0 && index < torrent.files.length) {
-        torrent.files[index].select()
-      }
+    // Select only files that need to be downloaded
+    filesToDownload.forEach(index => {
+      torrent.files[index].select()
     })
 
     // Update our tracking with correct selection state
@@ -246,7 +287,11 @@ export class WebTorrentService {
     this.persistQueue()
     this.broadcastStatusChange(qt)
 
-    console.log(`[WebTorrentService] File selection applied: ${selectedFileIndices.length}/${torrent.files.length} files selected for download`)
+    const message = skippedFiles.length > 0
+      ? `File selection applied: ${filesToDownload.length}/${torrent.files.length} files to download (${skippedFiles.length} already exist)`
+      : `File selection applied: ${filesToDownload.length}/${torrent.files.length} files selected for download`
+
+    console.log(`[WebTorrentService] ${message}`)
     return { success: true }
   }
 
@@ -325,6 +370,10 @@ export class WebTorrentService {
 
         this.persistQueue()
         this.broadcastStatusChange(qt)
+
+        // Broadcast event to renderer to open file selection dialog
+        this.broadcastFileSelectionNeeded(qt)
+
         console.log(`[WebTorrentService] Metadata received, awaiting file selection: ${qt.name} (${qt.totalSize} bytes, ${torrent.files.length} files)`)
       })
 
@@ -448,6 +497,17 @@ export class WebTorrentService {
    */
   private broadcastStatusChange(qt: QueuedTorrent): void {
     this.sendToAllWindows(IPC_CHANNELS.WEBTORRENT_STATUS_CHANGE, qt)
+  }
+
+  /**
+   * Broadcast event to renderer that a torrent needs file selection.
+   */
+  private broadcastFileSelectionNeeded(qt: QueuedTorrent): void {
+    this.sendToAllWindows(IPC_CHANNELS.WEBTORRENT_FILE_SELECTION_NEEDED, {
+      id: qt.id,
+      name: qt.name,
+      files: qt.files,
+    })
   }
 
   /**
