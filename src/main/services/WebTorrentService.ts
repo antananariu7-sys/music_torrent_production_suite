@@ -243,13 +243,10 @@ export class WebTorrentService {
     qt.status = 'downloading'
     this.torrentsAwaitingSelection.delete(id)
 
-    // Resume the torrent
-    torrent.resume()
-
     this.persistQueue()
     this.broadcastStatusChange(qt)
 
-    console.log(`[WebTorrentService] File selection applied: ${selectedFileIndices.length}/${torrent.files.length} files selected`)
+    console.log(`[WebTorrentService] File selection applied: ${selectedFileIndices.length}/${torrent.files.length} files selected for download`)
     return { success: true }
   }
 
@@ -307,7 +304,7 @@ export class WebTorrentService {
 
       // infoHash is available immediately from the magnet URI
       qt.infoHash = torrent.infoHash
-      qt.status = 'downloading'
+      qt.status = 'downloading' // Will change to awaiting-file-selection when metadata loads
       qt.startedAt = new Date().toISOString()
       this.persistQueue()
       this.broadcastStatusChange(qt)
@@ -316,16 +313,19 @@ export class WebTorrentService {
         qt.infoHash = torrent.infoHash
         qt.name = torrent.name || qt.name
         qt.totalSize = torrent.length
+
+        // CRITICAL: Deselect all files immediately to prevent downloading
+        // This allows metadata to be fetched while preventing file content downloads
+        torrent.files.forEach(file => file.deselect())
         qt.files = this.mapTorrentFiles(torrent)
 
-        // Pause immediately for file selection
+        // Set status to awaiting file selection (don't pause - files are already deselected)
         qt.status = 'awaiting-file-selection'
         this.torrentsAwaitingSelection.add(qt.id)
-        torrent.pause()
 
         this.persistQueue()
         this.broadcastStatusChange(qt)
-        console.log(`[WebTorrentService] Metadata received, awaiting file selection: ${qt.name} (${qt.totalSize} bytes)`)
+        console.log(`[WebTorrentService] Metadata received, awaiting file selection: ${qt.name} (${qt.totalSize} bytes, ${torrent.files.length} files)`)
       })
 
       torrent.on('done', () => {
