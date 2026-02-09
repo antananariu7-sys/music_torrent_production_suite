@@ -150,6 +150,8 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   const removeTorrent = useDownloadQueueStore((s) => s.removeTorrent)
   const playTrack = useAudioPlayerStore((s) => s.playTrack)
   const playPlaylist = useAudioPlayerStore((s) => s.playPlaylist)
+  const currentTrack = useAudioPlayerStore((s) => s.currentTrack)
+  const isPlaying = useAudioPlayerStore((s) => s.isPlaying)
   const [isExpanded, setIsExpanded] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
 
@@ -231,6 +233,12 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
     const isExpanded = expandedFolders.has(node.path)
     const items: JSX.Element[] = []
 
+    // Check if this file is currently playing
+    const isCurrentlyPlaying = !node.isFolder &&
+      currentTrack &&
+      node.files[0] &&
+      currentTrack.filePath === `${torrent.downloadPath}/${node.files[0].path}`.replace(/\\/g, '/')
+
     // Render current node
     if (node.path || !node.isFolder) {
       items.push(
@@ -239,12 +247,15 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
           pl={depth * 4 + 2}
           pr={2}
           py={0}
-          cursor={node.isFolder ? 'pointer' : 'default'}
-          _hover={node.isFolder ? { bg: 'bg.muted' } : undefined}
+          cursor={node.isFolder ? 'pointer' : (node.progress === 100 && isAudioFile(node.path)) ? 'pointer' : 'default'}
+          _hover={node.isFolder ? { bg: 'bg.muted' } : (node.progress === 100 && isAudioFile(node.path)) ? { bg: 'bg.muted' } : undefined}
           align="center"
           gap={2}
           fontSize="xs"
-          onClick={node.isFolder ? () => toggleFolder(node.path) : undefined}
+          bg={isCurrentlyPlaying ? 'blue.500/10' : undefined}
+          borderLeft={isCurrentlyPlaying ? '2px solid' : undefined}
+          borderColor={isCurrentlyPlaying ? 'blue.500' : undefined}
+          onClick={node.isFolder ? () => toggleFolder(node.path) : (node.progress === 100 && isAudioFile(node.path) && node.files[0]) ? () => handlePlayFile(node.files[0]) : undefined}
         >
           {node.isFolder ? (
             <>
@@ -296,14 +307,25 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
             </>
           ) : (
             <>
-              <Box w="3" flexShrink={0} /> {/* Spacer for chevron */}
+              {/* Show play icon if currently playing, otherwise spacer */}
+              {isCurrentlyPlaying && isPlaying ? (
+                <Icon as={FiPlay} boxSize={3} color="blue.500" flexShrink={0} />
+              ) : (
+                <Box w="3" flexShrink={0} />
+              )}
               <Icon
                 as={isAudioFile(node.path) ? FiMusic : FiFile}
                 boxSize={3}
-                color={isAudioFile(node.path) ? 'blue.400' : 'text.muted'}
+                color={isCurrentlyPlaying ? 'blue.500' : isAudioFile(node.path) ? 'blue.400' : 'text.muted'}
                 flexShrink={0}
               />
-              <Text flex="1" color="text.primary" lineClamp={1} title={node.path}>
+              <Text
+                flex="1"
+                color={isCurrentlyPlaying ? 'blue.500' : 'text.primary'}
+                fontWeight={isCurrentlyPlaying ? 'semibold' : 'normal'}
+                lineClamp={1}
+                title={node.path}
+              >
                 {node.name}
               </Text>
               <Text color="text.muted" flexShrink={0}>
