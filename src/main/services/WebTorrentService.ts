@@ -225,6 +225,9 @@ export class WebTorrentService {
       return { success: false, error: 'Active torrent instance not found' }
     }
 
+    // Create a Set for O(1) lookup
+    const selectedSet = new Set(selectedFileIndices)
+
     // Deselect all files first
     torrent.files.forEach(file => file.deselect())
 
@@ -235,8 +238,8 @@ export class WebTorrentService {
       }
     })
 
-    // Update our tracking
-    qt.files = this.mapTorrentFiles(torrent)
+    // Update our tracking with correct selection state
+    qt.files = this.mapTorrentFiles(torrent, selectedSet)
     qt.status = 'downloading'
     this.torrentsAwaitingSelection.delete(id)
 
@@ -376,14 +379,14 @@ export class WebTorrentService {
   /**
    * Map WebTorrent files to our TorrentContentFile type.
    */
-  private mapTorrentFiles(torrent: Torrent): TorrentContentFile[] {
-    return torrent.files.map(f => ({
+  private mapTorrentFiles(torrent: Torrent, selectedIndices?: Set<number>): TorrentContentFile[] {
+    return torrent.files.map((f, index) => ({
       path: f.path,
       name: f.name,
       size: f.length,
       downloaded: f.downloaded,
       progress: f.length > 0 ? Math.round((f.downloaded / f.length) * 100) : 0,
-      selected: true,
+      selected: selectedIndices ? selectedIndices.has(index) : true,
     }))
   }
 
