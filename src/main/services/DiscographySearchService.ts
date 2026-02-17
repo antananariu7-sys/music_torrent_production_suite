@@ -236,7 +236,7 @@ export class DiscographySearchService {
 
       // Navigate to page
       await page.goto(searchResult.url, {
-        waitUntil: 'networkidle2',
+        waitUntil: 'domcontentloaded', // Faster than networkidle2
         timeout,
       })
 
@@ -386,9 +386,9 @@ export class DiscographySearchService {
         const fullPageText = document.body?.textContent?.toLowerCase() || ''
         albumFoundInText = fullPageText.includes(albumNameLower)
 
-        if (artistNameLower && albumFoundInText) {
-          albumFoundInText = fullPageText.includes(artistNameLower)
-        }
+        // For fallback search, finding the album name is sufficient
+        // Artist name check is too strict since MusicBrainz and RuTracker may use different names
+        // (e.g., "Федор Чистяков и гр.Ноль" vs "Ноль")
       }
 
       return {

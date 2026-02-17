@@ -1,12 +1,13 @@
-import { Box, Flex, Text, Icon, Button } from '@chakra-ui/react'
-import { FiAlertCircle } from 'react-icons/fi'
+import { Box, Flex, HStack, Text, Icon, Button } from '@chakra-ui/react'
+import { FiAlertCircle, FiRefreshCw } from 'react-icons/fi'
 
 interface SearchErrorNoticeProps {
   error: string
   onClose: () => void
+  onRetry?: () => void
 }
 
-export const SearchErrorNotice: React.FC<SearchErrorNoticeProps> = ({ error, onClose }) => {
+export const SearchErrorNotice: React.FC<SearchErrorNoticeProps> = ({ error, onClose, onRetry }) => {
   return (
     <Box
       p={4}
@@ -24,16 +25,29 @@ export const SearchErrorNotice: React.FC<SearchErrorNoticeProps> = ({ error, onC
           <Text fontSize="sm" color="text.secondary">
             {error}
           </Text>
-          <Button
-            onClick={onClose}
-            mt={2}
-            size="sm"
-            variant="ghost"
-            color="red.500"
-            _hover={{ bg: 'red.500/10' }}
-          >
-            Close
-          </Button>
+          <HStack mt={2} gap={2}>
+            {onRetry && (
+              <Button
+                onClick={onRetry}
+                size="sm"
+                colorPalette="red"
+                variant="solid"
+                _hover={{ bg: 'red.600' }}
+              >
+                <Icon as={FiRefreshCw} />
+                Retry
+              </Button>
+            )}
+            <Button
+              onClick={onClose}
+              size="sm"
+              variant="ghost"
+              color="red.500"
+              _hover={{ bg: 'red.500/10' }}
+            >
+              Close
+            </Button>
+          </HStack>
         </Box>
       </Flex>
     </Box>

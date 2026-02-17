@@ -44,6 +44,7 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     setDiscographyScanProgress,
     setDiscographyScanResults,
     stopDiscographyScan,
+    startSearch,
   } = useSmartSearchStore()
 
   // Handle classification
@@ -91,39 +92,11 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
       addActivityLog(`Searching RuTracker: "${albumQuery}" + artist pages...`, 'info')
 
       let albumResults: SearchResult[] = []
-      const seenIds = new Set<string>()
-
-      const mergeAndUpdateResults = (newDiscographyResults: SearchResult[]) => {
-        const mergedResults: SearchResult[] = []
-
-        for (const result of albumResults) {
-          if (!seenIds.has(result.id)) {
-            seenIds.add(result.id)
-            mergedResults.push(result)
-          }
-        }
-
-        for (const result of newDiscographyResults) {
-          if (!seenIds.has(result.id)) {
-            seenIds.add(result.id)
-            mergedResults.push({ ...result, searchSource: 'discography' as const })
-          }
-        }
-
-        return mergedResults
-      }
 
       const cleanupProgress = window.api.search.onProgress((progress: SearchProgressEvent) => {
         console.log(`[SmartSearch] Discography progress: page ${progress.currentPage}/${progress.totalPages}, ${progress.results.length} results`)
+        // Only update loading progress indicator, don't show partial results
         setSearchProgress({ currentPage: progress.currentPage, totalPages: progress.totalPages })
-
-        if (progress.results.length > 0) {
-          const merged = mergeAndUpdateResults(progress.results)
-          if (merged.length > 0) {
-            addActivityLog(`Found ${merged.length} results (page ${progress.currentPage}/${progress.totalPages})...`, 'info')
-            setRuTrackerResults(albumQuery, merged)
-          }
-        }
       })
 
       const [albumResponse, discographyResponse] = await Promise.allSettled([
@@ -144,7 +117,7 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
           filters: {
             minSeeders: 5,
           },
-          maxPages: 10,
+          maxPages: 50, // Search all available pages (up to 50)
         }),
       ])
 
@@ -502,6 +475,15 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     }
   }
 
+  // Handle retry
+  const handleRetry = () => {
+    if (!originalQuery) return
+
+    addActivityLog(`Retrying search: "${originalQuery}"`, 'info')
+    reset()
+    startSearch(originalQuery)
+  }
+
   // Auto-classify when step changes to classifying
   useEffect(() => {
     if (step === 'classifying' && originalQuery) {
@@ -582,5 +564,6 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     handleStopDiscographyScan,
     handleSelectTorrent,
     handleCancel,
+    handleRetry,
   }
 }

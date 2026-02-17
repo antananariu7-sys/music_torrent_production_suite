@@ -145,11 +145,11 @@ export class AuthService {
 
   /**
    * Start background session validation
-   * Checks session validity every 5 minutes
+   * Checks session validity every 15 minutes
    */
   private startSessionValidation(): void {
-    // Check every 5 minutes
-    const VALIDATION_INTERVAL = 5 * 60 * 1000
+    // Check every 15 minutes
+    const VALIDATION_INTERVAL = 15 * 60 * 1000
 
     this.sessionValidationInterval = setInterval(async () => {
       if (!this.authState.isLoggedIn) {
@@ -191,8 +191,13 @@ export class AuthService {
       const browser = await this.initBrowser()
       page = await browser.newPage()
 
+      // Navigate to RuTracker first to set cookies
+      await page.goto('https://rutracker.org/forum/', {
+        waitUntil: 'domcontentloaded',
+        timeout: 45000,
+      })
+
       // Set session cookies
-      await page.goto('https://rutracker.org/forum/', { waitUntil: 'domcontentloaded', timeout: 30000 })
       await page.setCookie(...this.sessionCookies.map(cookie => ({
         name: cookie.name,
         value: cookie.value,
@@ -204,7 +209,7 @@ export class AuthService {
       // Navigate to a page that requires authentication
       await page.goto('https://rutracker.org/forum/index.php', {
         waitUntil: 'domcontentloaded',
-        timeout: 30000,
+        timeout: 45000, // Increased timeout for slower networks
       })
 
       // Check if we're still logged in by looking for login form
@@ -231,9 +236,11 @@ export class AuthService {
       console.log('[AuthService] ✅ Session validation successful')
       return true
     } catch (error) {
-      console.error('[AuthService] Session validation error:', error)
+      // Timeout or network errors shouldn't invalidate the session
+      // We'll retry on next validation interval
+      console.warn('[AuthService] Session validation failed (network issue):', error instanceof Error ? error.message : 'Unknown error')
       if (page) {
-        await page.close()
+        await page.close().catch(() => {})
       }
       return false
     }

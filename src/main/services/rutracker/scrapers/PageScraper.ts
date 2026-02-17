@@ -32,8 +32,8 @@ export class PageScraper {
     // Navigate to RuTracker to set cookies
     console.log('[PageScraper] Navigating to RuTracker homepage to set cookies')
     await page.goto(RUTRACKER_BASE_URL, {
-      waitUntil: 'networkidle2',
-      timeout: 30000,
+      waitUntil: 'domcontentloaded', // Faster than networkidle2
+      timeout: 45000, // Increased timeout
     })
 
     // Restore session cookies
@@ -62,13 +62,13 @@ export class PageScraper {
     console.log(`[PageScraper] Navigating to ${searchUrl}`)
 
     await page.goto(searchUrl, {
-      waitUntil: 'networkidle2',
-      timeout: 30000,
+      waitUntil: 'domcontentloaded', // Faster and more reliable than networkidle2
+      timeout: 45000, // Increased timeout for slower networks
     })
 
     // Wait for results table to load (using correct ID: tor-tbl)
     console.log('[PageScraper] Waiting for results table to appear')
-    await page.waitForSelector('#tor-tbl', { visible: true, timeout: 10000 })
+    await page.waitForSelector('#tor-tbl', { visible: true, timeout: 15000 })
 
     // Wait a bit for results to fully render
     await new Promise(resolve => setTimeout(resolve, 500))
@@ -84,8 +84,8 @@ export class PageScraper {
   async navigateToUrl(page: Page, url: string): Promise<void> {
     console.log(`[PageScraper] Navigating to: ${url}`)
     await page.goto(url, {
-      waitUntil: 'networkidle2',
-      timeout: 30000,
+      waitUntil: 'domcontentloaded', // Faster and more reliable
+      timeout: 45000, // Increased timeout for slower networks
     })
   }
 }

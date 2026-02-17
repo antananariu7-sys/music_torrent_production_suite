@@ -34,6 +34,7 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
     handleStopDiscographyScan,
     handleSelectTorrent,
     handleCancel,
+    handleRetry,
   } = useSmartSearchWorkflow({ onComplete, onCancel })
 
   return (
@@ -67,7 +68,7 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
       {step === 'completed' && <SearchCompletionNotice />}
 
       {step === 'error' && error && (
-        <SearchErrorNotice error={error} onClose={handleCancel} />
+        <SearchErrorNotice error={error} onClose={handleCancel} onRetry={handleRetry} />
       )}
     </>
   )
