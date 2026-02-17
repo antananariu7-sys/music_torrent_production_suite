@@ -16,6 +16,8 @@ import { registerMusicBrainzHandlers } from './musicBrainzHandlers'
 import { WebTorrentService } from '../services/WebTorrentService'
 import { registerWebtorrentHandlers } from './webtorrentHandlers'
 import { registerAudioHandlers } from './audioHandlers'
+import { TorrentMetadataService } from '../services/TorrentMetadataService'
+import { registerTorrentMetadataHandlers } from './torrentMetadataHandlers'
 
 // Service instances (initialized in registerIpcHandlers)
 let fileSystemService: FileSystemService
@@ -27,6 +29,7 @@ let torrentService: TorrentDownloadService
 let webtorrentService: WebTorrentService
 let musicBrainzService: MusicBrainzService
 let discographySearchService: DiscographySearchService
+let torrentMetadataService: TorrentMetadataService
 let projectService: ProjectService
 
 export function registerIpcHandlers(): void {
@@ -42,6 +45,7 @@ export function registerIpcHandlers(): void {
   webtorrentService = new WebTorrentService(configService)
   musicBrainzService = new MusicBrainzService()
   discographySearchService = new DiscographySearchService(authService)
+  torrentMetadataService = new TorrentMetadataService(authService)
   projectService = new ProjectService(
     fileSystemService,
     configService,
@@ -56,6 +60,7 @@ export function registerIpcHandlers(): void {
   registerTorrentHandlers(torrentService)
   registerWebtorrentHandlers(webtorrentService)
   registerMusicBrainzHandlers(musicBrainzService)
+  registerTorrentMetadataHandlers(torrentMetadataService)
   registerAudioHandlers()
 
   // Resume any persisted WebTorrent downloads
@@ -73,5 +78,6 @@ export async function cleanupServices(): Promise<void> {
   await torrentService.closeBrowser()
   await webtorrentService.destroy()
   await discographySearchService.closeBrowser()
+  await torrentMetadataService.closeBrowser()
   console.log('Services cleaned up successfully')
 }

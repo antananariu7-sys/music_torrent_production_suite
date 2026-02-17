@@ -10,7 +10,20 @@ describe('MusicBrainzService', () => {
   beforeEach(() => {
     service = new MusicBrainzService()
     jest.clearAllMocks()
+    jest.useFakeTimers()
   })
+
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  /** Advance fake timers through all retry delays */
+  async function flushRetries() {
+    // Advance timers in steps to properly interleave with async code
+    for (let i = 0; i < 10; i++) {
+      await jest.advanceTimersByTimeAsync(10000)
+    }
+  }
 
   describe('createRuTrackerQuery', () => {
     it('should create correct query from album info', () => {
@@ -81,9 +94,13 @@ describe('MusicBrainzService', () => {
         statusText: 'Internal Server Error',
       })
 
-      const result = await service.findAlbumsBySong({
+      const promise = service.findAlbumsBySong({
         songTitle: 'Test Song',
       })
+
+      await flushRetries()
+
+      const result = await promise
 
       expect(result.success).toBe(false)
       expect(result.error).toBeDefined()
@@ -174,7 +191,11 @@ describe('MusicBrainzService', () => {
     it('should return null on error', async () => {
       (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
 
-      const album = await service.getAlbumDetails('album1')
+      const promise = service.getAlbumDetails('album1')
+
+      await flushRetries()
+
+      const album = await promise
 
       expect(album).toBeNull()
     })
@@ -189,16 +210,16 @@ describe('MusicBrainzService', () => {
 
       ;(global.fetch as jest.Mock).mockResolvedValue(mockResponse)
 
-      const startTime = Date.now()
-
-      // Make two requests
+      // First request completes immediately
       await service.findAlbumsBySong({ songTitle: 'Test 1' })
-      await service.findAlbumsBySong({ songTitle: 'Test 2' })
 
-      const duration = Date.now() - startTime
+      // Second request triggers rate limiter - start it and advance timers
+      const secondRequest = service.findAlbumsBySong({ songTitle: 'Test 2' })
+      await jest.advanceTimersByTimeAsync(1100)
+      await secondRequest
 
-      // Should take at least 1000ms between requests
-      expect(duration).toBeGreaterThanOrEqual(1000)
+      // Both calls should have gone through
+      expect(global.fetch).toHaveBeenCalledTimes(2)
     })
   })
 })

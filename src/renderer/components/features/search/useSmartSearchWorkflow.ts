@@ -239,6 +239,7 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
         const albumResponse = await window.api.musicBrainz.getAlbumDetails(result.albumId)
 
         if (albumResponse.success && albumResponse.data) {
+          selectAlbum(albumResponse.data)
           await searchRuTracker(albumResponse.data)
         } else {
           addActivityLog('Failed to get album details', 'error')
@@ -524,7 +525,8 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
 
   const getLoadingMessage = (): string | null => {
     if (step === 'classifying') return 'Classifying search term...'
-    if (step === 'searching-rutracker') return 'Searching RuTracker (up to 10 pages)...'
+    if (step === 'selecting-action') return 'Fetching album details...'
+    if (step === 'searching-rutracker') return 'Searching RuTracker...'
     return null
   }
 

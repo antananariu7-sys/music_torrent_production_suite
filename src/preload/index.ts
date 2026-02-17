@@ -52,6 +52,10 @@ import type {
   DiscographySearchResponse,
   DiscographySearchProgress,
 } from '@shared/types/discography.types'
+import type {
+  TorrentMetadataRequest,
+  TorrentMetadataResponse,
+} from '@shared/types/torrentMetadata.types'
 
 // API response wrapper
 interface ApiResponse<T> {
@@ -272,6 +276,12 @@ const api = {
 
     selectFiles: (request: SelectTorrentFilesRequest): Promise<SelectTorrentFilesResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_SELECT_FILES, request),
+  },
+
+  // Torrent metadata parsing
+  torrentMetadata: {
+    parse: (request: TorrentMetadataRequest): Promise<TorrentMetadataResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_PARSE_METADATA, request),
   },
 
   // Audio playback

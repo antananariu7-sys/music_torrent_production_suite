@@ -41,6 +41,9 @@ export const IPC_CHANNELS = {
   // Torrent local file check
   TORRENT_CHECK_LOCAL_FILE: 'torrent:check-local-file',
 
+  // Torrent metadata parsing
+  TORRENT_PARSE_METADATA: 'torrent:parse-metadata',
+
   // Torrent collection operations
   TORRENT_COLLECTION_LOAD: 'torrent:collection:load',
   TORRENT_COLLECTION_SAVE: 'torrent:collection:save',
