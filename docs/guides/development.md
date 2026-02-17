@@ -856,7 +856,7 @@ export default function ProjectCard() { }
 3. **Add `data-testid` attributes** to new UI elements
 4. **Run tests frequently**: `npm test` or `npm test Button.test.tsx`
 5. **Commit often**: Small, focused commits (include both code and test)
-6. **Follow commit message format**: See [agents.md](../agents.md)
+6. **Follow commit message format**: See [AGENTS.md](../../AGENTS.md)
 
 **Example workflow**:
 ```bash
@@ -951,11 +951,11 @@ function Dashboard() {
 ## Resources
 
 ### Related Documentation
-- [Testing Guidelines](13-testing-guidelines.md) - Testing standards and practices
-- [Architecture Overview](01-overview.md) - Application architecture
-- [IPC Communication](03-ipc-communication.md) - IPC patterns and examples
-- [Security](05-security.md) - Security architecture
-- [agents.md](../agents.md) - Project rules and conventions
+- [Testing Guidelines](testing.md) - Testing standards and practices
+- [Architecture Overview](../architecture/01-overview.md) - Application architecture
+- [IPC Communication](../architecture/03-ipc-communication.md) - IPC patterns and examples
+- [Security](../architecture/05-security.md) - Security architecture
+- [AGENTS.md](../../AGENTS.md) - Project rules and conventions
 
 ### External Resources
 - [Electron Security](https://www.electronjs.org/docs/latest/tutorial/security)

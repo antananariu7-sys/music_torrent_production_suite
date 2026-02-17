@@ -122,7 +122,7 @@ See [10-development-plan.md](docs/architecture/10-development-plan.md#architectu
 
 For coding standards, commit message format, and development best practices, see:
 
-**→ [agents.md](agents.md)** - Project rules for AI agents and developers
+**→ [AGENTS.md](AGENTS.md)** - Project rules for AI agents and developers
 
 ---
 
@@ -235,7 +235,7 @@ For coding standards, commit message format, and development best practices, see
 
 ## 🔗 Related Documentation
 
-- **[agents.md](agents.md)** - Project rules and conventions for AI agents
+- **[AGENTS.md](AGENTS.md)** - Project rules and conventions for AI agents
 - **[.claude/settings.local.json](.claude/settings.local.json)** - Claude Code configuration
 - **[README.md](README.md)** - Project README
 

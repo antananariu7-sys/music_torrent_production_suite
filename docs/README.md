@@ -61,7 +61,7 @@ API documentation and quick references:
 ## 🔗 Related Documentation
 
 - **[../ARCHITECTURE.md](../ARCHITECTURE.md)** - Main architecture index (project root)
-- **[../agents.md](../agents.md)** - Project rules for AI agents
+- **[../AGENTS.md](../AGENTS.md)** - Project rules for AI agents
 - **[../README.md](../README.md)** - Project README
 
 ## 📝 Documentation Updates

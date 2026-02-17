@@ -250,7 +250,7 @@ describe('ComponentName', () => {
 })
 ```
 
-**Note**: If you need component tests, wrap with `ChakraProvider` and use the TestWrapper pattern. See [src/renderer/pages/Welcome/Welcome.test.tsx](src/renderer/pages/Welcome/Welcome.test.tsx) for reference.
+**Note**: If you need component tests, wrap with `ChakraProvider` and use the TestWrapper pattern.
 
 ### Zustand Store Testing (Optional)
 
@@ -785,4 +785,4 @@ await waitFor(() => {
 ---
 
 **Last Updated**: 2026-02-01
-**Related**: [10-development-plan.md](10-development-plan.md), [agents.md](../agents.md)
+**Related**: [10-development-plan.md](../architecture/10-development-plan.md), [AGENTS.md](../../AGENTS.md)
