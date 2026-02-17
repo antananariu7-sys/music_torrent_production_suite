@@ -4,29 +4,44 @@ import type { TorrentPageMetadata, ParsedAlbum, TorrentTrack } from '@shared/typ
 /**
  * Parse numbered track lines from text content
  * Matches patterns like:
- *   "1. Track Title" or "01. Track Title (03:42)"  — numeric
+ *   "1. Track Title" or "01. Track Title (03:42)"  — numeric, duration at end
  *   "A1. Track Title" or "B3. Track Title"          — vinyl side+number
+ *   "(03:42) 01. Track Title"                       — duration at beginning
  */
 export function parseTracksFromText(text: string): TorrentTrack[] {
   const tracks: TorrentTrack[] = []
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean)
 
-  // Regex: optional letter prefix (vinyl side), then digits, dot, space, title, optional duration
-  const trackPattern = /^([A-Z]?\d{1,3})\.\s+(.+?)(?:\s+\((\d{1,2}:\d{2}(?::\d{2})?)\))?$/
+  // Pattern 1: number first, optional duration at end — "01. Track Title (03:42)"
+  const patternNumFirst = /^([A-Z]?\d{1,3})\.\s+(.+?)(?:\s+\((\d{1,2}:\d{2}(?::\d{2})?)\))?$/
+  // Pattern 2: duration first — "(03:42) 01. Track Title"
+  const patternDurFirst = /^\((\d{1,2}:\d{2}(?::\d{2})?)\)\s+([A-Z]?\d{1,3})\.\s+(.+)$/
 
   let seqPosition = 0
   for (const line of lines) {
-    const match = line.match(trackPattern)
-    if (match) {
+    let rawNum: string | undefined
+    let title: string | undefined
+    let duration: string | undefined
+
+    const m1 = line.match(patternNumFirst)
+    if (m1) {
+      rawNum = m1[1]
+      title = m1[2].trim()
+      duration = m1[3]
+    } else {
+      const m2 = line.match(patternDurFirst)
+      if (m2) {
+        duration = m2[1]
+        rawNum = m2[2]
+        title = m2[3].trim()
+      }
+    }
+
+    if (rawNum && title) {
       seqPosition++
-      const rawNum = match[1]
       // Use the numeric part if purely numeric, otherwise sequential counter
       const position = /^\d+$/.test(rawNum) ? parseInt(rawNum, 10) : seqPosition
-      tracks.push({
-        position,
-        title: match[2].trim(),
-        duration: match[3],
-      })
+      tracks.push({ position, title, duration })
     }
   }
 
