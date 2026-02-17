@@ -213,17 +213,22 @@ For coding standards, commit message format, and development best practices, see
 
 ## 📝 Document Status
 
-- **Version**: 2.3
-- **Last Updated**: 2026-02-09
-- **Status**: Architecture documentation updated with Audio Player feature
+- **Version**: 2.4
+- **Last Updated**: 2026-02-17
+- **Status**: Architecture documentation reviewed and updated to match implementation
 - **Recent Updates**:
-  - Added Audio Player feature documentation (IPC channel, data models, UI components)
-  - Added `audio:read-file` IPC channel for secure audio file loading
-  - Added Track and AudioPlayerState data models
-  - Updated UI architecture with AudioPlayer component and integration details
-  - Updated directory structure with audioPlayerStore, audioHandlers, and visual components
-  - Documented file tree view with folder support in DownloadQueueItem
-  - Documented click-to-play integration and playlist navigation
+  - Documentation audit: all architecture docs verified against actual codebase
+  - RuTrackerSearchService refactored from 910 to 316 lines (split into `rutracker/` subdirectory)
+  - Result grouping, MusicBrainz retry with backoff, torrent page parser implemented
+  - TorrentMetadataService with IPC integration added
+  - ProjectLauncher refactoring completed (split into subcomponents)
+  - Welcome page transformed to ProjectOverview with tabbed interface (Search/Torrent/Mix)
+  - Fixed IPC communication docs: all 50+ channels documented with correct signatures
+  - Fixed directory structure: reflects actual PascalCase services, 2 pages, feature-based components
+  - Fixed data models: all type definitions match actual `src/shared/types/`
+  - Fixed security docs: credential storage accurately described
+  - Fixed dependency versions to match package.json
+  - Fixed guide docs: correct API namespaces (`window.api.search.start()`, etc.)
 - **Next Steps**: Audio library with metadata extraction, then Phase 4 (Mixer)
 
 ---

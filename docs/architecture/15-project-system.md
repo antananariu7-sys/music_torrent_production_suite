@@ -1,8 +1,8 @@
 # Project System Architecture
 
-**Version**: 1.0
-**Last Updated**: 2026-02-02
-**Status**: Design Complete - Ready for Implementation
+**Version**: 2.0
+**Last Updated**: 2026-02-17
+**Status**: Implemented
 
 ---
 
@@ -19,8 +19,7 @@
 9. [Security & Validation](#9-security--validation)
 10. [Error Handling](#10-error-handling)
 11. [Testing Strategy](#11-testing-strategy)
-12. [Implementation Roadmap](#12-implementation-roadmap)
-13. [Architecture Decisions](#13-architecture-decisions)
+12. [Architecture Decisions](#12-architecture-decisions)
 
 ---
 
@@ -29,23 +28,23 @@
 ### Purpose
 
 The Project System serves as the central organizing unit for the Music Production Suite, encapsulating all user work including:
-- Search results from RuTracker
-- Torrent downloads and status
-- Downloaded audio files
-- User's song/tracklist
+- User's song/tracklist with metadata
 - Mix metadata and cover art
-- Mixing sessions
+- Project directory with organized assets
+- References to downloaded and external audio files
+
+Search results, torrent collections, and download queues are managed by their own services and persisted per-project-directory (not embedded in the project file). This keeps `project.json` focused on the user-curated mix.
 
 ### Key Features
 
-- **Create/Open/Save Projects**: Full project lifecycle management
+- **Create/Open/Close Projects**: Full project lifecycle management
 - **Recent Projects**: Quick access to recently opened projects
 - **External File Support**: Add audio files from anywhere on the system
 - **Project Locking**: Prevent simultaneous access to same project
-- **Auto-Save**: Configurable automatic saving
-- **Mix Metadata**: Title, artist, genre, description, cover image, tags
+- **Mix Metadata**: Title, description, genre, cover image, tags
 - **Songs List**: User-curated tracklist with ordering
-- **Global Torrent Integration**: Projects reference global torrent manager
+- **Delete Projects**: Remove from recent list or delete from disk entirely
+- **Global Torrent Integration**: Download paths are per-project via ConfigService
 
 ### Design Principles
 
@@ -53,7 +52,7 @@ The Project System serves as the central organizing unit for the Music Productio
 2. **JSON Storage**: Human-readable, debuggable, version-controllable
 3. **User-Controlled Location**: Users choose where projects are saved
 4. **Asset Organization**: Structured folder for project assets
-5. **Manual Backup**: Users explicitly export/duplicate when needed
+5. **Lean Project File**: `project.json` stores only project identity, songs, and mix metadata -- search history, torrent collections, and download queues are stored in separate files within the project directory
 6. **Cross-Platform**: Windows and macOS support
 
 ---
@@ -62,48 +61,23 @@ The Project System serves as the central organizing unit for the Music Productio
 
 ### Core Interfaces
 
+**Location**: `src/shared/types/project.types.ts`
+
 ```typescript
 // ==========================================
 // PROJECT
 // ==========================================
 
 export interface Project {
-  // Identity
   id: string                    // UUID v4
   name: string                  // User-defined project name
   description?: string          // Optional project description
-  version: string              // Project format version (e.g., "1.0")
-
-  // Timestamps
   createdAt: Date
   updatedAt: Date
-  lastOpenedAt?: Date
-
-  // File system
-  filePath: string             // Absolute path to project.json
-  projectDirectory: string     // Directory containing project files
-
-  // Mix metadata
-  mixMetadata?: MixMetadata
-
-  // Component 1: Search results
-  searchResults: SearchResult[]
-  searchHistory: SearchQuery[]
-
-  // Component 2: Torrent downloads
-  downloadQueue: TorrentDownload[]
-  downloadedFiles: AudioFile[]
-  downloadSettings: DownloadSettings
-
-  // User's song/tracklist
-  songs: Song[]
-
-  // Component 3: Mixing sessions (TBD)
-  mixingSessions?: MixingSession[]
-
-  // Project configuration
-  settings: ProjectSettings
-  metadata: ProjectMetadata
+  projectDirectory: string      // Root directory for project
+  songs: Song[]                 // Array of songs in the mix
+  mixMetadata: MixMetadata      // Metadata about the mix
+  isActive: boolean             // Whether project is currently open
 }
 
 // ==========================================
@@ -114,23 +88,18 @@ export interface Song {
   id: string                    // UUID v4
   title: string                 // Song title
   artist?: string               // Artist name
+  album?: string                // Album name
   duration?: number             // Duration in seconds
-
-  // File reference (one of these will be set)
-  audioFileId?: string          // Link to downloaded AudioFile
-  externalFilePath?: string     // Absolute path to external audio file
-
-  // Metadata (especially for external files)
   format?: string               // mp3, flac, wav, etc.
   bitrate?: number              // kbps
   sampleRate?: number           // Hz
   fileSize?: number             // bytes
-
-  // Organization
-  order: number                 // Position in tracklist (0-indexed)
+  downloadId?: string           // Reference to download (if from torrent system)
+  externalFilePath?: string     // Path to external file (if not downloaded)
+  localFilePath?: string        // Path in project assets/ directory
   addedAt: Date
-  notes?: string                // User notes about the song
-  tags?: string[]               // User-defined tags
+  order: number                 // Position in tracklist (0-indexed)
+  metadata?: AudioMetadata      // Extended audio metadata
 }
 
 // ==========================================
@@ -139,77 +108,12 @@ export interface Song {
 
 export interface MixMetadata {
   title?: string                // Mix title (e.g., "Summer Vibes 2026")
-  artist?: string               // DJ/Mixer name
-  genre?: string                // Musical genre
   description?: string          // Mix description
-  duration?: number             // Total mix duration in seconds
-  bpm?: number                  // Average/target BPM
-
-  // Cover art
-  coverImage?: string           // Relative path to cover image (e.g., "assets/covers/mix-cover.jpg")
-  coverImageThumb?: string      // Relative path to thumbnail
-
-  // Metadata
-  createdAt?: Date
+  coverImagePath?: string       // Path to cover image in assets/covers/
   tags: string[]                // Genre tags, mood tags, etc.
-
-  // Social
-  url?: string                  // SoundCloud, MixCloud, etc.
-  isPublic?: boolean            // Is mix publicly shared
-}
-
-// ==========================================
-// PROJECT SETTINGS
-// ==========================================
-
-export interface ProjectSettings {
-  // Downloads
-  downloadPath: string          // Where to download files for this project
-  maxConcurrentDownloads: number
-  seedRatio: number             // Auto-stop seeding after this ratio
-
-  // Project
-  projectDirectory: string      // Base directory for project
-  autoSaveInterval: number      // Auto-save every N seconds (0 = disabled)
-
-  // Mixer (TBD)
-  autoAddToMixer: boolean       // Auto-add downloaded files to mixer
-}
-
-// ==========================================
-// PROJECT METADATA
-// ==========================================
-
-export interface ProjectMetadata {
-  // Statistics
-  totalSearches: number
-  totalDownloads: number
-  totalFiles: number
-  totalMixes?: number
-
-  // Organization
-  tags: string[]                // Project tags
-  genre?: string                // Primary genre
-  color?: string                // UI color for project
-
-  // Timestamps
-  lastSavedAt?: Date
-}
-
-// ==========================================
-// RECENT PROJECTS
-// ==========================================
-
-export interface RecentProject {
-  filePath: string              // Absolute path to project.json
-  name: string                  // Project name
-  lastOpenedAt: Date
-  previewImage?: string         // Absolute path to cover thumbnail
-  metadata?: {                  // Quick preview metadata
-    songsCount: number
-    downloadsCount: number
-    genre?: string
-  }
+  genre?: string                // Musical genre
+  estimatedDuration?: number    // Sum of all song durations
+  createdBy?: string            // User who created the mix
 }
 
 // ==========================================
@@ -233,23 +137,16 @@ export interface AudioMetadata {
 }
 
 // ==========================================
-// PROJECT INFO (Lightweight)
+// RECENT PROJECTS
 // ==========================================
 
-export interface ProjectInfo {
-  id: string
-  name: string
-  description?: string
-  createdAt: Date
-  updatedAt: Date
-  lastOpenedAt?: Date
-  filePath: string
-
-  // Statistics
-  fileCount: number
-  totalSize: number             // Total project size in bytes
-  songsCount: number
-  downloadsCount: number
+export interface RecentProject {
+  projectId: string             // Project UUID
+  projectName: string           // Project display name
+  projectDirectory: string      // Absolute path to project directory
+  lastOpened: Date
+  songCount: number
+  coverImagePath?: string       // Absolute path to cover image
 }
 
 // ==========================================
@@ -257,24 +154,12 @@ export interface ProjectInfo {
 // ==========================================
 
 export interface ProjectStats {
-  // Counts
   totalSongs: number
-  totalSearchResults: number
-  totalTorrents: number
-  totalDownloadedFiles: number
-  totalMixingSessions: number
-
-  // Sizes
-  projectSize: number           // Total size in bytes
-  assetsSize: number
-  downloadsSize: number
-
-  // Durations
-  totalAudioDuration: number    // Total duration of all audio files
-
-  // Activity
-  lastModified: Date
-  daysActive: number            // Days since creation
+  totalDuration: number         // Sum of all song durations in seconds
+  totalSize: number             // Total file size in bytes
+  downloadedSongs: number       // Songs from torrent system
+  externalSongs: number         // Songs from external files
+  formatBreakdown: Record<string, number>  // Count by format (mp3: 5, flac: 3)
 }
 
 // ==========================================
@@ -283,62 +168,44 @@ export interface ProjectStats {
 
 export interface ProjectLock {
   projectId: string
-  lockedAt: Date
   lockedBy: {
     pid: number                 // Process ID
     hostname: string            // Machine hostname
-    username: string            // OS username
   }
-  appVersion: string
+  lockedAt: Date
 }
 
 // ==========================================
-// CREATE/UPDATE REQUESTS
+// REQUEST TYPES
 // ==========================================
 
 export interface CreateProjectRequest {
   name: string
+  location: string              // Parent directory where project will be created
   description?: string
-  location: string              // Directory where project will be created
 }
 
-export interface UpdateProjectRequest {
-  id: string
-  updates: Partial<Project>
+export interface OpenProjectRequest {
+  filePath: string              // Path to project.json
+}
+
+export interface SaveProjectRequest {
+  project: Project
 }
 
 export interface AddSongRequest {
   projectId: string
-  song: Omit<Song, 'id' | 'addedAt'>
+  title: string
+  downloadId?: string           // If from torrent system
+  externalFilePath?: string     // If external file
+  order: number
+  metadata?: Partial<AudioMetadata>
 }
 
 export interface UpdateSongRequest {
   projectId: string
   songId: string
-  updates: Partial<Song>
-}
-
-export interface ReorderSongsRequest {
-  projectId: string
-  songIds: string[]             // Ordered array of song IDs
-}
-
-export interface UpdateMixMetadataRequest {
-  projectId: string
-  metadata: Partial<MixMetadata>
-}
-
-export interface UploadCoverRequest {
-  projectId: string
-  sourceImagePath: string       // Path to user-selected image
-}
-
-export interface OpenProjectRequest {
-  filePath: string
-}
-
-export interface SaveProjectRequest {
-  project: Project
+  updates: Partial<Omit<Song, 'id' | 'addedAt'>>
 }
 
 export interface RemoveSongRequest {
@@ -346,161 +213,26 @@ export interface RemoveSongRequest {
   songId: string
 }
 
-export interface RemoveFromRecentRequest {
-  filePath: string
-}
-
-export interface GetProjectInfoRequest {
+export interface UpdateMixMetadataRequest {
   projectId: string
-}
-
-export interface GetProjectStatsRequest {
-  projectId: string
-}
-
-export interface ValidateProjectRequest {
-  filePath: string
-}
-
-export interface SelectAudioFileRequest {
-  filters?: { name: string; extensions: string[] }[]
-}
-
-export interface GetAudioMetadataRequest {
-  filePath: string
-}
-
-export interface ExportProjectRequest {
-  projectId: string
-  targetPath: string
-}
-
-export interface ImportProjectRequest {
-  sourcePath: string
-}
-
-export interface DuplicateProjectRequest {
-  projectId: string
-  newName: string
+  metadata: Partial<MixMetadata>
 }
 
 // ==========================================
-// RESPONSES
+// LEGACY / UTILITY TYPES
 // ==========================================
 
-export interface SaveProjectResponse {
-  success: boolean
-  savedAt: Date
-  error?: string
-}
-
-export interface SelectLocationResponse {
-  path: string
-  cancelled: boolean
-}
-
-export interface UploadCoverResponse {
-  coverPath: string             // Relative path to cover image
-  thumbPath: string             // Relative path to thumbnail
+export interface ProjectMetadata {
+  totalSearches: number
+  totalDownloads: number
+  totalFiles: number
+  lastOpened: Date
 }
 
 export interface SelectFileResponse {
   filePath: string
   cancelled: boolean
 }
-
-export interface ValidationResult {
-  valid: boolean
-  errors: ValidationError[]
-  warnings: ValidationWarning[]
-}
-
-export interface ValidationError {
-  field: string
-  message: string
-  code: string
-}
-
-export interface ValidationWarning {
-  field: string
-  message: string
-}
-```
-
-### Zod Schemas
-
-```typescript
-// src/shared/schemas/project.schema.ts
-
-import { z } from 'zod'
-
-export const CreateProjectSchema = z.object({
-  name: z.string()
-    .min(1, 'Project name is required')
-    .max(100, 'Project name too long')
-    .refine(val => !/[<>:"/\\|?*]/.test(val), 'Invalid characters in project name'),
-  description: z.string().max(500).optional(),
-  location: z.string().min(1, 'Location is required'),
-})
-
-export const SongSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string().min(1).max(200),
-  artist: z.string().max(200).optional(),
-  duration: z.number().positive().optional(),
-  audioFileId: z.string().uuid().optional(),
-  externalFilePath: z.string().optional(),
-  format: z.string().optional(),
-  bitrate: z.number().positive().optional(),
-  sampleRate: z.number().positive().optional(),
-  fileSize: z.number().nonnegative().optional(),
-  order: z.number().nonnegative(),
-  addedAt: z.date(),
-  notes: z.string().max(1000).optional(),
-  tags: z.array(z.string()).optional(),
-}).refine(
-  data => data.audioFileId || data.externalFilePath,
-  'Either audioFileId or externalFilePath must be provided'
-)
-
-export const MixMetadataSchema = z.object({
-  title: z.string().max(200).optional(),
-  artist: z.string().max(200).optional(),
-  genre: z.string().max(100).optional(),
-  description: z.string().max(2000).optional(),
-  duration: z.number().positive().optional(),
-  bpm: z.number().positive().max(300).optional(),
-  coverImage: z.string().optional(),
-  coverImageThumb: z.string().optional(),
-  createdAt: z.date().optional(),
-  tags: z.array(z.string().max(50)).max(20),
-  url: z.string().url().optional(),
-  isPublic: z.boolean().optional(),
-})
-
-export const ProjectSettingsSchema = z.object({
-  downloadPath: z.string().min(1),
-  maxConcurrentDownloads: z.number().int().min(1).max(10),
-  seedRatio: z.number().nonnegative().max(10),
-  projectDirectory: z.string().min(1),
-  autoSaveInterval: z.number().int().nonnegative().max(600),
-  autoAddToMixer: z.boolean(),
-})
-
-export const UpdateMixMetadataRequestSchema = z.object({
-  projectId: z.string().uuid(),
-  metadata: MixMetadataSchema.partial(),
-})
-
-export const AddSongRequestSchema = z.object({
-  projectId: z.string().uuid(),
-  song: SongSchema.omit({ id: true, addedAt: true }),
-})
-
-export const ReorderSongsRequestSchema = z.object({
-  projectId: z.string().uuid(),
-  songIds: z.array(z.string().uuid()).min(1),
-})
 ```
 
 ---
@@ -513,17 +245,15 @@ export const ReorderSongsRequestSchema = z.object({
 User-Selected-Location/
 └── MyMixProject/
     ├── project.json              # Main project file
-    ├── .project.lock             # Lock file (present when project is open)
+    ├── .lock                     # Lock file (present when project is open)
     ├── assets/                   # Project-specific assets
     │   ├── covers/               # Mix cover images
-    │   │   ├── original/         # Original uploaded images
-    │   │   │   └── cover.jpg
-    │   │   └── thumbs/           # Generated thumbnails
-    │   │       └── cover-thumb.jpg
-    │   └── cache/                # Cached data (waveforms, etc.)
-    └── downloads/                # Default download location
-        └── [torrent-files]
+    │   └── audio/                # Local audio files
+    ├── search-history.json       # Search history (managed by SearchHistoryService)
+    └── torrent-collection.json   # Torrent collection (managed by TorrentCollectionService)
 ```
+
+Note: Download paths for torrents are stored per-project in ConfigService with the key `webtorrent-download-path:{projectId}`, not in the project directory itself. The download location defaults to a system-level path and can be changed by the user.
 
 ### Project File Format
 
@@ -531,30 +261,22 @@ User-Selected-Location/
 
 ```json
 {
-  "version": "1.0",
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "Summer House Mix 2026",
   "description": "Progressive house compilation for summer",
   "createdAt": "2026-02-02T10:30:00.000Z",
   "updatedAt": "2026-02-02T15:45:00.000Z",
-  "lastOpenedAt": "2026-02-02T15:30:00.000Z",
-  "filePath": "/Users/name/MusicProjects/MyMixProject/project.json",  // macOS/Linux
-  // Windows: "C:\\Users\\name\\MusicProjects\\MyMixProject\\project.json"
-  "projectDirectory": "/Users/name/MusicProjects/MyMixProject",  // macOS/Linux
-  // Windows: "C:\\Users\\name\\MusicProjects\\MyMixProject"
+  "projectDirectory": "C:\\Users\\name\\MusicProjects\\MyMixProject",
+  "isActive": true,
 
   "mixMetadata": {
     "title": "Summer Vibes",
-    "artist": "DJ Name",
-    "genre": "Progressive House",
     "description": "A journey through progressive house...",
-    "duration": 3600,
-    "bpm": 126,
-    "coverImage": "assets/covers/original/cover.jpg",
-    "coverImageThumb": "assets/covers/thumbs/cover-thumb.jpg",
-    "createdAt": "2026-02-02T10:30:00.000Z",
+    "coverImagePath": "assets/covers/cover.jpg",
     "tags": ["house", "progressive", "summer", "2026"],
-    "isPublic": false
+    "genre": "Progressive House",
+    "estimatedDuration": 3600,
+    "createdBy": "DJ Name"
   },
 
   "songs": [
@@ -562,69 +284,53 @@ User-Selected-Location/
       "id": "660e8400-e29b-41d4-a716-446655440001",
       "title": "Track One",
       "artist": "Artist Name",
+      "album": "Album Name",
       "duration": 420,
-      "audioFileId": "770e8400-e29b-41d4-a716-446655440002",
       "format": "mp3",
       "bitrate": 320,
       "sampleRate": 44100,
       "fileSize": 10485760,
+      "downloadId": "770e8400-e29b-41d4-a716-446655440002",
+      "localFilePath": null,
       "order": 0,
       "addedAt": "2026-02-02T11:00:00.000Z",
-      "notes": "Great intro track",
-      "tags": ["intro", "melodic"]
+      "metadata": {
+        "duration": 420,
+        "format": "mp3",
+        "bitrate": 320,
+        "sampleRate": 44100,
+        "fileSize": 10485760,
+        "artist": "Artist Name",
+        "title": "Track One",
+        "album": "Album Name",
+        "year": 2025,
+        "genre": "House",
+        "channels": 2,
+        "codec": "mp3"
+      }
     },
     {
       "id": "660e8400-e29b-41d4-a716-446655440003",
       "title": "External Track",
       "artist": "External Artist",
+      "album": null,
       "duration": 380,
-      "externalFilePath": "/Users/name/Music/my-track.flac",
       "format": "flac",
       "bitrate": 1411,
       "sampleRate": 44100,
       "fileSize": 25165824,
+      "externalFilePath": "D:\\Music\\my-track.flac",
+      "localFilePath": null,
       "order": 1,
       "addedAt": "2026-02-02T12:00:00.000Z"
     }
-  ],
-
-  "searchResults": [],
-  "searchHistory": [],
-  "downloadQueue": [],
-  "downloadedFiles": [],
-
-  "downloadSettings": {
-    "maxConcurrentDownloads": 3,
-    "defaultDownloadPath": "/Users/name/MusicProjects/MyMixProject/downloads",
-    "seedAfterDownload": true,
-    "maxUploadSpeed": 0,
-    "maxDownloadSpeed": 0
-  },
-
-  "settings": {
-    "downloadPath": "/Users/name/MusicProjects/MyMixProject/downloads",
-    "projectDirectory": "/Users/name/MusicProjects/MyMixProject",
-    "autoSaveInterval": 30,
-    "maxConcurrentDownloads": 3,
-    "seedRatio": 1.0,
-    "autoAddToMixer": false
-  },
-
-  "metadata": {
-    "totalSearches": 5,
-    "totalDownloads": 12,
-    "totalFiles": 12,
-    "tags": ["house", "mix-project"],
-    "genre": "Progressive House",
-    "color": "#FF6B6B",
-    "lastSavedAt": "2026-02-02T15:45:00.000Z"
-  }
+  ]
 }
 ```
 
 ### Lock File Format
 
-**.project.lock**:
+**.lock** (in project directory root):
 
 ```json
 {
@@ -632,34 +338,27 @@ User-Selected-Location/
   "lockedAt": "2026-02-02T15:30:00.000Z",
   "lockedBy": {
     "pid": 12345,
-    "hostname": "macbook-pro.local",
-    "username": "username"
-  },
-  "appVersion": "1.0.0"
+    "hostname": "DESKTOP-ABC123"
+  }
 }
 ```
 
 ### Application Config
 
-**app-config.json** (stored in userData):
+Stored by `electron-store` (in userData directory):
 
 ```json
 {
   "recentProjects": [
     {
-      "filePath": "/Users/name/MusicProjects/MyMixProject/project.json",
-      "name": "Summer House Mix 2026",
-      "lastOpenedAt": "2026-02-02T15:30:00.000Z",
-      "previewImage": "/Users/name/MusicProjects/MyMixProject/assets/covers/thumbs/cover-thumb.jpg",
-      "metadata": {
-        "songsCount": 12,
-        "downloadsCount": 8,
-        "genre": "Progressive House"
-      }
+      "projectId": "550e8400-e29b-41d4-a716-446655440000",
+      "projectName": "Summer House Mix 2026",
+      "projectDirectory": "C:\\Users\\name\\MusicProjects\\MyMixProject",
+      "lastOpened": "2026-02-02T15:30:00.000Z",
+      "songCount": 12,
+      "coverImagePath": "assets/covers/cover.jpg"
     }
-  ],
-  "maxRecentProjects": 10,
-  "defaultProjectLocation": "/Users/name/MusicProjects"
+  ]
 }
 ```
 
@@ -674,68 +373,37 @@ User-Selected-Location/
 **Cross-Platform Path Examples**:
 ```typescript
 // Windows paths
-const windowsProjectPath = 'C:\\Users\\Username\\MusicProjects\\MyMixProject\\project.json'
-const windowsDownloadPath = 'C:\\Users\\Username\\MusicProjects\\MyMixProject\\downloads'
-const windowsExternalFile = 'D:\\Music\\my-track.mp3'
+const windowsProjectDir = 'C:\\Users\\Username\\MusicProjects\\MyMixProject'
 
 // macOS/Linux paths
-const macProjectPath = '/Users/username/MusicProjects/MyMixProject/project.json'
-const macDownloadPath = '/Users/username/MusicProjects/MyMixProject/downloads'
-const macExternalFile = '/Users/username/Music/my-track.mp3'
+const macProjectDir = '/Users/username/MusicProjects/MyMixProject'
 
 // Use Node.js path module for cross-platform compatibility
 import path from 'path'
 
-const projectPath = path.join(userSelectedLocation, projectName, 'project.json')
-// Windows: C:\Users\Username\MusicProjects\MyProject\project.json
-// macOS: /Users/username/MusicProjects/MyProject/project.json
-
+const projectFilePath = path.join(projectDirectory, 'project.json')
 const assetPath = path.join(projectDirectory, 'assets', 'covers', 'cover.jpg')
-// Works on both platforms
 ```
 
-**Directory Creation**:
+**Directory Creation** (FileSystemService):
 ```typescript
-const projectDir = path.join(location, sanitizeFileName(name))
-await fs.mkdir(projectDir, { recursive: true })
-await fs.mkdir(path.join(projectDir, 'assets', 'covers', 'original'), { recursive: true })
-await fs.mkdir(path.join(projectDir, 'assets', 'covers', 'thumbs'), { recursive: true })
-await fs.mkdir(path.join(projectDir, 'assets', 'cache'), { recursive: true })
-await fs.mkdir(path.join(projectDir, 'downloads'), { recursive: true })
+const projectDir = path.join(parentDir, projectName)
+await fs.ensureDir(projectDir)
+await fs.ensureDir(path.join(projectDir, 'assets'))
+await fs.ensureDir(path.join(projectDir, 'assets', 'covers'))
+await fs.ensureDir(path.join(projectDir, 'assets', 'audio'))
 ```
 
 **JSON Serialization**:
 ```typescript
-// Dates must be converted to ISO strings
-const serializeProject = (project: Project): string => {
-  const serializable = {
-    ...project,
-    createdAt: project.createdAt.toISOString(),
-    updatedAt: project.updatedAt.toISOString(),
-    lastOpenedAt: project.lastOpenedAt?.toISOString(),
-    songs: project.songs.map(song => ({
-      ...song,
-      addedAt: song.addedAt.toISOString(),
-    })),
-    // ... convert all Date fields
-  }
-  return JSON.stringify(serializable, null, 2)
-}
-
-const deserializeProject = (json: string): Project => {
-  const parsed = JSON.parse(json)
-  return {
-    ...parsed,
-    createdAt: new Date(parsed.createdAt),
-    updatedAt: new Date(parsed.updatedAt),
-    lastOpenedAt: parsed.lastOpenedAt ? new Date(parsed.lastOpenedAt) : undefined,
-    songs: parsed.songs.map(song => ({
-      ...song,
-      addedAt: new Date(song.addedAt),
-    })),
-    // ... convert all Date fields
-  }
-}
+// FileSystemService handles serialization via fs-extra's readJson/writeJson
+// Dates must be rehydrated when reading from disk:
+project.createdAt = new Date(project.createdAt)
+project.updatedAt = new Date(project.updatedAt)
+project.songs = project.songs.map((song) => ({
+  ...song,
+  addedAt: new Date(song.addedAt),
+}))
 ```
 
 ---
@@ -744,205 +412,218 @@ const deserializeProject = (json: string): Project => {
 
 ### Channel Definitions
 
-| Channel | Direction | Purpose | Request Type | Response Type |
-|---------|-----------|---------|--------------|---------------|
-| **Project Lifecycle** |
-| `project:create` | R→M | Create new project | `CreateProjectRequest` | `Project` |
-| `project:open` | R→M | Open existing project | `{ filePath: string }` | `Project` |
-| `project:save` | R→M | Save current project | `{ project: Project }` | `SaveProjectResponse` |
-| `project:close` | R→M | Close current project | `void` | `void` |
-| `project:select-location` | R→M | Show folder picker | `void` | `SelectLocationResponse` |
-| `project:auto-save` | M→R | Project auto-saved | `{ timestamp: Date }` | - |
-| **Recent Projects** |
-| `project:list-recent` | R→M | Get recent projects | `void` | `RecentProject[]` |
-| `project:remove-recent` | R→M | Remove from recent | `{ filePath: string }` | `void` |
-| `project:clear-recent` | R→M | Clear all recent | `void` | `void` |
-| **Project Info** |
-| `project:get-info` | R→M | Get project info | `{ projectId: string }` | `ProjectInfo` |
-| `project:get-stats` | R→M | Get project stats | `{ projectId: string }` | `ProjectStats` |
-| `project:validate` | R→M | Validate project | `{ filePath: string }` | `ValidationResult` |
-| **Songs Management** |
-| `project:add-song` | R→M | Add song to project | `AddSongRequest` | `Song` |
-| `project:update-song` | R→M | Update song | `UpdateSongRequest` | `Song` |
-| `project:remove-song` | R→M | Remove song | `{ projectId: string, songId: string }` | `void` |
-| `project:reorder-songs` | R→M | Reorder songs | `ReorderSongsRequest` | `void` |
-| `project:select-audio-file` | R→M | Show file picker for audio | `void` | `{ filePath: string, cancelled: boolean }` |
-| `project:get-audio-metadata` | R→M | Extract audio metadata | `{ filePath: string }` | `AudioMetadata` |
-| **Mix Metadata** |
-| `project:update-mix-metadata` | R→M | Update mix metadata | `UpdateMixMetadataRequest` | `MixMetadata` |
-| `project:upload-cover` | R→M | Upload cover image | `UploadCoverRequest` | `UploadCoverResponse` |
-| `project:select-cover-image` | R→M | Show image picker | `void` | `{ filePath: string, cancelled: boolean }` |
-| **Import/Export** |
-| `project:export` | R→M | Export project | `{ projectId: string, targetPath: string }` | `string` |
-| `project:import` | R→M | Import project | `{ sourcePath: string }` | `Project` |
-| `project:duplicate` | R→M | Duplicate project | `{ projectId: string, newName: string }` | `Project` |
+All channel constants are defined in `src/shared/constants.ts`.
 
-### IPC Implementation Examples
+| Constant | Channel | Direction | Purpose | Request Type | Response Type |
+|----------|---------|-----------|---------|--------------|---------------|
+| **Project Lifecycle** |
+| `PROJECT_CREATE` | `project:create` | R->M | Create new project | `CreateProjectRequest` | `ApiResponse<Project>` |
+| `PROJECT_LOAD` | `project:load` | R->M | Open existing project | `OpenProjectRequest` | `ApiResponse<Project>` |
+| `PROJECT_CLOSE` | `project:close` | R->M | Close current project | `string` (projectId) | `ApiResponse<void>` |
+| **Recent Projects** |
+| `PROJECT_LIST` | `project:list` | R->M | Get recent projects | `void` | `ApiResponse<RecentProject[]>` |
+| `PROJECT_DELETE` | `project:delete` | R->M | Remove from recent | `string` (projectId) | `ApiResponse<void>` |
+| `PROJECT_DELETE_FROM_DISK` | `project:delete-from-disk` | R->M | Delete project files | `string, string` (projectId, projectDirectory) | `ApiResponse<void>` |
+| **File Operations** |
+| `FILE_SELECT_DIRECTORY` | `file:select-directory` | R->M | Show folder picker | `string?` (title) | `string \| null` |
+| `FILE_OPEN_PATH` | `file:open-path` | R->M | Open path in OS | `string` (filePath) | `{ success, error? }` |
+
+### IPC Response Wrapper
+
+All project IPC handlers wrap responses in `ApiResponse<T>`:
 
 ```typescript
-// src/main/ipc/project-handlers.ts
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+}
+```
 
+### IPC Handler Implementation
+
+**Location**: `src/main/ipc/projectHandlers.ts`
+
+```typescript
 import { ipcMain, dialog } from 'electron'
-import { projectService } from '../services/project.service'
-import { CreateProjectSchema, AddSongRequestSchema } from '../../shared/schemas/project.schema'
+import { IPC_CHANNELS } from '@shared/constants'
+import type { ProjectService } from '../services/ProjectService'
+import type { ConfigService } from '../services/ConfigService'
+import type { FileSystemService } from '../services/FileSystemService'
+import type { CreateProjectRequest, OpenProjectRequest } from '@shared/types/project.types'
 
-export function registerProjectHandlers() {
-  // Create project
-  ipcMain.handle('project:create', async (event, request: CreateProjectRequest) => {
-    const validated = CreateProjectSchema.parse(request)
-    return await projectService.createProject(
-      validated.name,
-      validated.location,
-      validated.description
-    )
-  })
-
-  // Open project
-  ipcMain.handle('project:open', async (event, request: OpenProjectRequest) => {
-    if (!request.filePath || typeof request.filePath !== 'string') {
-      throw new Error('Invalid file path')
-    }
-    return await projectService.openProject(request.filePath)
-  })
-
-  // Save project
-  ipcMain.handle('project:save', async (event, request: SaveProjectRequest) => {
-    if (!request.project || !request.project.id) {
-      throw new Error('Invalid project')
-    }
-    await projectService.saveProject(request.project)
-    return { success: true, savedAt: new Date() }
-  })
-
-  // Close project
-  ipcMain.handle('project:close', async () => {
-    await projectService.closeProject()
-  })
-
-  // Select location (folder picker)
-  ipcMain.handle('project:select-location', async () => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openDirectory', 'createDirectory'],
-      title: 'Select Project Location',
-    })
-    return {
-      path: result.filePaths[0] || '',
-      cancelled: result.canceled,
+export function registerProjectHandlers(
+  projectService: ProjectService,
+  configService: ConfigService,
+  fileSystemService: FileSystemService
+): void {
+  ipcMain.handle(IPC_CHANNELS.PROJECT_CREATE, async (_event, request: CreateProjectRequest) => {
+    try {
+      const project = await projectService.createProject(
+        request.name,
+        request.location,
+        request.description
+      )
+      return { success: true, data: project }
+    } catch (error) {
+      console.error('Failed to create project:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to create project',
+      }
     }
   })
 
-  // List recent projects
-  ipcMain.handle('project:list-recent', async () => {
-    return await projectService.getRecentProjects()
-  })
-
-  // Add song
-  ipcMain.handle('project:add-song', async (event, request: AddSongRequest) => {
-    const validated = AddSongRequestSchema.parse(request)
-    return await projectService.addSong(validated.projectId, validated.song)
-  })
-
-  // Update mix metadata
-  ipcMain.handle('project:update-mix-metadata', async (event, request: UpdateMixMetadataRequest) => {
-    return await projectService.updateMixMetadata(
-      request.projectId,
-      request.metadata
-    )
-  })
-
-  // Upload cover image
-  ipcMain.handle('project:upload-cover', async (event, request: UploadCoverRequest) => {
-    return await projectService.uploadCoverImage(
-      request.projectId,
-      request.sourceImagePath
-    )
-  })
-
-  // Select audio file
-  ipcMain.handle('project:select-audio-file', async () => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openFile'],
-      title: 'Select Audio File',
-      filters: [
-        { name: 'Audio Files', extensions: ['mp3', 'flac', 'wav', 'ogg', 'aac', 'm4a', 'wma'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
-    })
-    return {
-      filePath: result.filePaths[0] || '',
-      cancelled: result.canceled,
+  ipcMain.handle(IPC_CHANNELS.PROJECT_LOAD, async (_event, request: OpenProjectRequest) => {
+    try {
+      const project = await projectService.openProject(request.filePath)
+      return { success: true, data: project }
+    } catch (error) {
+      console.error('Failed to open project:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to open project',
+      }
     }
   })
 
-  // Select cover image
-  ipcMain.handle('project:select-cover-image', async () => {
-    const result = await dialog.showOpenDialog({
-      properties: ['openFile'],
-      title: 'Select Cover Image',
-      filters: [
-        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif'] },
-        { name: 'All Files', extensions: ['*'] },
-      ],
-    })
-    return {
-      filePath: result.filePaths[0] || '',
-      cancelled: result.canceled,
+  ipcMain.handle(IPC_CHANNELS.PROJECT_CLOSE, async (_event, projectId: string) => {
+    try {
+      await projectService.closeProject(projectId)
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to close project:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to close project',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROJECT_LIST, async () => {
+    try {
+      const recentProjects = configService.getRecentProjects()
+      return { success: true, data: recentProjects }
+    } catch (error) {
+      console.error('Failed to get recent projects:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get recent projects',
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.PROJECT_DELETE, async (_event, projectId: string) => {
+    try {
+      configService.removeRecentProject(projectId)
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to delete project:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to delete project',
+      }
+    }
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_DELETE_FROM_DISK,
+    async (_event, projectId: string, projectDirectory: string) => {
+      try {
+        configService.removeRecentProject(projectId)
+        await fileSystemService.deleteDirectory(projectDirectory)
+        return { success: true }
+      } catch (error) {
+        console.error('Failed to delete project from disk:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to delete project from disk',
+        }
+      }
+    }
+  )
+
+  // File operation: directory picker dialog
+  ipcMain.handle(IPC_CHANNELS.FILE_SELECT_DIRECTORY, async (_event, title?: string) => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openDirectory', 'createDirectory'],
+        title: title || 'Select Project Location',
+      })
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return null
+      }
+
+      return result.filePaths[0]
+    } catch (error) {
+      console.error('Failed to select directory:', error)
+      return null
     }
   })
 }
 ```
 
+### Preload API
+
+**Location**: `src/preload/index.ts`
+
+Project methods are exposed as top-level functions on `window.api` (not nested under a `project` namespace):
+
 ```typescript
-// src/preload/index.ts
+const api = {
+  // Project methods
+  createProject: (request: CreateProjectRequest): Promise<ApiResponse<Project>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CREATE, request),
 
-import { contextBridge, ipcRenderer } from 'electron'
+  openProject: (request: OpenProjectRequest): Promise<ApiResponse<Project>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LOAD, request),
 
-contextBridge.exposeInMainWorld('api', {
-  project: {
-    // Lifecycle
-    create: (request: CreateProjectRequest) =>
-      ipcRenderer.invoke('project:create', request),
-    open: (filePath: string) =>
-      ipcRenderer.invoke('project:open', { filePath }),
-    save: (project: Project) =>
-      ipcRenderer.invoke('project:save', { project }),
-    close: () =>
-      ipcRenderer.invoke('project:close'),
-    selectLocation: () =>
-      ipcRenderer.invoke('project:select-location'),
+  closeProject: (projectId: string): Promise<ApiResponse<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CLOSE, projectId),
 
-    // Recent projects
-    listRecent: () =>
-      ipcRenderer.invoke('project:list-recent'),
-    removeRecent: (filePath: string) =>
-      ipcRenderer.invoke('project:remove-recent', { filePath }),
+  getRecentProjects: (): Promise<ApiResponse<RecentProject[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_LIST),
 
-    // Songs
-    addSong: (request: AddSongRequest) =>
-      ipcRenderer.invoke('project:add-song', request),
-    updateSong: (request: UpdateSongRequest) =>
-      ipcRenderer.invoke('project:update-song', request),
-    removeSong: (projectId: string, songId: string) =>
-      ipcRenderer.invoke('project:remove-song', { projectId, songId }),
-    reorderSongs: (request: ReorderSongsRequest) =>
-      ipcRenderer.invoke('project:reorder-songs', request),
-    selectAudioFile: () =>
-      ipcRenderer.invoke('project:select-audio-file'),
+  deleteProject: (projectId: string): Promise<ApiResponse<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE, projectId),
 
-    // Mix metadata
-    updateMixMetadata: (request: UpdateMixMetadataRequest) =>
-      ipcRenderer.invoke('project:update-mix-metadata', request),
-    uploadCover: (request: UploadCoverRequest) =>
-      ipcRenderer.invoke('project:upload-cover', request),
-    selectCoverImage: () =>
-      ipcRenderer.invoke('project:select-cover-image'),
+  deleteProjectFromDisk: (projectId: string, projectDirectory: string): Promise<ApiResponse<void>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE_FROM_DISK, projectId, projectDirectory),
 
-    // Listeners
-    onAutoSave: (callback: (data: { timestamp: Date }) => void) => {
-      ipcRenderer.on('project:auto-save', (_, data) => callback(data))
-    },
-  },
-})
+  // File operations
+  selectDirectory: (title?: string): Promise<string | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.FILE_SELECT_DIRECTORY, title),
+
+  openPath: (filePath: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_PATH, filePath),
+
+  // ... other APIs (auth, search, torrent, webtorrent, etc.)
+}
+
+contextBridge.exposeInMainWorld('api', api)
+export type ElectronAPI = typeof api
+```
+
+**Usage from renderer**:
+```typescript
+// Create project
+const response = await window.api.createProject({ name, location, description })
+
+// Open project
+const response = await window.api.openProject({ filePath })
+
+// Close project
+await window.api.closeProject(projectId)
+
+// Get recent projects
+const response = await window.api.getRecentProjects()
+
+// Delete from recent list only
+await window.api.deleteProject(projectId)
+
+// Delete project and its files from disk
+await window.api.deleteProjectFromDisk(projectId, projectDirectory)
 ```
 
 ---
@@ -951,613 +632,282 @@ contextBridge.exposeInMainWorld('api', {
 
 ### ProjectService
 
-**Location**: `src/main/services/project.service.ts`
+**Location**: `src/main/services/ProjectService.ts`
+
+Orchestrates FileSystemService, ConfigService, and LockService for all project operations. Maintains a single `activeProject` reference in memory.
 
 ```typescript
 import { v4 as uuidv4 } from 'uuid'
-import path from 'path'
-import { BrowserWindow } from 'electron'
-import { Project, Song, MixMetadata, RecentProject, ProjectStats } from '../../shared/types/project.types'
-import { FileSystemService } from './filesystem.service'
-import { ConfigService } from './config.service'
-import { LockService } from './lock.service'
-import { AudioMetadataService } from './audio-metadata.service'
-import { ImageService } from './image.service'
+import * as path from 'path'
+import { Project, Song, MixMetadata, ProjectStats, AddSongRequest } from '../../shared/types/project.types'
+import { FileSystemService } from './FileSystemService'
+import { ConfigService } from './ConfigService'
+import { LockService } from './LockService'
 
 export class ProjectService {
-  private currentProject: Project | null = null
-  private autoSaveTimer?: NodeJS.Timeout
+  private activeProject: Project | null = null
 
   constructor(
-    private fsService: FileSystemService,
+    private fileSystemService: FileSystemService,
     private configService: ConfigService,
-    private lockService: LockService,
-    private audioMetadataService: AudioMetadataService,
-    private imageService: ImageService
+    private lockService: LockService
   ) {}
-
-  // ==========================================
-  // PROJECT LIFECYCLE
-  // ==========================================
 
   async createProject(
     name: string,
     location: string,
     description?: string
   ): Promise<Project> {
-    // Validate location
-    await this.fsService.validateDirectory(location)
-
     // Create project directory structure
-    const projectDir = await this.fsService.createProjectDirectory(location, name)
-    const projectFilePath = path.join(projectDir, 'project.json')
+    const projectDirectory = await this.fileSystemService.createProjectDirectory(location, name)
 
-    // Initialize project
+    // Create project object
     const project: Project = {
       id: uuidv4(),
       name,
       description,
-      version: '1.0',
       createdAt: new Date(),
       updatedAt: new Date(),
-      filePath: projectFilePath,
-      projectDirectory: projectDir,
-
+      projectDirectory,
       songs: [],
-      searchResults: [],
-      searchHistory: [],
-      downloadQueue: [],
-      downloadedFiles: [],
-
-      downloadSettings: {
-        maxConcurrentDownloads: 3,
-        defaultDownloadPath: path.join(projectDir, 'downloads'),
-        seedAfterDownload: true,
-        maxUploadSpeed: 0,
-        maxDownloadSpeed: 0,
-      },
-
-      settings: {
-        downloadPath: path.join(projectDir, 'downloads'),
-        projectDirectory: projectDir,
-        autoSaveInterval: 30,
-        maxConcurrentDownloads: 3,
-        seedRatio: 1.0,
-        autoAddToMixer: false,
-      },
-
-      metadata: {
-        totalSearches: 0,
-        totalDownloads: 0,
-        totalFiles: 0,
-        tags: [],
-      },
-
-      mixMetadata: {
-        tags: [],
-      },
+      mixMetadata: { tags: [] },
+      isActive: true,
     }
 
-    // Save project file
-    await this.fsService.writeProjectFile(project)
+    // Save project to disk
+    const projectFilePath = path.join(projectDirectory, 'project.json')
+    await this.fileSystemService.writeJsonFile(projectFilePath, project)
 
-    // Set as current project
-    this.currentProject = project
-
-    // Create lock file
-    await this.lockService.createLock(project)
+    // Acquire lock
+    await this.lockService.acquireLock(project.id, projectDirectory)
 
     // Add to recent projects
-    await this.addToRecent(project)
+    this.configService.addRecentProject({
+      projectId: project.id,
+      projectName: project.name,
+      projectDirectory: project.projectDirectory,
+      lastOpened: new Date(),
+      songCount: 0,
+    })
 
-    // Enable auto-save if configured
-    if (project.settings.autoSaveInterval > 0) {
-      this.enableAutoSave(project.settings.autoSaveInterval)
-    }
-
+    // Set as active project
+    this.activeProject = project
     return project
   }
 
   async openProject(filePath: string): Promise<Project> {
     // Validate file exists
-    await this.fsService.validateFile(filePath)
+    await this.fileSystemService.validateFilePath(filePath)
 
-    // Check for lock
-    const lockInfo = await this.lockService.checkLock(filePath)
-    if (lockInfo) {
-      // Check if lock is stale
-      const isStale = await this.lockService.isLockStale(lockInfo)
-      if (!isStale) {
-        throw new Error(
-          `Project is already open on ${lockInfo.lockedBy.hostname} by ${lockInfo.lockedBy.username}`
-        )
-      }
-      // Remove stale lock
-      await this.lockService.removeLock(filePath)
-    }
+    // Read project from disk
+    const project = await this.fileSystemService.readJsonFile<Project>(filePath)
 
-    // Load project
-    const project = await this.fsService.readProjectFile(filePath)
+    // Convert date strings to Date objects
+    project.createdAt = new Date(project.createdAt)
+    project.updatedAt = new Date(project.updatedAt)
+    project.songs = project.songs.map((song) => ({
+      ...song,
+      addedAt: new Date(song.addedAt),
+    }))
 
-    // Validate project
-    const validation = await this.validateProject(project)
-    if (!validation.valid) {
-      throw new Error(`Project validation failed: ${validation.errors[0].message}`)
-    }
+    // Acquire lock
+    await this.lockService.acquireLock(project.id, project.projectDirectory)
 
-    // Update lastOpenedAt
-    project.lastOpenedAt = new Date()
-
-    // Set as current project
-    this.currentProject = project
-
-    // Create lock file
-    await this.lockService.createLock(project)
+    // Update isActive
+    project.isActive = true
 
     // Add to recent projects
-    await this.addToRecent(project)
+    this.configService.addRecentProject({
+      projectId: project.id,
+      projectName: project.name,
+      projectDirectory: project.projectDirectory,
+      lastOpened: new Date(),
+      songCount: project.songs.length,
+      coverImagePath: project.mixMetadata.coverImagePath,
+    })
 
-    // Save updated lastOpenedAt
-    await this.saveProject(project)
-
-    // Enable auto-save if configured
-    if (project.settings.autoSaveInterval > 0) {
-      this.enableAutoSave(project.settings.autoSaveInterval)
-    }
-
+    // Set as active project
+    this.activeProject = project
     return project
   }
 
   async saveProject(project: Project): Promise<void> {
-    if (!project) {
-      throw new Error('No project to save')
+    const fs = await import('fs-extra')
+    if (!await fs.pathExists(project.projectDirectory)) {
+      throw new Error(`Project directory does not exist: ${project.projectDirectory}`)
     }
 
-    // Update timestamp
     project.updatedAt = new Date()
-    project.metadata.lastSavedAt = new Date()
 
-    // Write to file
-    await this.fsService.writeProjectFile(project)
-
-    // Update current project reference
-    this.currentProject = project
-
-    // Update recent projects
-    await this.addToRecent(project)
+    const projectFilePath = path.join(project.projectDirectory, 'project.json')
+    await this.fileSystemService.writeJsonFile(projectFilePath, project)
   }
 
-  async closeProject(): Promise<void> {
-    if (!this.currentProject) {
-      return
+  async closeProject(projectId: string): Promise<void> {
+    if (this.activeProject && this.activeProject.id === projectId) {
+      this.activeProject.isActive = false
+      await this.saveProject(this.activeProject)
+      await this.lockService.releaseLock(this.activeProject.id, this.activeProject.projectDirectory)
+      this.activeProject = null
     }
-
-    // Disable auto-save
-    this.disableAutoSave()
-
-    // Remove lock
-    await this.lockService.removeLock(this.currentProject.filePath)
-
-    // Clear current project
-    this.currentProject = null
   }
 
-  getCurrentProject(): Project | null {
-    return this.currentProject
-  }
+  async addSong(projectId: string, request: Omit<AddSongRequest, 'projectId'>): Promise<Song> {
+    const project = this.getProjectById(projectId)
 
-  // ==========================================
-  // RECENT PROJECTS
-  // ==========================================
-
-  async getRecentProjects(): Promise<RecentProject[]> {
-    const recent = await this.configService.getRecentProjects()
-
-    // Filter out non-existent projects
-    const validated = []
-    for (const project of recent) {
-      try {
-        await this.fsService.validateFile(project.filePath)
-        validated.push(project)
-      } catch {
-        // File doesn't exist, skip
-      }
-    }
-
-    // Save cleaned list
-    if (validated.length !== recent.length) {
-      await this.configService.saveRecentProjects(validated)
-    }
-
-    return validated
-  }
-
-  async addToRecent(project: Project): Promise<void> {
-    const recent = await this.configService.getRecentProjects()
-
-    // Remove if already in list
-    const filtered = recent.filter(p => p.filePath !== project.filePath)
-
-    // Create recent project entry
-    const recentProject: RecentProject = {
-      filePath: project.filePath,
-      name: project.name,
-      lastOpenedAt: project.lastOpenedAt || new Date(),
-      previewImage: project.mixMetadata?.coverImageThumb
-        ? path.resolve(project.projectDirectory, project.mixMetadata.coverImageThumb)
-        : undefined,
-      metadata: {
-        songsCount: project.songs.length,
-        downloadsCount: project.downloadedFiles.length,
-        genre: project.mixMetadata?.genre,
-      },
-    }
-
-    // Add to front
-    filtered.unshift(recentProject)
-
-    // Limit to max recent projects
-    const maxRecent = await this.configService.getMaxRecentProjects()
-    const limited = filtered.slice(0, maxRecent)
-
-    // Save
-    await this.configService.saveRecentProjects(limited)
-  }
-
-  async removeFromRecent(filePath: string): Promise<void> {
-    const recent = await this.configService.getRecentProjects()
-    const filtered = recent.filter(p => p.filePath !== filePath)
-    await this.configService.saveRecentProjects(filtered)
-  }
-
-  async clearRecent(): Promise<void> {
-    await this.configService.saveRecentProjects([])
-  }
-
-  // ==========================================
-  // SONGS MANAGEMENT
-  // ==========================================
-
-  async addSong(projectId: string, song: Omit<Song, 'id' | 'addedAt'>): Promise<Song> {
-    const project = await this.ensureProjectLoaded(projectId)
-
-    // Validate external file if provided
-    if (song.externalFilePath) {
-      await this.fsService.validateFile(song.externalFilePath)
-
-      // Extract metadata if not provided
-      if (!song.format || !song.duration) {
-        const metadata = await this.audioMetadataService.extractMetadata(song.externalFilePath)
-        song.format = song.format || metadata.format
-        song.duration = song.duration || metadata.duration
-        song.bitrate = song.bitrate || metadata.bitrate
-        song.sampleRate = song.sampleRate || metadata.sampleRate
-        song.fileSize = song.fileSize || metadata.fileSize
-      }
-    }
-
-    // Create song
-    const newSong: Song = {
-      ...song,
+    const song: Song = {
       id: uuidv4(),
+      title: request.title,
+      artist: request.metadata?.artist,
+      album: request.metadata?.album,
+      duration: request.metadata?.duration,
+      format: request.metadata?.format,
+      bitrate: request.metadata?.bitrate,
+      sampleRate: request.metadata?.sampleRate,
+      fileSize: request.metadata?.fileSize,
+      downloadId: request.downloadId,
+      externalFilePath: request.externalFilePath,
+      localFilePath: undefined,
       addedAt: new Date(),
-      order: project.songs.length, // Add to end
+      order: request.order,
+      metadata: request.metadata,
     }
 
-    // Add to project
-    project.songs.push(newSong)
-
-    // Save
+    project.songs.push(song)
     await this.saveProject(project)
-
-    return newSong
-  }
-
-  async updateSong(projectId: string, songId: string, updates: Partial<Song>): Promise<Song> {
-    const project = await this.ensureProjectLoaded(projectId)
-
-    const song = project.songs.find(s => s.id === songId)
-    if (!song) {
-      throw new Error('Song not found')
-    }
-
-    // Apply updates
-    Object.assign(song, updates)
-
-    // Save
-    await this.saveProject(project)
-
+    this.updateRecentProject(project)
     return song
   }
 
   async removeSong(projectId: string, songId: string): Promise<void> {
-    const project = await this.ensureProjectLoaded(projectId)
-
-    const index = project.songs.findIndex(s => s.id === songId)
-    if (index === -1) {
-      throw new Error('Song not found')
-    }
-
-    // Remove
-    project.songs.splice(index, 1)
-
-    // Re-order remaining songs
-    project.songs.forEach((song, idx) => {
-      song.order = idx
-    })
-
-    // Save
+    const project = this.getProjectById(projectId)
+    const songIndex = project.songs.findIndex((s) => s.id === songId)
+    if (songIndex === -1) throw new Error(`Song not found: ${songId}`)
+    project.songs.splice(songIndex, 1)
     await this.saveProject(project)
+    this.updateRecentProject(project)
   }
 
-  async reorderSongs(projectId: string, songIds: string[]): Promise<void> {
-    const project = await this.ensureProjectLoaded(projectId)
-
-    // Validate all song IDs exist
-    const songsMap = new Map(project.songs.map(s => [s.id, s]))
-    for (const id of songIds) {
-      if (!songsMap.has(id)) {
-        throw new Error(`Song not found: ${id}`)
-      }
-    }
-
-    // Reorder
-    const reordered = songIds.map((id, idx) => {
-      const song = songsMap.get(id)!
-      song.order = idx
-      return song
-    })
-
-    project.songs = reordered
-
-    // Save
-    await this.saveProject(project)
-  }
-
-  // ==========================================
-  // MIX METADATA
-  // ==========================================
-
-  async updateMixMetadata(
+  async updateSong(
     projectId: string,
-    metadata: Partial<MixMetadata>
-  ): Promise<MixMetadata> {
-    const project = await this.ensureProjectLoaded(projectId)
-
-    // Merge metadata
-    project.mixMetadata = {
-      ...project.mixMetadata,
-      ...metadata,
-    }
-
-    // Save
+    songId: string,
+    updates: Partial<Omit<Song, 'id' | 'addedAt'>>
+  ): Promise<void> {
+    const project = this.getProjectById(projectId)
+    const song = project.songs.find((s) => s.id === songId)
+    if (!song) throw new Error(`Song not found: ${songId}`)
+    Object.assign(song, updates)
     await this.saveProject(project)
-
-    return project.mixMetadata
+    this.updateRecentProject(project)
   }
 
-  async uploadCoverImage(projectId: string, sourceImagePath: string): Promise<{ coverPath: string; thumbPath: string }> {
-    const project = await this.ensureProjectLoaded(projectId)
-
-    // Validate source image
-    await this.fsService.validateFile(sourceImagePath)
-    const imageInfo = await this.imageService.validateImage(sourceImagePath)
-    if (!imageInfo.valid) {
-      throw new Error('Invalid image file')
-    }
-
-    // Copy to project directory
-    const coverPath = await this.fsService.copyAsset(
-      sourceImagePath,
-      project.projectDirectory,
-      'cover'
-    )
-
-    // Generate thumbnail
-    const thumbPath = await this.imageService.generateThumbnail(
-      path.resolve(project.projectDirectory, coverPath),
-      project.projectDirectory
-    )
-
-    // Update project metadata
-    project.mixMetadata = project.mixMetadata || { tags: [] }
-    project.mixMetadata.coverImage = coverPath
-    project.mixMetadata.coverImageThumb = thumbPath
-
-    // Save
+  async updateMixMetadata(projectId: string, metadata: Partial<MixMetadata>): Promise<void> {
+    const project = this.getProjectById(projectId)
+    Object.assign(project.mixMetadata, metadata)
     await this.saveProject(project)
-
-    return { coverPath, thumbPath }
+    this.updateRecentProject(project)
   }
-
-  // ==========================================
-  // AUTO-SAVE
-  // ==========================================
-
-  enableAutoSave(interval: number): void {
-    this.disableAutoSave() // Clear existing timer
-
-    if (interval <= 0) return
-
-    this.autoSaveTimer = setInterval(async () => {
-      if (this.currentProject) {
-        try {
-          await this.saveProject(this.currentProject)
-          // Notify renderer
-          const mainWindow = BrowserWindow.getAllWindows()[0]
-          mainWindow?.webContents.send('project:auto-save', { timestamp: new Date() })
-        } catch (error) {
-          console.error('Auto-save failed:', error)
-        }
-      }
-    }, interval * 1000)
-  }
-
-  disableAutoSave(): void {
-    if (this.autoSaveTimer) {
-      clearInterval(this.autoSaveTimer)
-      this.autoSaveTimer = undefined
-    }
-  }
-
-  // ==========================================
-  // STATISTICS
-  // ==========================================
 
   async getProjectStats(projectId: string): Promise<ProjectStats> {
-    const project = await this.ensureProjectLoaded(projectId)
+    const project = this.getProjectById(projectId)
 
-    const projectSize = await this.fsService.getDirectorySize(project.projectDirectory)
-    const assetsSize = await this.fsService.getDirectorySize(
-      path.join(project.projectDirectory, 'assets')
-    )
-    const downloadsSize = await this.fsService.getDirectorySize(
-      project.settings.downloadPath
-    )
-
-    const totalAudioDuration = project.songs.reduce(
-      (sum, song) => sum + (song.duration || 0),
-      0
-    )
-
-    const daysActive = Math.floor(
-      (Date.now() - project.createdAt.getTime()) / (1000 * 60 * 60 * 24)
-    )
-
-    return {
+    const stats: ProjectStats = {
       totalSongs: project.songs.length,
-      totalSearchResults: project.searchResults.length,
-      totalTorrents: project.downloadQueue.length,
-      totalDownloadedFiles: project.downloadedFiles.length,
-      totalMixingSessions: project.mixingSessions?.length || 0,
-      projectSize,
-      assetsSize,
-      downloadsSize,
-      totalAudioDuration,
-      lastModified: project.updatedAt,
-      daysActive,
-    }
-  }
-
-  // ==========================================
-  // VALIDATION
-  // ==========================================
-
-  async validateProject(project: Project): Promise<ValidationResult> {
-    const errors: ValidationError[] = []
-    const warnings: ValidationWarning[] = []
-
-    // Check required fields
-    if (!project.id) errors.push({ field: 'id', message: 'Project ID is missing', code: 'MISSING_ID' })
-    if (!project.name) errors.push({ field: 'name', message: 'Project name is missing', code: 'MISSING_NAME' })
-    if (!project.filePath) errors.push({ field: 'filePath', message: 'File path is missing', code: 'MISSING_PATH' })
-
-    // Validate dates
-    if (!(project.createdAt instanceof Date) || isNaN(project.createdAt.getTime())) {
-      errors.push({ field: 'createdAt', message: 'Invalid creation date', code: 'INVALID_DATE' })
+      totalDuration: 0,
+      totalSize: 0,
+      downloadedSongs: 0,
+      externalSongs: 0,
+      formatBreakdown: {},
     }
 
-    // Validate songs
-    const songIds = new Set<string>()
     for (const song of project.songs) {
-      if (songIds.has(song.id)) {
-        errors.push({ field: 'songs', message: `Duplicate song ID: ${song.id}`, code: 'DUPLICATE_ID' })
-      }
-      songIds.add(song.id)
-
-      if (!song.audioFileId && !song.externalFilePath) {
-        errors.push({
-          field: 'songs',
-          message: `Song "${song.title}" has no file reference`,
-          code: 'MISSING_FILE_REF'
-        })
-      }
-
-      // Check external file exists
-      if (song.externalFilePath) {
-        try {
-          await this.fsService.validateFile(song.externalFilePath)
-        } catch {
-          warnings.push({
-            field: 'songs',
-            message: `External file not found: ${song.externalFilePath}`,
-          })
-        }
+      if (song.duration) stats.totalDuration += song.duration
+      if (song.fileSize) stats.totalSize += song.fileSize
+      if (song.downloadId) stats.downloadedSongs++
+      else if (song.externalFilePath) stats.externalSongs++
+      if (song.format) {
+        stats.formatBreakdown[song.format] = (stats.formatBreakdown[song.format] || 0) + 1
       }
     }
 
-    // Check project directory exists
-    try {
-      await this.fsService.validateDirectory(project.projectDirectory)
-    } catch {
-      errors.push({
-        field: 'projectDirectory',
-        message: 'Project directory not found',
-        code: 'MISSING_DIR'
-      })
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-      warnings,
-    }
+    return stats
   }
 
-  // ==========================================
-  // UTILITIES
-  // ==========================================
+  getActiveProject(): Project | null {
+    return this.activeProject
+  }
 
-  private async ensureProjectLoaded(projectId: string): Promise<Project> {
-    if (!this.currentProject || this.currentProject.id !== projectId) {
-      throw new Error('Project not loaded')
+  hasActiveProject(): boolean {
+    return this.activeProject !== null
+  }
+
+  private getProjectById(projectId: string): Project {
+    if (!this.activeProject || this.activeProject.id !== projectId) {
+      throw new Error(`Project not found: ${projectId}`)
     }
-    return this.currentProject
+    return this.activeProject
+  }
+
+  private updateRecentProject(project: Project): void {
+    this.configService.addRecentProject({
+      projectId: project.id,
+      projectName: project.name,
+      projectDirectory: project.projectDirectory,
+      lastOpened: new Date(),
+      songCount: project.songs.length,
+      coverImagePath: project.mixMetadata.coverImagePath,
+    })
   }
 }
-
-// Singleton instance
-export const projectService = new ProjectService(
-  fsService,
-  configService,
-  lockService,
-  audioMetadataService,
-  imageService
-)
 ```
 
 ### Supporting Services
 
-**FileSystemService** (`src/main/services/filesystem.service.ts`):
-- `createProjectDirectory(location, name): Promise<string>`
-- `writeProjectFile(project): Promise<void>`
-- `readProjectFile(filePath): Promise<Project>`
-- `validateFile(filePath): Promise<void>`
-- `validateDirectory(dirPath): Promise<void>`
-- `copyAsset(source, projectDir, type): Promise<string>`
-- `getDirectorySize(dirPath): Promise<number>`
+**FileSystemService** (`src/main/services/FileSystemService.ts`):
+- `createProjectDirectory(parentDir, projectName): Promise<string>` -- creates project dir with `assets/`, `assets/covers/`, `assets/audio/` subdirectories
+- `validateFilePath(filePath): Promise<boolean>` -- checks file exists and is a file
+- `readJsonFile<T>(filePath): Promise<T>` -- reads and parses JSON
+- `writeJsonFile(filePath, data): Promise<void>` -- writes JSON with 2-space indent
+- `copyFile(source, dest): Promise<void>`
+- `deleteFile(filePath): Promise<void>`
+- `deleteDirectory(dirPath): Promise<void>`
+- `getFileSize(filePath): Promise<number>`
+- `sanitizeFileName(fileName): string`
 
-**ConfigService** (`src/main/services/config.service.ts`):
-- `getRecentProjects(): Promise<RecentProject[]>`
-- `saveRecentProjects(projects): Promise<void>`
-- `getMaxRecentProjects(): Promise<number>`
-- `getDefaultProjectLocation(): Promise<string>`
-- `setDefaultProjectLocation(path): Promise<void>`
+**ConfigService** (`src/main/services/ConfigService.ts`):
+- Uses `electron-store` for persistent storage
+- `getRecentProjects(): RecentProject[]` -- sorted by lastOpened descending
+- `addRecentProject(project: RecentProject): void` -- upsert to front, max 10
+- `removeRecentProject(projectId: string): void`
+- `clearRecentProjects(): void`
+- `getSetting<T>(key, defaultValue?): T | undefined`
+- `setSetting<T>(key, value): void`
 
-**LockService** (`src/main/services/lock.service.ts`):
-- `createLock(project): Promise<void>`
-- `checkLock(filePath): Promise<ProjectLock | null>`
-- `removeLock(filePath): Promise<void>`
-- `isLockStale(lock): Promise<boolean>`
+**LockService** (`src/main/services/LockService.ts`):
+- `acquireLock(projectId, projectDir): Promise<ProjectLock>` -- creates `.lock` file
+- `releaseLock(projectId, projectDir): Promise<void>` -- removes `.lock` file
+- `isLocked(projectId, projectDir): Promise<boolean>`
+- `getLock(projectId, projectDir): Promise<ProjectLock | null>`
+- `isLockStale(lock): Promise<boolean>` -- stale if process doesn't exist or lock > 24h old
 
-**AudioMetadataService** (`src/main/services/audio-metadata.service.ts`):
-- `extractMetadata(filePath): Promise<AudioMetadata>`
-- Uses `music-metadata` library
+### Service Registration
 
-**ImageService** (`src/main/services/image.service.ts`):
-- `validateImage(filePath): Promise<ImageInfo>`
-- `generateThumbnail(sourcePath, projectDir): Promise<string>`
-- Uses `sharp` library for image processing
+**Location**: `src/main/ipc/index.ts`
+
+Services are instantiated and wired together when IPC handlers are registered:
+
+```typescript
+export function registerIpcHandlers(): void {
+  fileSystemService = new FileSystemService()
+  configService = new ConfigService()
+  lockService = new LockService()
+  projectService = new ProjectService(fileSystemService, configService, lockService)
+  // ... other services
+
+  registerProjectHandlers(projectService, configService, fileSystemService)
+  // ... other handler registrations
+}
+```
 
 ---
 
@@ -1568,611 +918,42 @@ export const projectService = new ProjectService(
 ```
 App
 └── Router
-    ├── WelcomePage
-    │   ├── WelcomeHeader
-    │   ├── RecentProjectsList
-    │   │   └── ProjectCard (multiple)
-    │   ├── EmptyState
-    │   └── CreateProjectDialog
+    ├── ProjectLauncher (no active project)
+    │   ├── LauncherHeader
+    │   ├── CreateProjectCard
+    │   ├── OpenProjectCard
+    │   └── RecentProjectsSection
+    │       └── RecentProjectCard (multiple)
     │
-    ├── Dashboard (when project is open)
-    │   ├── ProjectHeader
-    │   │   ├── ProjectInfo
-    │   │   ├── AutoSaveIndicator
-    │   │   └── ProjectMenu
-    │   ├── Sidebar
-    │   └── MainContent
-    │       ├── SearchPage
-    │       ├── DownloadsPage
-    │       ├── LibraryPage
-    │       ├── MixerPage
-    │       └── SettingsPage
-    │
-    └── Modals/Dialogs
-        ├── CreateProjectDialog
-        ├── ProjectSettingsDialog
-        ├── SongDetailsDialog
-        ├── MixMetadataPanel
-        └── UnsavedChangesDialog
+    └── ProjectOverview (active project)
+        ├── ProjectHeader
+        ├── StatsGrid
+        ├── MetadataSection
+        ├── SongsList
+        └── Tabbed Content
+            ├── SearchTab
+            ├── TorrentTab
+            └── MixTab
 ```
 
-### Key Component Specifications
+### Key Pages
 
-#### WelcomePage
-**Location**: `src/renderer/pages/Welcome/Welcome.tsx`
+**ProjectLauncher** (`src/renderer/pages/ProjectLauncher/`):
+- The landing page when no project is open
+- Shows recent projects, create new, and open existing options
+- Components: `LauncherHeader`, `CreateProjectCard`, `OpenProjectCard`, `RecentProjectCard`, `RecentProjectsSection`
 
-```typescript
-export const WelcomePage: React.FC = () => {
-  const { recentProjects, isLoading, loadRecentProjects, openProject, removeFromRecent } = useProjectStore()
-  const [showCreateDialog, setShowCreateDialog] = useState(false)
+**ProjectOverview** (`src/renderer/pages/ProjectOverview/`):
+- Main project workspace with tabbed interface
+- Components: `ProjectHeader`, `StatsGrid`, `MetadataSection`, `SongsList`
+- Tabs: `SearchTab`, `TorrentTab`, `MixTab`
 
-  useEffect(() => {
-    loadRecentProjects()
-  }, [])
+### UI Pattern Notes
 
-  const handleOpenExisting = async () => {
-    // This will be replaced with file picker
-    const result = await window.api.project.selectLocation()
-    if (!result.cancelled) {
-      await openProject(result.path)
-    }
-  }
-
-  return (
-    <Box data-testid="welcome-page">
-      <WelcomeHeader />
-
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : recentProjects.length > 0 ? (
-        <RecentProjectsList
-          projects={recentProjects}
-          onOpen={openProject}
-          onRemove={removeFromRecent}
-        />
-      ) : (
-        <EmptyState
-          onCreateNew={() => setShowCreateDialog(true)}
-          onOpenExisting={handleOpenExisting}
-        />
-      )}
-
-      <HStack spacing={4} mt={8}>
-        <Button
-          onClick={() => setShowCreateDialog(true)}
-          colorScheme="blue"
-          data-testid="create-project-button"
-        >
-          Create New Project
-        </Button>
-        <Button
-          onClick={handleOpenExisting}
-          variant="outline"
-          data-testid="open-project-button"
-        >
-          Open Existing Project
-        </Button>
-      </HStack>
-
-      {showCreateDialog && (
-        <CreateProjectDialog
-          isOpen={showCreateDialog}
-          onClose={() => setShowCreateDialog(false)}
-        />
-      )}
-    </Box>
-  )
-}
-```
-
-#### ProjectCard
-**Location**: `src/renderer/pages/Welcome/components/ProjectCard.tsx`
-
-```typescript
-interface ProjectCardProps {
-  project: RecentProject
-  onOpen: (filePath: string) => Promise<void>
-  onRemove: (filePath: string) => Promise<void>
-}
-
-export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onOpen, onRemove }) => {
-  const [isHovered, setIsHovered] = useState(false)
-
-  return (
-    <Card
-      data-testid={`project-card-${project.name}`}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => onOpen(project.filePath)}
-      cursor="pointer"
-      transition="all 0.2s"
-      _hover={{ transform: 'translateY(-4px)', shadow: 'lg' }}
-    >
-      {/* Cover Image */}
-      <Box position="relative" height="200px" bg="gray.100">
-        {project.previewImage ? (
-          <Image
-            src={`file://${project.previewImage}`}
-            alt={project.name}
-            objectFit="cover"
-            width="100%"
-            height="100%"
-          />
-        ) : (
-          <Center height="100%">
-            <Icon as={MusicIcon} boxSize={16} color="gray.400" />
-          </Center>
-        )}
-
-        {/* Quick Actions (visible on hover) */}
-        {isHovered && (
-          <HStack
-            position="absolute"
-            top={2}
-            right={2}
-            spacing={2}
-          >
-            <IconButton
-              aria-label="Remove from recent"
-              icon={<CloseIcon />}
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
-                onRemove(project.filePath)
-              }}
-            />
-          </HStack>
-        )}
-      </Box>
-
-      <CardBody>
-        <VStack align="start" spacing={2}>
-          <Heading size="md">{project.name}</Heading>
-
-          {project.metadata && (
-            <HStack spacing={4} fontSize="sm" color="gray.600">
-              <Text>{project.metadata.songsCount} songs</Text>
-              <Text>{project.metadata.downloadsCount} downloads</Text>
-              {project.metadata.genre && <Badge>{project.metadata.genre}</Badge>}
-            </HStack>
-          )}
-
-          <Text fontSize="xs" color="gray.500">
-            Last opened: {formatDistanceToNow(project.lastOpenedAt)} ago
-          </Text>
-        </VStack>
-      </CardBody>
-    </Card>
-  )
-}
-```
-
-#### CreateProjectDialog
-**Location**: `src/renderer/components/features/ProjectManager/CreateProjectDialog.tsx`
-
-```typescript
-interface CreateProjectDialogProps {
-  isOpen: boolean
-  onClose: () => void
-}
-
-export const CreateProjectDialog: React.FC<CreateProjectDialogProps> = ({ isOpen, onClose }) => {
-  const { createProject } = useProjectStore()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [location, setLocation] = useState('')
-  const [isCreating, setIsCreating] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    // Load default location when dialog opens
-    if (isOpen) {
-      loadDefaultLocation()
-    }
-  }, [isOpen])
-
-  const loadDefaultLocation = async () => {
-    // Get default from config
-    const defaultLoc = await window.api.project.getDefaultLocation()
-    setLocation(defaultLoc)
-  }
-
-  const handleSelectLocation = async () => {
-    const result = await window.api.project.selectLocation()
-    if (!result.cancelled) {
-      setLocation(result.path)
-    }
-  }
-
-  const handleCreate = async () => {
-    setError('')
-
-    // Validate
-    if (!name.trim()) {
-      setError('Project name is required')
-      return
-    }
-    if (!location) {
-      setError('Project location is required')
-      return
-    }
-
-    setIsCreating(true)
-    try {
-      await createProject(name.trim(), location, description.trim() || undefined)
-      onClose()
-    } catch (err) {
-      setError(err.message || 'Failed to create project')
-    } finally {
-      setIsCreating(false)
-    }
-  }
-
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
-      <ModalOverlay />
-      <ModalContent data-testid="create-project-dialog">
-        <ModalHeader>Create New Project</ModalHeader>
-        <ModalCloseButton />
-
-        <ModalBody>
-          <VStack spacing={4}>
-            {/* Name */}
-            <FormControl isRequired>
-              <FormLabel>Project Name</FormLabel>
-              <Input
-                data-testid="project-name-input"
-                placeholder="My Mix Project"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoFocus
-              />
-            </FormControl>
-
-            {/* Description */}
-            <FormControl>
-              <FormLabel>Description</FormLabel>
-              <Textarea
-                data-testid="project-description-input"
-                placeholder="Optional description..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-              />
-            </FormControl>
-
-            {/* Location */}
-            <FormControl isRequired>
-              <FormLabel>Location</FormLabel>
-              <HStack>
-                <Input
-                  data-testid="project-location-input"
-                  value={location}
-                  readOnly
-                  placeholder="Select location..."
-                />
-                <Button
-                  onClick={handleSelectLocation}
-                  data-testid="select-location-button"
-                >
-                  Browse
-                </Button>
-              </HStack>
-            </FormControl>
-
-            {/* Error */}
-            {error && (
-              <Alert status="error" data-testid="create-project-error">
-                <AlertIcon />
-                {error}
-              </Alert>
-            )}
-          </VStack>
-        </ModalBody>
-
-        <ModalFooter>
-          <Button variant="ghost" onClick={onClose} mr={3}>
-            Cancel
-          </Button>
-          <Button
-            colorScheme="blue"
-            onClick={handleCreate}
-            isLoading={isCreating}
-            data-testid="create-project-submit"
-          >
-            Create Project
-          </Button>
-        </ModalFooter>
-      </ModalContent>
-    </Modal>
-  )
-}
-```
-
-#### ProjectHeader
-**Location**: `src/renderer/components/features/ProjectManager/ProjectHeader.tsx`
-
-```typescript
-export const ProjectHeader: React.FC = () => {
-  const { currentProject, saveProject, closeProject, lastSaved } = useProjectStore()
-  const navigate = useNavigate()
-
-  if (!currentProject) return null
-
-  const handleClose = async () => {
-    // Check for unsaved changes
-    await closeProject()
-    navigate('/welcome')
-  }
-
-  return (
-    <HStack
-      justify="space-between"
-      p={4}
-      borderBottom="1px"
-      borderColor="gray.200"
-      data-testid="project-header"
-    >
-      <HStack spacing={4}>
-        {/* Project Icon/Cover */}
-        {currentProject.mixMetadata?.coverImageThumb && (
-          <Avatar
-            src={`file://${path.resolve(currentProject.projectDirectory, currentProject.mixMetadata.coverImageThumb)}`}
-            name={currentProject.name}
-            size="sm"
-          />
-        )}
-
-        {/* Project Name */}
-        <VStack align="start" spacing={0}>
-          <Heading size="md">{currentProject.name}</Heading>
-          {currentProject.description && (
-            <Text fontSize="sm" color="gray.600">{currentProject.description}</Text>
-          )}
-        </VStack>
-      </HStack>
-
-      <HStack spacing={4}>
-        {/* Auto-save Indicator */}
-        <AutoSaveIndicator lastSaved={lastSaved} />
-
-        {/* Save Button */}
-        <Button
-          leftIcon={<SaveIcon />}
-          onClick={() => saveProject()}
-          size="sm"
-          data-testid="save-project-button"
-        >
-          Save
-        </Button>
-
-        {/* Project Menu */}
-        <Menu>
-          <MenuButton
-            as={IconButton}
-            icon={<HamburgerIcon />}
-            variant="ghost"
-            size="sm"
-            data-testid="project-menu-button"
-          />
-          <MenuList>
-            <MenuItem onClick={handleClose}>Close Project</MenuItem>
-            <MenuItem>Project Settings</MenuItem>
-            <MenuItem>Export Project</MenuItem>
-            <MenuItem>Duplicate Project</MenuItem>
-          </MenuList>
-        </Menu>
-      </HStack>
-    </HStack>
-  )
-}
-```
-
-#### SongsList
-**Location**: `src/renderer/components/features/ProjectManager/SongsList.tsx`
-
-```typescript
-export const SongsList: React.FC = () => {
-  const { currentProject, addSong, removeSong, reorderSongs } = useProjectStore()
-  const [showAddDialog, setShowAddDialog] = useState(false)
-
-  if (!currentProject) return null
-
-  const songs = [...currentProject.songs].sort((a, b) => a.order - b.order)
-
-  const handleDragEnd = (result: DropResult) => {
-    if (!result.destination) return
-
-    const reordered = Array.from(songs)
-    const [removed] = reordered.splice(result.source.index, 1)
-    reordered.splice(result.destination.index, 0, removed)
-
-    const songIds = reordered.map(s => s.id)
-    reorderSongs(currentProject.id, songIds)
-  }
-
-  return (
-    <Box data-testid="songs-list">
-      <HStack justify="space-between" mb={4}>
-        <Heading size="md">Songs ({songs.length})</Heading>
-        <Button
-          leftIcon={<AddIcon />}
-          onClick={() => setShowAddDialog(true)}
-          data-testid="add-song-button"
-        >
-          Add Song
-        </Button>
-      </HStack>
-
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="songs">
-          {(provided) => (
-            <VStack
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              spacing={2}
-              align="stretch"
-            >
-              {songs.map((song, index) => (
-                <Draggable key={song.id} draggableId={song.id} index={index}>
-                  {(provided, snapshot) => (
-                    <Box
-                      ref={provided.innerRef}
-                      {...provided.draggableProps}
-                      {...provided.dragHandleProps}
-                      data-testid={`song-item-${song.id}`}
-                    >
-                      <SongItem
-                        song={song}
-                        onRemove={() => removeSong(currentProject.id, song.id)}
-                        isDragging={snapshot.isDragging}
-                      />
-                    </Box>
-                  )}
-                </Draggable>
-              ))}
-              {provided.placeholder}
-            </VStack>
-          )}
-        </Droppable>
-      </DragDropContext>
-
-      {showAddDialog && (
-        <AddSongDialog
-          isOpen={showAddDialog}
-          onClose={() => setShowAddDialog(false)}
-          projectId={currentProject.id}
-        />
-      )}
-    </Box>
-  )
-}
-```
-
-#### MixMetadataPanel
-**Location**: `src/renderer/components/features/ProjectManager/MixMetadataPanel.tsx`
-
-```typescript
-export const MixMetadataPanel: React.FC = () => {
-  const { currentProject, updateMixMetadata, uploadCover } = useProjectStore()
-  const [isEditing, setIsEditing] = useState(false)
-  const [formData, setFormData] = useState<Partial<MixMetadata>>({})
-
-  useEffect(() => {
-    if (currentProject?.mixMetadata) {
-      setFormData(currentProject.mixMetadata)
-    }
-  }, [currentProject])
-
-  if (!currentProject) return null
-
-  const handleSave = async () => {
-    await updateMixMetadata(currentProject.id, formData)
-    setIsEditing(false)
-  }
-
-  const handleUploadCover = async () => {
-    const result = await window.api.project.selectCoverImage()
-    if (!result.cancelled) {
-      await uploadCover({ projectId: currentProject.id, sourceImagePath: result.filePath })
-    }
-  }
-
-  return (
-    <Box data-testid="mix-metadata-panel" p={4} border="1px" borderColor="gray.200" borderRadius="md">
-      <HStack justify="space-between" mb={4}>
-        <Heading size="md">Mix Metadata</Heading>
-        <Button
-          size="sm"
-          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
-          data-testid={isEditing ? "save-metadata-button" : "edit-metadata-button"}
-        >
-          {isEditing ? 'Save' : 'Edit'}
-        </Button>
-      </HStack>
-
-      {/* Cover Image */}
-      <Box mb={4}>
-        <FormLabel>Cover Image</FormLabel>
-        <HStack>
-          {currentProject.mixMetadata?.coverImage ? (
-            <Image
-              src={`file://${path.resolve(currentProject.projectDirectory, currentProject.mixMetadata.coverImage)}`}
-              alt="Mix cover"
-              boxSize="150px"
-              objectFit="cover"
-              borderRadius="md"
-            />
-          ) : (
-            <Box
-              boxSize="150px"
-              bg="gray.100"
-              borderRadius="md"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-            >
-              <Icon as={ImageIcon} boxSize={12} color="gray.400" />
-            </Box>
-          )}
-          <Button onClick={handleUploadCover} size="sm">
-            {currentProject.mixMetadata?.coverImage ? 'Change' : 'Upload'} Cover
-          </Button>
-        </HStack>
-      </Box>
-
-      {/* Metadata Fields */}
-      <VStack spacing={4} align="stretch">
-        <FormControl>
-          <FormLabel>Title</FormLabel>
-          <Input
-            value={formData.title || ''}
-            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            readOnly={!isEditing}
-            data-testid="mix-title-input"
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Artist/DJ Name</FormLabel>
-          <Input
-            value={formData.artist || ''}
-            onChange={(e) => setFormData({ ...formData, artist: e.target.value })}
-            readOnly={!isEditing}
-            data-testid="mix-artist-input"
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Genre</FormLabel>
-          <Input
-            value={formData.genre || ''}
-            onChange={(e) => setFormData({ ...formData, genre: e.target.value })}
-            readOnly={!isEditing}
-            data-testid="mix-genre-input"
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Description</FormLabel>
-          <Textarea
-            value={formData.description || ''}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            readOnly={!isEditing}
-            rows={4}
-            data-testid="mix-description-input"
-          />
-        </FormControl>
-
-        <FormControl>
-          <FormLabel>Tags</FormLabel>
-          {/* Tag input component */}
-        </FormControl>
-      </VStack>
-    </Box>
-  )
-}
-```
+- Uses Chakra UI v3 with semantic tokens (`bg.card`, `text.primary`, etc.)
+- Icons from `react-icons/fi`
+- Toasts via `toaster.create()` from `@/components/ui/toaster`
+- No Tailwind/className -- all styling through Chakra props
 
 ---
 
@@ -2184,290 +965,171 @@ export const MixMetadataPanel: React.FC = () => {
 
 ```typescript
 import { create } from 'zustand'
-import { devtools } from 'zustand/middleware'
-import { Project, RecentProject, Song, MixMetadata } from '../../shared/types/project.types'
+import type { Project, RecentProject } from '@shared/types/project.types'
 
-interface ProjectStore {
+interface ProjectState {
   // State
   currentProject: Project | null
   recentProjects: RecentProject[]
   isLoading: boolean
-  isSaving: boolean
-  lastSaved: Date | null
   error: string | null
 
-  // Actions - Project Lifecycle
+  // Actions
+  setCurrentProject: (project: Project | null) => void
+  setRecentProjects: (projects: RecentProject[]) => void
+  setIsLoading: (isLoading: boolean) => void
+  setError: (error: string | null) => void
+  clearError: () => void
+
+  // Async actions
+  loadRecentProjects: () => Promise<void>
   createProject: (name: string, location: string, description?: string) => Promise<void>
   openProject: (filePath: string) => Promise<void>
-  saveProject: () => Promise<void>
   closeProject: () => Promise<void>
-
-  // Actions - Recent Projects
-  loadRecentProjects: () => Promise<void>
-  removeFromRecent: (filePath: string) => Promise<void>
-
-  // Actions - Songs
-  addSong: (song: Omit<Song, 'id' | 'addedAt'>) => Promise<void>
-  updateSong: (songId: string, updates: Partial<Song>) => Promise<void>
-  removeSong: (songId: string) => Promise<void>
-  reorderSongs: (songIds: string[]) => Promise<void>
-
-  // Actions - Mix Metadata
-  updateMixMetadata: (metadata: Partial<MixMetadata>) => Promise<void>
-  uploadCover: (sourceImagePath: string) => Promise<void>
-
-  // Utilities
-  clearError: () => void
+  deleteProject: (projectId: string) => Promise<boolean>
+  deleteProjectFromDisk: (projectId: string, projectDirectory: string) => Promise<boolean>
 }
 
-export const useProjectStore = create<ProjectStore>()(
-  devtools(
-    (set, get) => ({
-      // Initial state
-      currentProject: null,
-      recentProjects: [],
-      isLoading: false,
-      isSaving: false,
-      lastSaved: null,
-      error: null,
+export const useProjectStore = create<ProjectState>((set) => ({
+  // Initial state
+  currentProject: null,
+  recentProjects: [],
+  isLoading: false,
+  error: null,
 
-      // ==========================================
-      // PROJECT LIFECYCLE
-      // ==========================================
+  // Setters
+  setCurrentProject: (project) => set({ currentProject: project }),
+  setRecentProjects: (projects) => set({ recentProjects: projects }),
+  setIsLoading: (isLoading) => set({ isLoading }),
+  setError: (error) => set({ error }),
+  clearError: () => set({ error: null }),
 
-      createProject: async (name, location, description) => {
-        set({ isLoading: true, error: null })
-        try {
-          const project = await window.api.project.create({ name, location, description })
-          set({ currentProject: project, isLoading: false })
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-          throw error
+  // Async actions
+  loadRecentProjects: async () => {
+    set({ isLoading: true, error: null })
+    try {
+      const response = await window.api.getRecentProjects()
+      if (response.success && response.data) {
+        set({ recentProjects: response.data, isLoading: false })
+      } else {
+        set({ error: response.error || 'Failed to load recent projects', isLoading: false })
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to load recent projects',
+        isLoading: false,
+      })
+    }
+  },
+
+  createProject: async (name, location, description) => {
+    set({ isLoading: true, error: null })
+    try {
+      const response = await window.api.createProject({ name, location, description })
+      if (response.success && response.data) {
+        set({ currentProject: response.data, isLoading: false })
+        // Refresh recent projects
+        const recentResponse = await window.api.getRecentProjects()
+        if (recentResponse.success && recentResponse.data) {
+          set({ recentProjects: recentResponse.data })
         }
-      },
+      } else {
+        set({ error: response.error || 'Failed to create project', isLoading: false })
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to create project',
+        isLoading: false,
+      })
+    }
+  },
 
-      openProject: async (filePath) => {
-        set({ isLoading: true, error: null })
-        try {
-          const project = await window.api.project.open(filePath)
-          set({ currentProject: project, isLoading: false, lastSaved: project.updatedAt })
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-          throw error
+  openProject: async (filePath) => {
+    set({ isLoading: true, error: null })
+    try {
+      const response = await window.api.openProject({ filePath })
+      if (response.success && response.data) {
+        set({ currentProject: response.data, isLoading: false })
+        // Refresh recent projects
+        const recentResponse = await window.api.getRecentProjects()
+        if (recentResponse.success && recentResponse.data) {
+          set({ recentProjects: recentResponse.data })
         }
-      },
+      } else {
+        set({ error: response.error || 'Failed to open project', isLoading: false })
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to open project',
+        isLoading: false,
+      })
+    }
+  },
 
-      saveProject: async () => {
-        const { currentProject } = get()
-        if (!currentProject) return
+  closeProject: async () => {
+    const { currentProject } = useProjectStore.getState()
+    if (!currentProject) return
+    try {
+      const response = await window.api.closeProject(currentProject.id)
+      if (response.success) {
+        set({ currentProject: null })
+      } else {
+        set({ error: response.error || 'Failed to close project' })
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to close project',
+      })
+    }
+  },
 
-        set({ isSaving: true, error: null })
-        try {
-          await window.api.project.save({ project: currentProject })
-          set({ isSaving: false, lastSaved: new Date() })
-        } catch (error) {
-          set({ error: error.message, isSaving: false })
-          throw error
-        }
-      },
+  deleteProject: async (projectId) => {
+    try {
+      const response = await window.api.deleteProject(projectId)
+      if (response.success) {
+        const { recentProjects } = useProjectStore.getState()
+        set({ recentProjects: recentProjects.filter((p) => p.projectId !== projectId) })
+        return true
+      } else {
+        set({ error: response.error || 'Failed to delete project' })
+        return false
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to delete project',
+      })
+      return false
+    }
+  },
 
-      closeProject: async () => {
-        set({ isLoading: true, error: null })
-        try {
-          await window.api.project.close()
-          set({ currentProject: null, isLoading: false, lastSaved: null })
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-          throw error
-        }
-      },
-
-      // ==========================================
-      // RECENT PROJECTS
-      // ==========================================
-
-      loadRecentProjects: async () => {
-        set({ isLoading: true, error: null })
-        try {
-          const projects = await window.api.project.listRecent()
-          set({ recentProjects: projects, isLoading: false })
-        } catch (error) {
-          set({ error: error.message, isLoading: false })
-        }
-      },
-
-      removeFromRecent: async (filePath) => {
-        try {
-          await window.api.project.removeRecent(filePath)
-          set(state => ({
-            recentProjects: state.recentProjects.filter(p => p.filePath !== filePath)
-          }))
-        } catch (error) {
-          set({ error: error.message })
-        }
-      },
-
-      // ==========================================
-      // SONGS
-      // ==========================================
-
-      addSong: async (song) => {
-        const { currentProject } = get()
-        if (!currentProject) return
-
-        try {
-          const newSong = await window.api.project.addSong({
-            projectId: currentProject.id,
-            song,
-          })
-
-          set(state => ({
-            currentProject: state.currentProject ? {
-              ...state.currentProject,
-              songs: [...state.currentProject.songs, newSong],
-            } : null,
-          }))
-        } catch (error) {
-          set({ error: error.message })
-          throw error
-        }
-      },
-
-      updateSong: async (songId, updates) => {
-        const { currentProject } = get()
-        if (!currentProject) return
-
-        try {
-          const updatedSong = await window.api.project.updateSong({
-            projectId: currentProject.id,
-            songId,
-            updates,
-          })
-
-          set(state => ({
-            currentProject: state.currentProject ? {
-              ...state.currentProject,
-              songs: state.currentProject.songs.map(s =>
-                s.id === songId ? updatedSong : s
-              ),
-            } : null,
-          }))
-        } catch (error) {
-          set({ error: error.message })
-          throw error
-        }
-      },
-
-      removeSong: async (songId) => {
-        const { currentProject } = get()
-        if (!currentProject) return
-
-        try {
-          await window.api.project.removeSong(currentProject.id, songId)
-
-          set(state => ({
-            currentProject: state.currentProject ? {
-              ...state.currentProject,
-              songs: state.currentProject.songs.filter(s => s.id !== songId),
-            } : null,
-          }))
-        } catch (error) {
-          set({ error: error.message })
-          throw error
-        }
-      },
-
-      reorderSongs: async (songIds) => {
-        const { currentProject } = get()
-        if (!currentProject) return
-
-        try {
-          await window.api.project.reorderSongs({
-            projectId: currentProject.id,
-            songIds,
-          })
-
-          // Reorder locally
-          const songsMap = new Map(currentProject.songs.map(s => [s.id, s]))
-          const reordered = songIds.map((id, idx) => ({
-            ...songsMap.get(id)!,
-            order: idx,
-          }))
-
-          set(state => ({
-            currentProject: state.currentProject ? {
-              ...state.currentProject,
-              songs: reordered,
-            } : null,
-          }))
-        } catch (error) {
-          set({ error: error.message })
-          throw error
-        }
-      },
-
-      // ==========================================
-      // MIX METADATA
-      // ==========================================
-
-      updateMixMetadata: async (metadata) => {
-        const { currentProject } = get()
-        if (!currentProject) return
-
-        try {
-          const updated = await window.api.project.updateMixMetadata({
-            projectId: currentProject.id,
-            metadata,
-          })
-
-          set(state => ({
-            currentProject: state.currentProject ? {
-              ...state.currentProject,
-              mixMetadata: updated,
-            } : null,
-          }))
-        } catch (error) {
-          set({ error: error.message })
-          throw error
-        }
-      },
-
-      uploadCover: async (sourceImagePath) => {
-        const { currentProject } = get()
-        if (!currentProject) return
-
-        try {
-          const { coverPath, thumbPath } = await window.api.project.uploadCover({
-            projectId: currentProject.id,
-            sourceImagePath,
-          })
-
-          set(state => ({
-            currentProject: state.currentProject ? {
-              ...state.currentProject,
-              mixMetadata: {
-                ...state.currentProject.mixMetadata,
-                coverImage: coverPath,
-                coverImageThumb: thumbPath,
-              },
-            } : null,
-          }))
-        } catch (error) {
-          set({ error: error.message })
-          throw error
-        }
-      },
-
-      // ==========================================
-      // UTILITIES
-      // ==========================================
-
-      clearError: () => set({ error: null }),
-    }),
-    { name: 'ProjectStore' }
-  )
-)
+  deleteProjectFromDisk: async (projectId, projectDirectory) => {
+    try {
+      const response = await window.api.deleteProjectFromDisk(projectId, projectDirectory)
+      if (response.success) {
+        const { recentProjects } = useProjectStore.getState()
+        set({ recentProjects: recentProjects.filter((p) => p.projectId !== projectId) })
+        return true
+      } else {
+        set({ error: response.error || 'Failed to delete project from disk' })
+        return false
+      }
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to delete project from disk',
+      })
+      return false
+    }
+  },
+}))
 ```
+
+### Key Differences from Original Design
+
+1. **No `isSaving` / `lastSaved` state** -- the store does not track explicit save state since the project auto-saves on changes via ProjectService
+2. **No `devtools` middleware** -- the store uses a plain `create()` call
+3. **ApiResponse unwrapping** -- all async actions check `response.success` and `response.data` before updating state
+4. **Delete operations** -- both "remove from recent" and "delete from disk" are supported
+5. **No song/metadata management in store** -- song CRUD and mix metadata updates are handled through direct ProjectService calls, not through the Zustand store
 
 ---
 
@@ -2494,23 +1156,24 @@ export const useProjectStore = create<ProjectStore>()(
          │                     │
          ▼                     ▼
     ┌────────┐           ┌──────────┐
-    │ Lock   │           │ Validate │
-    │ Check  │           │ Project  │
+    │ Lock   │           │  Read &  │
+    │ Check  │           │  Parse   │
     └────┬───┘           └─────┬────┘
          │                     │
          │                     ▼
          │              ┌──────────────┐
          │              │   Project    │
-         └─────────────▶│   Active     │
+         └─────────────►│   Active     │
                         └──────┬───────┘
                                │
                     ┌──────────┼──────────┐
                     │          │          │
                     ▼          ▼          ▼
-              ┌─────────┐ ┌────────┐ ┌──────┐
-              │ Editing │ │ Saving │ │ Auto │
-              │         │ │        │ │ Save │
-              └─────────┘ └────────┘ └──────┘
+              ┌─────────┐ ┌────────┐ ┌──────────┐
+              │ Add/Edit│ │  Save  │ │  Delete  │
+              │  Songs  │ │(on     │ │  Project │
+              └─────────┘ │change) │ └──────────┘
+                          └────────┘
                                │
                                ▼
                         ┌─────────────┐
@@ -2518,61 +1181,56 @@ export const useProjectStore = create<ProjectStore>()(
                         │   Project   │
                         └──────┬──────┘
                                │
-                    ┌──────────┼──��────────┐
+                    ┌──────────┼───────────┐
                     │          │           │
                     ▼          ▼           ▼
               ┌─────────┐ ┌────────┐ ┌──────────┐
               │  Save   │ │ Remove │ │  Return  │
-              │ Changes │ │  Lock  │ │ to Start │
+              │(isActive│ │  Lock  │ │ to       │
+              │= false) │ │(.lock) │ │ Launcher │
               └─────────┘ └────────┘ └──────────┘
 ```
 
 ### Flow Descriptions
 
 **Create Project**:
-1. User clicks "Create New Project"
-2. Show CreateProjectDialog
-3. User enters name, description, selects location
-4. Validate inputs
-5. Call `project:create` IPC
-6. Main process creates directory structure
-7. Write project.json
-8. Create lock file
-9. Add to recent projects
-10. Return to renderer
-11. Navigate to Dashboard
+1. User clicks "Create New Project" on ProjectLauncher page
+2. User enters name, description, selects location via directory picker
+3. Store calls `window.api.createProject({ name, location, description })`
+4. Main process: `ProjectService.createProject()`:
+   - Creates directory structure via `FileSystemService.createProjectDirectory()`
+   - Writes `project.json` with initial data
+   - Acquires lock via `LockService.acquireLock()`
+   - Adds to recent via `ConfigService.addRecentProject()`
+5. Returns `ApiResponse<Project>` to renderer
+6. Store sets `currentProject`, navigates to ProjectOverview
 
 **Open Project**:
-1. User clicks on recent project or selects file
-2. Call `project:open` IPC
-3. Main process validates file exists
-4. Check for lock file
-   - If locked and not stale: Show error
-   - If locked and stale: Remove lock
-5. Read and deserialize project.json
-6. Validate project structure
-7. Create lock file
-8. Update lastOpenedAt
-9. Add to recent projects
-10. Return to renderer
-11. Navigate to Dashboard
-
-**Save Project**:
-1. User clicks "Save" or auto-save triggers
-2. Update updatedAt timestamp
-3. Serialize project to JSON
-4. Write to project.json
-5. Update recent projects list
-6. Show success indicator
+1. User clicks on a recent project card or browses for `project.json`
+2. Store calls `window.api.openProject({ filePath })`
+3. Main process: `ProjectService.openProject()`:
+   - Validates file exists
+   - Reads and parses JSON
+   - Rehydrates Date fields
+   - Acquires lock (stale lock detection built in)
+   - Sets `isActive = true`
+   - Updates recent projects
+4. Returns `ApiResponse<Project>` to renderer
+5. Store sets `currentProject`, navigates to ProjectOverview
 
 **Close Project**:
-1. User clicks "Close Project"
-2. Check for unsaved changes
-   - If unsaved: Show confirmation dialog
-3. Disable auto-save timer
-4. Remove lock file
-5. Clear currentProject state
-6. Navigate to Welcome page
+1. User navigates back to launcher or triggers close
+2. Store calls `window.api.closeProject(projectId)`
+3. Main process: `ProjectService.closeProject()`:
+   - Sets `isActive = false`
+   - Saves project to disk
+   - Releases lock
+   - Clears active project reference
+4. Store sets `currentProject = null`
+
+**Delete Project**:
+- **From recent only**: `window.api.deleteProject(projectId)` removes from ConfigService
+- **From disk**: `window.api.deleteProjectFromDisk(projectId, projectDirectory)` removes from ConfigService AND deletes project directory
 
 ---
 
@@ -2582,108 +1240,57 @@ export const useProjectStore = create<ProjectStore>()(
 
 **Project Name**:
 ```typescript
-const validateProjectName = (name: string): boolean => {
-  // No empty names
-  if (!name || name.trim().length === 0) return false
-
-  // Length limits
-  if (name.length > 100) return false
-
-  // No invalid filesystem characters
-  if (/[<>:"/\\|?*]/.test(name)) return false
-
-  return true
+// FileSystemService validates names before directory creation
+private isValidFileName(fileName: string): boolean {
+  const invalidChars = /[<>:"/\\|?*]/
+  return !invalidChars.test(fileName)
 }
 ```
 
 **File Paths**:
 ```typescript
-const validateFilePath = (filePath: string): boolean => {
-  // Must be absolute
-  if (!path.isAbsolute(filePath)) return false
-
-  // No directory traversal
-  if (filePath.includes('..')) return false
-
-  // Within allowed directories
-  const allowed = [app.getPath('home'), app.getPath('documents')]
-  if (!allowed.some(dir => filePath.startsWith(dir))) return false
-
-  return true
-}
-```
-
-**Image Files**:
-```typescript
-const validateImageFile = async (filePath: string): Promise<boolean> => {
-  // Check extension
-  const ext = path.extname(filePath).toLowerCase()
-  if (!['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) return false
-
-  // Check file size (max 10MB)
-  const stats = await fs.stat(filePath)
-  if (stats.size > 10 * 1024 * 1024) return false
-
-  // Validate image format with sharp
-  try {
-    const metadata = await sharp(filePath).metadata()
-    return metadata.format !== undefined
-  } catch {
-    return false
+// FileSystemService.validateFilePath
+async validateFilePath(filePath: string): Promise<boolean> {
+  if (!filePath || filePath.trim() === '') {
+    throw new Error('Invalid file path: path cannot be empty')
   }
+  if (!await fs.pathExists(filePath)) {
+    throw new Error(`File does not exist: ${filePath}`)
+  }
+  const stats = await fs.stat(filePath)
+  if (!stats.isFile()) {
+    throw new Error(`Path is not a file: ${filePath}`)
+  }
+  return true
 }
 ```
 
 ### Project Lock File
 
-**Lock Creation**:
+**Lock Creation** (LockService):
 ```typescript
-const createLock = async (project: Project): Promise<void> => {
-  const lockPath = path.join(project.projectDirectory, '.project.lock')
-
-  const lock: ProjectLock = {
-    projectId: project.id,
-    lockedAt: new Date(),
-    lockedBy: {
-      pid: process.pid,
-      hostname: os.hostname(),
-      username: os.userInfo().username,
-    },
-    appVersion: app.getVersion(),
-  }
-
-  await fs.writeFile(lockPath, JSON.stringify(lock, null, 2), 'utf-8')
+const lock: ProjectLock = {
+  projectId,
+  lockedBy: {
+    pid: process.pid,
+    hostname: os.hostname(),
+  },
+  lockedAt: new Date(),
 }
+
+const lockFilePath = path.join(projectDir, '.lock')
+await fs.writeJson(lockFilePath, lock, { spaces: 2 })
 ```
 
-**Lock Check**:
+**Stale Lock Detection**:
 ```typescript
-const checkLock = async (filePath: string): Promise<ProjectLock | null> => {
-  const projectDir = path.dirname(filePath)
-  const lockPath = path.join(projectDir, '.project.lock')
-
-  try {
-    const content = await fs.readFile(lockPath, 'utf-8')
-    return JSON.parse(content)
-  } catch {
-    return null // No lock file
-  }
-}
-
-const isLockStale = async (lock: ProjectLock): Promise<boolean> => {
-  // Lock is considered stale if:
-  // 1. The process no longer exists, OR
-  // 2. The lock is older than 24 hours (86400000 ms)
-
-  const STALE_LOCK_TIMEOUT = 24 * 60 * 60 * 1000 // 24 hours
-
-  // Check if lock is too old
+async isLockStale(lock: ProjectLock): Promise<boolean> {
+  // Stale if lock > 24 hours old
+  const STALE_LOCK_TIMEOUT = 24 * 60 * 60 * 1000
   const lockAge = Date.now() - new Date(lock.lockedAt).getTime()
-  if (lockAge > STALE_LOCK_TIMEOUT) {
-    return true
-  }
+  if (lockAge > STALE_LOCK_TIMEOUT) return true
 
-  // Check if process still exists
+  // Stale if owning process no longer exists
   try {
     process.kill(lock.lockedBy.pid, 0)
     return false // Process exists
@@ -2695,21 +1302,12 @@ const isLockStale = async (lock: ProjectLock): Promise<boolean> => {
 
 ### Sanitization
 
-**File Name Sanitization**:
+**File Name Sanitization** (FileSystemService):
 ```typescript
-const sanitizeFileName = (name: string): string => {
-  return name
-    .replace(/[<>:"/\\|?*]/g, '') // Remove invalid chars
-    .replace(/\s+/g, ' ') // Normalize whitespace
-    .trim()
-    .substring(0, 100) // Limit length
-}
-```
-
-**Path Sanitization**:
-```typescript
-const sanitizePath = (filePath: string): string => {
-  return path.normalize(path.resolve(filePath))
+sanitizeFileName(fileName: string): string {
+  let sanitized = fileName.replace(/[<>:"/\\|?*]/g, '')
+  sanitized = sanitized.trim()
+  return sanitized
 }
 ```
 
@@ -2724,99 +1322,43 @@ const sanitizePath = (filePath: string): string => {
 - Permission denied
 - Disk full
 - Invalid path
-
-**Validation Errors**:
-- Invalid project structure
-- Missing required fields
-- Invalid data types
-- Corrupted JSON
+- Project directory already exists
 
 **Lock Errors**:
-- Project already open
-- Stale lock detection
+- Project already open (locked by another process)
+- Stale lock detection and cleanup
 
-**Network Errors** (if cloud sync added):
-- Connection timeout
-- Authentication failed
-- Sync conflict
+**Validation Errors**:
+- Invalid project name (contains filesystem-invalid characters)
+- Empty or missing required fields
+- Invalid JSON in project file
 
-### Error Recovery Strategies
+### Error Response Pattern
 
-**Corrupted Project File**:
+All IPC handlers catch errors and return `ApiResponse` with `success: false`:
+
 ```typescript
-const recoverProject = async (filePath: string): Promise<Project> => {
-  try {
-    // Try to read file
-    const content = await fs.readFile(filePath, 'utf-8')
-    const parsed = JSON.parse(content)
-
-    // Attempt to repair
-    const repaired = repairProject(parsed)
-
-    // Validate repaired project
-    const validation = await validateProject(repaired)
-    if (!validation.valid) {
-      throw new Error('Cannot repair project')
-    }
-
-    // Create backup of corrupted file
-    await fs.copyFile(filePath, `${filePath}.backup.${Date.now()}`)
-
-    // Save repaired version
-    await writeProjectFile(repaired)
-
-    return repaired
-  } catch (error) {
-    throw new Error(`Project recovery failed: ${error.message}`)
-  }
-}
-
-const repairProject = (data: any): Project => {
+try {
+  const result = await service.doSomething()
+  return { success: true, data: result }
+} catch (error) {
+  console.error('Operation failed:', error)
   return {
-    id: data.id || uuidv4(),
-    name: data.name || 'Recovered Project',
-    version: '1.0',
-    createdAt: data.createdAt ? new Date(data.createdAt) : new Date(),
-    updatedAt: new Date(),
-    songs: Array.isArray(data.songs) ? data.songs : [],
-    // ... fill in missing required fields with defaults
+    success: false,
+    error: error instanceof Error ? error.message : 'Operation failed',
   }
 }
 ```
 
-**Auto-Save Failure**:
-```typescript
-import { BrowserWindow } from 'electron'
-
-const handleAutoSaveError = async (error: Error): Promise<void> => {
-  console.error('Auto-save failed:', error)
-
-  // Show non-intrusive warning to user
-  const mainWindow = BrowserWindow.getAllWindows()[0]
-  mainWindow?.webContents.send('project:auto-save-failed', {
-    error: error.message,
-    timestamp: new Date(),
-  })
-
-  // Don't throw - let user continue working
-  // User can manually save when ready
-}
-```
-
-**External File Missing**:
-```typescript
-const handleMissingExternalFile = (song: Song): void => {
-  // Mark song as having missing file
-  song.notes = `[File Missing: ${song.externalFilePath}]\n${song.notes || ''}`
-
-  // Show warning in UI but don't fail
-  console.warn(`External file missing for song: ${song.title}`)
-}
-```
+The Zustand store checks `response.success` and sets `error` state for UI display.
 
 ---
 
 ## 11. Testing Strategy
+
+### Approach
+
+Following the project's pragmatic testing philosophy: test business logic only, skip UI tests. Use `yarn build` for full build verification.
 
 ### Unit Tests
 
@@ -2825,14 +1367,12 @@ const handleMissingExternalFile = (song: Song): void => {
 describe('ProjectService', () => {
   describe('createProject', () => {
     it('should create project with valid inputs', async () => {
-      const project = await projectService.createProject(
-        'Test Project',
-        '/tmp/test-location'
-      )
-
+      const project = await projectService.createProject('Test Project', '/tmp/test-location')
       expect(project.name).toBe('Test Project')
       expect(project.id).toBeDefined()
       expect(project.songs).toEqual([])
+      expect(project.isActive).toBe(true)
+      expect(project.mixMetadata.tags).toEqual([])
     })
 
     it('should reject invalid project name', async () => {
@@ -2840,317 +1380,51 @@ describe('ProjectService', () => {
         projectService.createProject('Invalid<Name', '/tmp')
       ).rejects.toThrow()
     })
-
-    it('should create directory structure', async () => {
-      const project = await projectService.createProject('Test', '/tmp')
-
-      expect(await fs.pathExists(project.projectDirectory)).toBe(true)
-      expect(await fs.pathExists(path.join(project.projectDirectory, 'assets'))).toBe(true)
-    })
   })
 
-  describe('addSong', () => {
-    it('should add song to project', async () => {
-      const project = await projectService.createProject('Test', '/tmp')
-
-      const song = await projectService.addSong(project.id, {
-        title: 'Test Song',
-        externalFilePath: '/path/to/song.mp3',
-        order: 0,
-      })
-
-      expect(song.id).toBeDefined()
-      expect(song.title).toBe('Test Song')
-      expect(project.songs).toHaveLength(1)
-    })
-
-    it('should extract metadata for external files', async () => {
-      // Mock audioMetadataService
-      const song = await projectService.addSong(projectId, {
-        title: 'Test',
-        externalFilePath: '/test.mp3',
-        order: 0,
-      })
-
-      expect(song.duration).toBeDefined()
-      expect(song.format).toBeDefined()
+  describe('getProjectStats', () => {
+    it('should calculate stats from songs', async () => {
+      const stats = await projectService.getProjectStats(projectId)
+      expect(stats.totalSongs).toBe(project.songs.length)
+      expect(stats.formatBreakdown).toBeDefined()
     })
   })
 })
 ```
 
-**FileSystemService Tests**:
+**LockService Tests**:
 ```typescript
-describe('FileSystemService', () => {
-  describe('createProjectDirectory', () => {
-    it('should create nested directories', async () => {
-      const dir = await fsService.createProjectDirectory('/tmp', 'MyProject')
+describe('LockService', () => {
+  it('should acquire and release lock', async () => {
+    const lock = await lockService.acquireLock(projectId, projectDir)
+    expect(lock.projectId).toBe(projectId)
+    expect(lock.lockedBy.pid).toBe(process.pid)
 
-      expect(await fs.pathExists(dir)).toBe(true)
-      expect(await fs.pathExists(path.join(dir, 'assets', 'covers'))).toBe(true)
-    })
+    await lockService.releaseLock(projectId, projectDir)
+    const isLocked = await lockService.isLocked(projectId, projectDir)
+    expect(isLocked).toBe(false)
   })
 
-  describe('validateFile', () => {
-    it('should accept valid file paths', async () => {
-      await fs.writeFile('/tmp/test.txt', 'test')
-      await expect(fsService.validateFile('/tmp/test.txt')).resolves.toBeUndefined()
-    })
-
-    it('should reject non-existent files', async () => {
-      await expect(fsService.validateFile('/tmp/nonexistent.txt')).rejects.toThrow()
-    })
-  })
-})
-```
-
-### Integration Tests
-
-**IPC Handler Tests**:
-```typescript
-describe('Project IPC Handlers', () => {
-  it('should create project via IPC', async () => {
-    const result = await ipcRenderer.invoke('project:create', {
-      name: 'Test Project',
-      location: '/tmp',
-    })
-
-    expect(result.id).toBeDefined()
-    expect(result.name).toBe('Test Project')
-  })
-
-  it('should handle errors gracefully', async () => {
-    await expect(
-      ipcRenderer.invoke('project:create', {
-        name: '',
-        location: '/tmp',
-      })
-    ).rejects.toThrow()
+  it('should detect stale locks', async () => {
+    const staleLock: ProjectLock = {
+      projectId: 'test',
+      lockedBy: { pid: 999999, hostname: 'old-machine' },
+      lockedAt: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25 hours ago
+    }
+    expect(await lockService.isLockStale(staleLock)).toBe(true)
   })
 })
 ```
-
-### E2E Tests (Playwright)
-
-**Project Workflow Tests**:
-```typescript
-test('create and open project', async ({ page }) => {
-  // Navigate to welcome page
-  await page.goto('/')
-  await expect(page.getByTestId('welcome-page')).toBeVisible()
-
-  // Click create project
-  await page.getByTestId('create-project-button').click()
-  await expect(page.getByTestId('create-project-dialog')).toBeVisible()
-
-  // Fill form
-  await page.getByTestId('project-name-input').fill('E2E Test Project')
-  await page.getByTestId('project-description-input').fill('Test description')
-
-  // Create project
-  await page.getByTestId('create-project-submit').click()
-
-  // Should navigate to dashboard
-  await expect(page.getByTestId('project-header')).toBeVisible()
-  await expect(page.getByText('E2E Test Project')).toBeVisible()
-})
-
-test('add and reorder songs', async ({ page }) => {
-  // Open project
-  await openTestProject(page)
-
-  // Add first song
-  await page.getByTestId('add-song-button').click()
-  await page.getByTestId('song-title-input').fill('Song 1')
-  await page.getByTestId('add-song-submit').click()
-
-  // Add second song
-  await page.getByTestId('add-song-button').click()
-  await page.getByTestId('song-title-input').fill('Song 2')
-  await page.getByTestId('add-song-submit').click()
-
-  // Verify order
-  const songs = await page.getByTestId(/^song-item-/).all()
-  expect(songs).toHaveLength(2)
-
-  // Drag to reorder
-  await songs[1].dragTo(songs[0])
-
-  // Verify new order
-  const reordered = await page.getByTestId(/^song-item-/).all()
-  await expect(reordered[0]).toContainText('Song 2')
-  await expect(reordered[1]).toContainText('Song 1')
-})
-```
-
-### Test Coverage Goals
-
-- **Unit Tests**: 80% coverage for services
-- **Integration Tests**: All IPC handlers covered
-- **E2E Tests**: Critical user flows covered
-  - Create project
-  - Open project
-  - Add/remove songs
-  - Update metadata
-  - Upload cover
-  - Save project
-  - Close project
 
 ---
 
-## 12. Implementation Roadmap
-
-### Phase 1: Core Data & Services (2-3 days)
-
-**Tasks**:
-- [ ] Extend data models in `shared/types/project.types.ts`
-- [ ] Create Zod schemas in `shared/schemas/project.schema.ts`
-- [ ] Implement FileSystemService
-- [ ] Implement ConfigService (electron-store)
-- [ ] Implement LockService
-- [ ] Implement ProjectService (CRUD operations)
-- [ ] Write unit tests for services
-
-**Deliverables**:
-- Complete service layer
-- 80%+ test coverage
-- Working file operations
-
-### Phase 2: IPC Communication (1 day)
-
-**Tasks**:
-- [ ] Create IPC handlers in `main/ipc/project-handlers.ts`
-- [ ] Update preload script with project APIs
-- [ ] Add IPC type definitions
-- [ ] Write integration tests for IPC
-
-**Deliverables**:
-- All IPC channels implemented
-- Preload API exposed
-- IPC tests passing
-
-### Phase 3: Welcome Page (2 days)
-
-**Tasks**:
-- [ ] Update WelcomePage layout
-- [ ] Create RecentProjectsList component
-- [ ] Create ProjectCard component
-- [ ] Create EmptyState component
-- [ ] Create CreateProjectDialog
-- [ ] Add loading and error states
-- [ ] Write component tests
-
-**Deliverables**:
-- Functional welcome page
-- Recent projects display
-- Project creation flow
-
-### Phase 4: Project Management UI (2 days)
-
-**Tasks**:
-- [ ] Create ProjectHeader component
-- [ ] Create AutoSaveIndicator component
-- [ ] Implement save/close actions
-- [ ] Create ProjectSettingsDialog
-- [ ] Add navigation guards for unsaved changes
-- [ ] Write component tests
-
-**Deliverables**:
-- Project header with actions
-- Auto-save indicator
-- Settings dialog
-
-### Phase 5: Songs Management (2 days)
-
-**Tasks**:
-- [ ] Create SongsList component
-- [ ] Create SongItem component
-- [ ] Implement drag-and-drop (react-beautiful-dnd)
-- [ ] Create AddSongDialog
-- [ ] Create SongDetailsDialog
-- [ ] Implement audio file picker
-- [ ] Write component tests
-
-**Deliverables**:
-- Songs list with reordering
-- Add/edit/remove songs
-- External file support
-
-### Phase 6: Mix Metadata & Assets (1-2 days)
-
-**Tasks**:
-- [ ] Create MixMetadataPanel component
-- [ ] Implement cover image upload
-- [ ] Add ImageService for thumbnails (sharp)
-- [ ] Add AudioMetadataService (music-metadata)
-- [ ] Create TagsInput component
-- [ ] Write component tests
-
-**Deliverables**:
-- Metadata editing
-- Cover image upload
-- Thumbnail generation
-
-### Phase 7: State Management (1 day)
-
-**Tasks**:
-- [ ] Create useProjectStore
-- [ ] Connect components to store
-- [ ] Add error handling in store
-- [ ] Implement optimistic updates
-- [ ] Add store devtools
-- [ ] Test store actions
-
-**Deliverables**:
-- Complete Zustand store
-- All components connected
-- Error handling
-
-### Phase 8: Integration & Polish (1-2 days)
-
-**Tasks**:
-- [ ] Connect to existing features (torrents, search)
-- [ ] Add keyboard shortcuts
-- [ ] Implement auto-save
-- [ ] Add telemetry events
-- [ ] Error recovery dialogs
-- [ ] Performance optimization
-- [ ] Write E2E tests
-
-**Deliverables**:
-- Fully integrated system
-- Keyboard shortcuts
-- E2E tests passing
-
-### Phase 9: Testing & Documentation (1 day)
-
-**Tasks**:
-- [ ] Complete test coverage
-- [ ] Test edge cases
-- [ ] Test error scenarios
-- [ ] Update user documentation
-- [ ] Create migration guide (if needed)
-
-**Deliverables**:
-- 80%+ test coverage
-- All tests passing
-- Documentation updated
-
-**Total Estimated Time**: 12-14 days
-
----
-
-## 13. Architecture Decisions
+## 12. Architecture Decisions
 
 ### ADR-007: JSON File Format for Projects
 
 **Status**: Accepted
 
-**Context**:
-Need to choose storage format for projects. Options: JSON, SQLite, custom binary.
-
-**Decision**:
-Use JSON files (.json) for project storage.
+**Decision**: Use JSON files (`project.json`) for project storage.
 
 **Rationale**:
 - Human-readable and debuggable
@@ -3158,128 +1432,92 @@ Use JSON files (.json) for project storage.
 - Simple serialization/deserialization
 - Cross-platform compatible
 - No additional dependencies
-- Easy to backup and share
 
 **Consequences**:
-- Must handle Date serialization manually
+- Must handle Date serialization manually (ISO strings on disk, Date objects in memory)
 - Not optimal for very large projects (>1000 songs)
-- No built-in indexing or querying
 - Entire file must be loaded into memory
 
 ### ADR-008: Single Active Project
 
 **Status**: Accepted
 
-**Context**:
-Should users be able to open multiple projects simultaneously?
-
-**Decision**:
-Only one project can be active at a time.
+**Decision**: Only one project can be active at a time.
 
 **Rationale**:
 - Simpler state management
 - Reduced memory usage
-- Clearer user mental model
-- Aligns with DAW/video editor patterns
-- Easier to implement auto-save
-- Reduces risk of data conflicts
+- Clearer user mental model (similar to DAW/video editor patterns)
+- Easier to implement auto-save and locking
 
 **Consequences**:
 - Users must close current project to open another
 - Cannot copy/move items between projects easily
-- Future enhancement could add multi-project support
 
 ### ADR-009: External File Support
 
 **Status**: Accepted
 
-**Context**:
-Should songs only reference downloaded files, or also external files?
-
-**Decision**:
-Allow users to add external audio files from anywhere on their system.
+**Decision**: Allow users to add external audio files from anywhere on their system.
 
 **Rationale**:
-- Greater flexibility for users
-- Users may already have music libraries
+- Greater flexibility for users with existing music libraries
 - Not all music is available via torrents
-- Enables mixing downloaded and existing files
 - Common pattern in music software
 
 **Consequences**:
 - Must validate external file paths
 - Files may be moved/deleted outside app
-- Need to extract metadata for external files
-- Project portability is reduced
+- Project portability is reduced (external references break)
 
 ### ADR-010: Project Locking
 
 **Status**: Accepted
 
-**Context**:
-How to prevent users from opening same project in multiple instances?
-
-**Decision**:
-Use `.project.lock` file with process PID and stale lock detection.
+**Decision**: Use `.lock` file with process PID and stale lock detection.
 
 **Rationale**:
 - Prevents data corruption from concurrent writes
 - Simple file-based implementation
-- No external dependencies
-- Works across platforms
-- Can detect stale locks from crashes
+- Can detect stale locks from crashes via process.kill(pid, 0)
 
 **Consequences**:
-- Must handle stale lock cleanup
-- Requires process existence checking
-- Lock file must be cleaned up properly
-- Network file systems may have issues
+- Must handle stale lock cleanup (24-hour timeout + process existence check)
+- Lock file must be cleaned up on close
+- Network file systems may have issues with lock detection
 
-### ADR-011: Manual Backup Only
+### ADR-011: Lean Project File
 
 **Status**: Accepted
 
-**Context**:
-Should the app automatically backup projects?
-
-**Decision**:
-No automatic backups. Users manually export/duplicate when needed.
+**Decision**: Keep `project.json` focused on project identity, songs, and mix metadata. Search history, torrent collections, and other per-project data are stored in separate JSON files within the project directory.
 
 **Rationale**:
-- Keeps implementation simple
-- Gives users control
-- Avoids disk space issues
-- Users can use system backups (Time Machine, etc.)
-- Auto-save already prevents data loss
+- Keeps the core project file small and fast to read/write
+- Different data has different update frequencies
+- Separates user-curated content from transient/cached data
+- Each feature can manage its own persistence independently
 
 **Consequences**:
-- Users responsible for their own backups
-- No automatic versioning
-- Potential data loss if user doesn't backup
-- Future enhancement could add optional auto-backup
+- Multiple files to manage per project
+- Must coordinate cleanup when project is deleted from disk
 
 ### ADR-012: Global Torrent Manager
 
 **Status**: Accepted
 
-**Context**:
-Should torrents be project-scoped or globally managed?
-
-**Decision**:
-Global torrent manager shared across projects. Torrents reference `projectId`.
+**Decision**: Global torrent manager shared across projects. Download paths are stored per-project in ConfigService with key `webtorrent-download-path:{projectId}`.
 
 **Rationale**:
 - Allows torrents to continue when project closes
 - Avoids duplicate downloads
 - Centralized download management
 - Better resource utilization
-- Can seed across projects
 
 **Consequences**:
 - Torrents persist after project closes
 - Need to filter torrents by project in UI
-- Must handle orphaned torrents
-- Slightly more complex state management
+- Download path configuration stored in electron-store, not in project.json
 
 ---
 

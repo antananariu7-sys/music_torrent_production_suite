@@ -55,7 +55,7 @@ const searchRequest: SearchRequest = {
   maxResults: 20             // Limit to 20 results
 }
 
-const response = await window.api.searchRuTracker(searchRequest)
+const response = await window.api.search.start(searchRequest)
 ```
 
 ### Search for MP3 Files Only
@@ -104,17 +104,17 @@ const albumRequest: AlbumSearchRequest = {
   artist: 'Queen'  // Optional but improves results
 }
 
-const albumResponse = await window.api.findAlbumsBySong(albumRequest)
+const albumResponse = await window.api.musicBrainz.findAlbumsBySong(albumRequest)
 
 // Step 2: Select an album and create RuTracker query
 if (albumResponse.success && albumResponse.albums) {
   const selectedAlbum = albumResponse.albums[0]
 
   // Get full album details with track list
-  const albumDetails = await window.api.getAlbumDetails(selectedAlbum.id)
+  const albumDetails = await window.api.musicBrainz.getAlbumDetails(selectedAlbum.id)
 
   // Create optimized RuTracker search query
-  const queryResponse = await window.api.createRuTrackerQuery(selectedAlbum.id)
+  const queryResponse = await window.api.musicBrainz.createRuTrackerQuery(selectedAlbum.id)
   const query = queryResponse.data // "Queen - A Night at the Opera"
 
   // Step 3: Search RuTracker with the generated query
@@ -126,7 +126,7 @@ if (albumResponse.success && albumResponse.albums) {
     }
   }
 
-  const searchResponse = await window.api.searchRuTracker(searchRequest)
+  const searchResponse = await window.api.search.start(searchRequest)
 }
 ```
 
@@ -142,7 +142,7 @@ const downloadRequest: TorrentDownloadRequest = {
   title: result.title
 }
 
-const downloadResponse = await window.api.downloadTorrent(downloadRequest)
+const downloadResponse = await window.api.torrent.download(downloadRequest)
 
 if (downloadResponse.success) {
   console.log('Torrent downloaded to:', downloadResponse.torrent.filePath)
@@ -155,7 +155,7 @@ if (downloadResponse.success) {
 import type { TorrentSettings } from '@shared/types/torrent.types'
 
 // Get current settings
-const settings = await window.api.getTorrentSettings()
+const settings = await window.api.torrent.getSettings()
 
 // Update settings
 const newSettings: TorrentSettings = {
@@ -164,13 +164,13 @@ const newSettings: TorrentSettings = {
   keepHistory: true     // Track download history
 }
 
-await window.api.updateTorrentSettings(newSettings)
+await window.api.torrent.updateSettings(newSettings)
 ```
 
 ### View Download History
 
 ```typescript
-const history = await window.api.getTorrentHistory()
+const history = await window.api.torrent.getHistory()
 
 if (history.success) {
   history.data.forEach(torrent => {
@@ -179,7 +179,7 @@ if (history.success) {
 }
 
 // Clear history
-await window.api.clearTorrentHistory()
+await window.api.torrent.clearHistory()
 ```
 
 ## Relevance Scoring Algorithm
@@ -214,11 +214,11 @@ const albumSearch: AlbumSearchRequest = {
   artist: 'Led Zeppelin'
 }
 
-const albums = await window.api.findAlbumsBySong(albumSearch)
+const albums = await window.api.musicBrainz.findAlbumsBySong(albumSearch)
 
 // 2. Display albums to user, they select "Led Zeppelin IV"
 const selectedAlbum = albums.albums[0]
-const query = await window.api.createRuTrackerQuery(selectedAlbum.id)
+const query = await window.api.musicBrainz.createRuTrackerQuery(selectedAlbum.id)
 
 // 3. Search RuTracker with filters
 const searchRequest: SearchRequest = {
@@ -234,7 +234,7 @@ const searchRequest: SearchRequest = {
   maxResults: 10
 }
 
-const results = await window.api.searchRuTracker(searchRequest)
+const results = await window.api.search.start(searchRequest)
 
 // 4. Display results, user selects top result
 const selectedResult = results.results[0]
@@ -246,7 +246,7 @@ const downloadRequest: TorrentDownloadRequest = {
   title: selectedResult.title
 }
 
-const download = await window.api.downloadTorrent(downloadRequest)
+const download = await window.api.torrent.download(downloadRequest)
 
 // 6. Torrent is saved and ready to open
 if (download.success) {

@@ -11,24 +11,26 @@ This document lists all main and development dependencies for the application.
 ### Main Dependencies
 ```json
 {
-  "electron": "40.1.0",
-  "react": "18.3.1",
-  "react-dom": "18.3.1",
-  "react-router-dom": "6.30.3",
   "@chakra-ui/react": "3.31.0",
   "@emotion/react": "11.14.0",
   "@emotion/styled": "11.14.1",
-  "zustand": "4.5.7",
-  "puppeteer-core": "21.11.0",
-  "webtorrent": "2.8.5",
-  "electron-store": "8.2.0",
   "cheerio": "1.2.0",
-  "zod": "3.25.76",
   "csv-stringify": "6.6.0",
+  "electron-store": "8.2.0",
   "music-metadata": "8.3.0",
-  "uuid": "9.0.1"
+  "puppeteer-core": "21.11.0",
+  "react": "18.3.1",
+  "react-dom": "18.3.1",
+  "react-icons": "^5.5.0",
+  "react-router-dom": "6.30.3",
+  "uuid": "9.0.1",
+  "webtorrent": "2.8.5",
+  "zod": "3.25.76",
+  "zustand": "4.5.7"
 }
 ```
+
+> **Note**: `electron` is a **devDependency** (not a runtime dependency), listed in the Dev Dependencies section below.
 
 **Key Dependencies Explained:**
 
@@ -37,8 +39,10 @@ This document lists all main and development dependencies for the application.
 - `@emotion/react` & `@emotion/styled`: CSS-in-JS library required by Chakra UI
 - `react-router-dom`: Client-side routing for multi-page navigation
 
-**Core Electron & React:**
-- `electron`: Desktop application framework (v40.1.0 - latest stable)
+**Icons:**
+- `react-icons`: Icon library providing Feather icons (`react-icons/fi`) and others for the UI
+
+**Core React:**
 - `react` & `react-dom`: UI framework for renderer process
 
 **State Management & Data:**
@@ -51,7 +55,7 @@ This document lists all main and development dependencies for the application.
 - `cheerio`: Fast HTML parsing for extracting search results
 
 **Data Processing & Storage:**
-- `electron-store`: Encrypted settings and credential storage with project persistence
+- `electron-store`: Settings storage with project persistence
 - `csv-stringify`: Export search results to CSV format
 - `music-metadata`: Extract audio metadata (title, artist, duration, bitrate)
 - `uuid`: Generate unique IDs for projects, torrents, files
@@ -59,28 +63,33 @@ This document lists all main and development dependencies for the application.
 ### Dev Dependencies
 ```json
 {
-  "typescript": "5.9.3",
-  "vite": "5.4.21",
-  "@vitejs/plugin-react": "4.7.0",
-  "esbuild": "0.27.2",
-  "electron-builder": "24.13.3",
-  "concurrently": "8.2.2",
-  "cross-env": "10.1.0",
-  "wait-on": "9.0.3",
-  "eslint": "8.57.1",
-  "@typescript-eslint/eslint-plugin": "6.21.0",
-  "@typescript-eslint/parser": "6.21.0",
-  "eslint-plugin-react": "7.37.5",
-  "eslint-plugin-react-hooks": "4.6.2",
-  "jest": "29.7.0",
-  "@testing-library/react": "14.3.1",
   "@testing-library/jest-dom": "6.9.1",
-  "@testing-library/user-event": "14.5.2",
-  "playwright": "1.58.1",
+  "@testing-library/react": "14.3.1",
+  "@testing-library/user-event": "14.6.1",
+  "@types/jest": "30.0.0",
   "@types/node": "20.19.30",
   "@types/react": "18.3.27",
   "@types/react-dom": "18.3.7",
-  "@types/uuid": "9.0.8"
+  "@types/uuid": "9.0.8",
+  "@typescript-eslint/eslint-plugin": "6.21.0",
+  "@typescript-eslint/parser": "6.21.0",
+  "@vitejs/plugin-react": "4.7.0",
+  "concurrently": "8.2.2",
+  "cross-env": "10.1.0",
+  "electron": "40.1.0",
+  "electron-builder": "24.13.3",
+  "esbuild": "0.27.2",
+  "eslint": "8.57.1",
+  "eslint-plugin-react": "7.37.5",
+  "eslint-plugin-react-hooks": "4.6.2",
+  "jest": "30.2.0",
+  "jest-environment-jsdom": "30.2.0",
+  "jsdom": "27.4.0",
+  "playwright": "1.58.1",
+  "ts-jest": "29.4.6",
+  "typescript": "5.9.3",
+  "vite": "5.4.21",
+  "wait-on": "9.0.3"
 }
 ```
 
@@ -98,17 +107,24 @@ This document lists all main and development dependencies for the application.
 - `cross-env`: Cross-platform environment variables
 - `wait-on`: Wait for dev server to start before launching Electron
 
+**Core Electron:**
+- `electron`: Desktop application framework (v40.1.0 - latest stable)
+
 **Code Quality & Testing:**
 - `typescript`: Type safety and better developer experience
 - `eslint` + plugins: Code linting for TypeScript and React
-- `jest`: JavaScript testing framework for unit and integration tests
+- `jest`: JavaScript testing framework (v30.2.0) for unit and integration tests
+- `jest-environment-jsdom`: JSDOM environment for Jest (renderer process tests)
+- `jsdom`: DOM implementation for Node.js (used by jest-environment-jsdom)
+- `ts-jest`: TypeScript preprocessor for Jest
 - `@testing-library/react`: React component testing utilities
 - `@testing-library/user-event`: User interaction simulation for tests
 - `@testing-library/jest-dom`: Custom Jest matchers for DOM assertions
 - `playwright`: End-to-end testing for Electron apps
 
 **Type Definitions:**
-- `@types/*`: TypeScript type definitions for Node.js, React, and dependencies
+- `@types/jest`: TypeScript definitions for Jest
+- `@types/node`, `@types/react`, `@types/react-dom`, `@types/uuid`: TypeScript type definitions for dependencies
 
 ### Dependency Management Strategy
 - **Exact Versions**: All dependencies pinned to exact versions (no `^` or `~`)

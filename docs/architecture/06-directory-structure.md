@@ -5,203 +5,247 @@ This document describes the directory structure and module organization for the 
 ## 5. Directory Structure
 
 ```
-electron-app/
+music_production_suite/
 ├── .vscode/
 │   ├── launch.json              # Debug configurations
 │   └── settings.json            # Editor settings
+│
+├── scripts/
+│   ├── build-main.mjs           # esbuild script for main process
+│   └── build-preload.mjs        # esbuild script for preload
 │
 ├── src/
 │   ├── main/                    # Main process (Node.js)
 │   │   ├── index.ts             # Entry point
 │   │   ├── window.ts            # Window management
-│   │   ├── menu.ts              # Application menu
 │   │   │
 │   │   ├── ipc/                 # IPC handlers
 │   │   │   ├── index.ts         # Register all handlers
 │   │   │   ├── appHandlers.ts
-│   │   │   ├── projectHandlers.ts    # Project management
 │   │   │   ├── authHandlers.ts
+│   │   │   ├── projectHandlers.ts
 │   │   │   ├── searchHandlers.ts
 │   │   │   ├── musicBrainzHandlers.ts
-│   │   │   ├── torrentHandlers.ts    # Torrent file operations
-│   │   │   ├── webtorrentHandlers.ts # WebTorrent download queue
-│   │   │   └── audioHandlers.ts      # Audio file reading for playback
+│   │   │   ├── torrentHandlers.ts
+│   │   │   ├── torrentMetadataHandlers.ts
+│   │   │   ├── webtorrentHandlers.ts
+│   │   │   └── audioHandlers.ts
 │   │   │
 │   │   ├── services/            # Business logic
-│   │   │   ├── project.service.ts    # Project CRUD operations
-│   │   │   ├── auth.service.ts       # Authentication management
-│   │   │   ├── search.service.ts     # Search orchestration
-│   │   │   ├── scraper.service.ts    # Web scraping with Puppeteer
-│   │   │   ├── torrent.service.ts    # Torrent download engine
-│   │   │   ├── WebTorrentService.ts  # WebTorrent download queue manager
-│   │   │   ├── download.service.ts   # Download queue management
-│   │   │   ├── audiofile.service.ts  # Audio file management
-│   │   │   ├── credential.service.ts # Secure credential storage
-│   │   │   ├── results.service.ts    # Results caching & export
-│   │   │   ├── file.service.ts
-│   │   │   ├── settings.service.ts
-│   │   │   └── logger.service.ts
+│   │   │   ├── AuthService.ts            (+ AuthService.spec.ts)
+│   │   │   ├── ConfigService.ts          (+ ConfigService.spec.ts)
+│   │   │   ├── DiscographySearchService.ts (+ DiscographySearchService.spec.ts)
+│   │   │   ├── FileSystemService.ts      (+ FileSystemService.spec.ts)
+│   │   │   ├── LockService.ts            (+ LockService.spec.ts)
+│   │   │   ├── MusicBrainzService.ts     (+ MusicBrainzService.test.ts)
+│   │   │   ├── ProjectService.ts         (+ ProjectService.spec.ts)
+│   │   │   ├── RuTrackerSearchService.ts (+ RuTrackerSearchService.spec.ts)
+│   │   │   ├── SearchHistoryService.ts   (+ SearchHistoryService.spec.ts)
+│   │   │   ├── TorrentCollectionService.ts (+ TorrentCollectionService.spec.ts)
+│   │   │   ├── TorrentDownloadService.ts (+ TorrentDownloadService.spec.ts)
+│   │   │   ├── TorrentMetadataService.ts
+│   │   │   ├── WebTorrentService.ts      (+ WebTorrentService.spec.ts)
+│   │   │   │
+│   │   │   ├── rutracker/       # RuTracker search internals
+│   │   │   │   ├── filters/
+│   │   │   │   │   └── SearchFilters.ts       (+ SearchFilters.spec.ts)
+│   │   │   │   ├── scrapers/
+│   │   │   │   │   ├── ResultParser.ts
+│   │   │   │   │   ├── PaginationHandler.ts
+│   │   │   │   │   └── PageScraper.ts
+│   │   │   │   └── utils/
+│   │   │   │       ├── formatDetector.ts      (+ formatDetector.spec.ts)
+│   │   │   │       ├── relevanceScorer.ts     (+ relevanceScorer.spec.ts)
+│   │   │   │       ├── resultGrouper.ts       (+ resultGrouper.spec.ts)
+│   │   │   │       ├── sizeParser.ts          (+ sizeParser.spec.ts)
+│   │   │   │       ├── torrentPageParser.ts   (+ torrentPageParser.spec.ts)
+│   │   │   │       └── urlBuilder.ts
+│   │   │   │
+│   │   │   └── utils/           # Service utilities
+│   │   │       └── retryWithBackoff.ts        (+ retryWithBackoff.spec.ts)
 │   │   │
-│   │   ├── types/               # Type declarations for untyped packages
-│   │   │   └── webtorrent.d.ts  # WebTorrent client type definitions
-│   │   │
-│   │   └── utils/               # Main utilities
-│   │       └── validation.ts
+│   │   └── types/               # Type declarations for untyped packages
+│   │       └── webtorrent.d.ts
 │   │
 │   ├── renderer/                # Renderer process (React)
 │   │   ├── index.html           # HTML entry
 │   │   ├── index.tsx            # React entry
 │   │   ├── App.tsx              # Root component
+│   │   ├── window.d.ts          # Window API types (auto-derives from preload)
 │   │   │
 │   │   ├── pages/               # Page components
-│   │   │   ├── Welcome.tsx           # Project selection/creation
-│   │   │   ├── Login.tsx             # RuTracker authentication
-│   │   │   ├── Dashboard.tsx         # Main project dashboard
-│   │   │   ├── Search.tsx            # Torrent search interface (Component 1)
-│   │   │   ├── Downloads.tsx         # Download manager (Component 2)
-│   │   │   ├── Library.tsx           # Downloaded files library
-│   │   │   ├── Mixer.tsx             # Music mixing interface (Component 3 - TBD)
-│   │   │   └── Settings.tsx          # Application settings
+│   │   │   ├── ProjectLauncher/          # Project selection/creation
+│   │   │   │   ├── index.tsx
+│   │   │   │   ├── ProjectLauncher.styles.tsx
+│   │   │   │   └── components/
+│   │   │   │       ├── CreateProjectCard.tsx
+│   │   │   │       ├── LauncherFooter.tsx
+│   │   │   │       ├── LauncherHeader.tsx
+│   │   │   │       ├── OpenProjectCard.tsx
+│   │   │   │       ├── RecentProjectCard.tsx
+│   │   │   │       ├── RecentProjectsSection.tsx
+│   │   │   │       └── test-utils.tsx
+│   │   │   │
+│   │   │   ├── ProjectOverview/          # Main project dashboard (tabbed)
+│   │   │   │   ├── index.tsx
+│   │   │   │   ├── ProjectOverview.styles.tsx
+│   │   │   │   ├── utils.ts              (+ utils.test.ts)
+│   │   │   │   └── components/
+│   │   │   │       ├── MetadataSection.tsx
+│   │   │   │       ├── ProjectHeader.tsx
+│   │   │   │       ├── SearchSection.tsx
+│   │   │   │       ├── SongsList.tsx
+│   │   │   │       ├── StatsGrid.tsx
+│   │   │   │       └── tabs/
+│   │   │   │           ├── index.ts
+│   │   │   │           ├── MixTab.tsx
+│   │   │   │           ├── SearchTab.tsx
+│   │   │   │           └── TorrentTab.tsx
+│   │   │   │
+│   │   │   └── Settings/                # Application settings
+│   │   │       ├── index.tsx
+│   │   │       ├── Settings.styles.tsx
+│   │   │       └── components/
+│   │   │           ├── AdvancedSettings.tsx
+│   │   │           ├── DebugSettings.tsx
+│   │   │           ├── GeneralSettings.tsx
+│   │   │           ├── RuTrackerAuthCard.tsx
+│   │   │           ├── SearchSettings.tsx
+│   │   │           └── WebTorrentSettings.tsx
 │   │   │
 │   │   ├── components/          # UI components
 │   │   │   ├── common/          # Shared components
-│   │   │   │   ├── PageLayout.tsx
-│   │   │   │   ├── Footer.tsx
-│   │   │   │   ├── AudioPlayer.tsx       # Fixed bottom audio player
-│   │   │   │   ├── Waveform.tsx
-│   │   │   │   ├── FrequencyBars.tsx
-│   │   │   │   ├── ErrorAlert.tsx
+│   │   │   │   ├── index.ts             # Barrel exports
+│   │   │   │   ├── AudioPlayer.tsx
 │   │   │   │   ├── ConfirmDialog.tsx
-│   │   │   │   └── DeleteProjectDialog.tsx
+│   │   │   │   ├── DeleteProjectDialog.tsx
+│   │   │   │   ├── ErrorAlert.tsx
+│   │   │   │   ├── Footer.tsx
+│   │   │   │   ├── FrequencyBars.tsx
+│   │   │   │   ├── Layout.tsx
+│   │   │   │   ├── PageLayout.tsx
+│   │   │   │   └── Waveform.tsx
 │   │   │   │
-│   │   │   └── features/        # Feature components
-│   │   │       ├── ProjectManager/
-│   │   │       │   ├── ProjectList.tsx
-│   │   │       │   ├── ProjectCard.tsx
-│   │   │       │   ├── CreateProjectDialog.tsx
-│   │   │       │   └── ProjectSettings.tsx
-│   │   │       ├── QueryInput/
-│   │   │       │   ├── QueryList.tsx
-│   │   │       │   ├── QueryEditor.tsx
-│   │   │       │   └── FileImporter.tsx
-│   │   │       ├── SearchProgress/
-│   │   │       │   ├── ProgressDisplay.tsx
-│   │   │       │   ├── StatusIndicator.tsx
-│   │   │       │   └── ActivityLog.tsx   # Real-time activity log
-│   │   │       ├── BrowserView/
-│   │   │       │   └── BrowserContainer.tsx # Embedded browser display
-│   │   │       ├── ErrorHandling/
-│   │   │       │   ├── ErrorDialog.tsx    # User choice on errors
-│   │   │       │   └── RetryOptions.tsx
-│   │   │       ├── SearchResults/
-│   │   │       │   ├── ResultsTable.tsx
-│   │   │       │   ├── ResultCard.tsx
-│   │   │       │   ├── AddToDownloadButton.tsx
-│   │   │       │   └── ExportButton.tsx
-│   │   │       ├── torrent/
-│   │   │       │   ├── index.ts              # Barrel exports
-│   │   │       │   ├── TorrentCollection.tsx  # Collected torrents list
-│   │   │       │   ├── CollectedTorrentItem.tsx # Single collected torrent
-│   │   │       │   ├── DownloadQueue.tsx       # WebTorrent queue container
-│   │   │       │   ├── DownloadQueueItem.tsx   # Single queue item with progress
-│   │   │       │   ├── DownloadManager.tsx     # Legacy .torrent downloads
-│   │   │       │   └── TorrentSettings.tsx     # Torrent + WebTorrent settings
-│   │   │       ├── AudioLibrary/
-│   │   │       │   ├── FileList.tsx
-│   │   │       │   ├── FileCard.tsx
-│   │   │       │   ├── AudioPlayer.tsx
-│   │   │       │   ├── FileMetadata.tsx
-│   │   │       │   └── LibrarySearch.tsx
-│   │   │       └── Mixer/ # Component 3 - TBD
-│   │   │           └── MixerInterface.tsx
+│   │   │   ├── features/        # Feature components
+│   │   │   │   ├── search/
+│   │   │   │   │   ├── index.ts
+│   │   │   │   │   ├── ActivityLog.tsx
+│   │   │   │   │   ├── AlbumSelectionDialog.tsx
+│   │   │   │   │   ├── DiscographyScanPanel.tsx
+│   │   │   │   │   ├── InlineSearchResults.tsx
+│   │   │   │   │   ├── SearchClassificationDialog.tsx
+│   │   │   │   │   ├── SearchCompletionNotice.tsx
+│   │   │   │   │   ├── SearchErrorNotice.tsx
+│   │   │   │   │   ├── SearchHistory.tsx
+│   │   │   │   │   ├── SearchLoadingIndicator.tsx
+│   │   │   │   │   ├── SmartSearch.tsx
+│   │   │   │   │   ├── SmartSearchBar.tsx
+│   │   │   │   │   ├── TorrentResultsDialog.tsx
+│   │   │   │   │   ├── TorrentTrackListPreview.tsx
+│   │   │   │   │   └── useSmartSearchWorkflow.ts
+│   │   │   │   │
+│   │   │   │   └── torrent/
+│   │   │   │       ├── index.ts
+│   │   │   │       ├── CollectedTorrentItem.tsx
+│   │   │   │       ├── DownloadManager.tsx
+│   │   │   │       ├── DownloadQueue.tsx
+│   │   │   │       ├── DownloadQueueItem.tsx
+│   │   │   │       ├── FileSelectionDialog.tsx
+│   │   │   │       ├── TorrentActivityLog.tsx
+│   │   │   │       ├── TorrentCollection.tsx
+│   │   │   │       └── TorrentSettings.tsx
+│   │   │   │
+│   │   │   └── ui/              # Chakra UI primitives
+│   │   │       ├── checkbox.tsx
+│   │   │       ├── slider.tsx
+│   │   │       └── toaster.tsx
 │   │   │
 │   │   ├── hooks/               # Custom React hooks
-│   │   │   ├── useAuth.ts            # Authentication hook
-│   │   │   ├── useSearch.ts          # Search operations hook
-│   │   │   ├── useDownloadQueueListener.ts # WebTorrent progress/status events
-│   │   │   ├── useSettings.ts
-│   │   │   └── useIpc.ts
+│   │   │   └── useDownloadQueueListener.ts
 │   │   │
 │   │   ├── store/               # Zustand stores
-│   │   │   ├── useProjectStore.ts    # Current project state
-│   │   │   ├── useAuthStore.ts       # Auth state
-│   │   │   ├── useSearchStore.ts     # Search state & results
-│   │   │   ├── smartSearchStore.ts   # Smart search workflow
-│   │   │   ├── downloadQueueStore.ts # WebTorrent download queue state
-│   │   │   ├── torrentCollectionStore.ts # Per-project torrent collection
-│   │   │   ├── audioPlayerStore.ts   # Audio player state, playlist, controls
-│   │   │   ├── fileSelectionStore.ts # Torrent file selection state
-│   │   │   ├── torrentActivityStore.ts # Torrent activity log
+│   │   │   ├── useProjectStore.ts
+│   │   │   ├── useAuthStore.ts
+│   │   │   ├── useSearchStore.ts
 │   │   │   ├── useSettingsStore.ts
-│   │   │   └── useThemeStore.ts
+│   │   │   ├── useThemeStore.ts
+│   │   │   ├── smartSearchStore.ts      (+ smartSearchStore.spec.ts)
+│   │   │   ├── downloadQueueStore.ts
+│   │   │   ├── torrentCollectionStore.ts
+│   │   │   ├── audioPlayerStore.ts
+│   │   │   ├── fileSelectionStore.ts
+│   │   │   └── torrentActivityStore.ts
 │   │   │
-│   │   ├── services/            # API wrappers
-│   │   │   └── api.ts
+│   │   ├── utils/               # Renderer utilities
+│   │   │   └── audioUtils.ts
 │   │   │
-│   │   ├── styles/              # Global styles
-│   │   │   └── global.css
+│   │   ├── theme/               # Chakra UI theme
+│   │   │   └── index.ts
 │   │   │
-│   │   └── types/               # Renderer types
-│   │       └── index.ts
+│   │   └── styles/              # Global styles
+│   │       └── global.css
 │   │
 │   ├── preload/                 # Preload scripts
-│   │   ├── index.ts             # Main preload
-│   │   └── types.ts             # Window API types
+│   │   ├── index.ts             # Main preload (exposes API to renderer)
+│   │   └── types.ts             # Preload API types
 │   │
-│   └── shared/                  # Shared code
-│       ├── types/               # Shared types
-│       │   ├── app.types.ts
-│       │   ├── project.types.ts      # Project structure
-│       │   ├── auth.types.ts         # Auth & credentials
-│       │   ├── search.types.ts       # Search queries & results
-│       │   ├── torrent.types.ts      # Torrent downloads
-│       │   ├── audiofile.types.ts    # Audio files & library
-│       │   ├── mixer.types.ts        # Mixer (Component 3 - TBD)
-│       │   ├── file.types.ts
-│       │   └── ipc.types.ts
-│       ├── constants.ts              # App constants, IPC channels
-│       └── schemas/             # Zod validation schemas
-│           ├── index.ts
-│           ├── project.schema.ts
-│           ├── auth.schema.ts
-│           ├── search.schema.ts
-│           └── torrent.schema.ts
+│   ├── shared/                  # Shared code (main + renderer)
+│   │   ├── constants.ts         # App constants, IPC channels
+│   │   ├── types/               # Shared type definitions
+│   │   │   ├── app.types.ts
+│   │   │   ├── auth.types.ts
+│   │   │   ├── discography.types.ts
+│   │   │   ├── musicbrainz.types.ts
+│   │   │   ├── project.types.ts
+│   │   │   ├── search.types.ts
+│   │   │   ├── searchHistory.types.ts
+│   │   │   ├── torrent.types.ts
+│   │   │   └── torrentMetadata.types.ts
+│   │   ├── schemas/             # Zod validation schemas
+│   │   │   ├── index.ts
+│   │   │   ├── project.schema.ts
+│   │   │   ├── search.schema.ts
+│   │   │   └── torrent.schema.ts
+│   │   └── utils/               # Shared utilities
+│   │       ├── resultClassifier.ts
+│   │       └── songMatcher.ts
+│   │
+│   └── test/                    # Test infrastructure
+│       └── setup.ts
 │
-├── resources/                   # App resources
-│   └── icons/
-│       ├── icon.icns           # macOS
-│       ├── icon.ico            # Windows
-│       └── icon.png
+│   # Note: Unit tests are colocated with source files
+│   # Example: src/main/services/AuthService.ts
+│   #          src/main/services/AuthService.spec.ts
+│
+├── docs/                        # Documentation
+│   ├── README.md
+│   ├── architecture/            # Architecture docs (01-15)
+│   ├── guides/                  # Development guides
+│   └── api/                     # API reference
 │
 ├── dist/                        # Build output
 ├── release/                     # Release builds
 │
-├── tests/                       # Integration & E2E tests only
-│   ├── integration/            # Cross-module integration tests
-│   │   ├── ipc/
-│   │   ├── features/
-│   │   └── services/
-│   └── e2e/                    # End-to-end Playwright tests
-│       ├── tests/
-│       └── fixtures/
-│
-│   # Note: Unit tests are colocated with source files
-│   # Example: src/renderer/components/Button.tsx
-│   #          src/renderer/components/Button.test.tsx
-│
 ├── package.json
+├── yarn.lock
 ├── tsconfig.json
 ├── tsconfig.main.json
 ├── tsconfig.renderer.json
 ├── tsconfig.preload.json
-├── vite.config.ts              # Vite for renderer
-├── electron-builder.yml
+├── vite.config.ts               # Vite for renderer
+├── jest.config.ts               # Jest for renderer tests
+├── jest.config.main.ts          # Jest for main process tests
+├── AGENTS.md
+├── ARCHITECTURE.md
 └── README.md
 ```
 
 ### Module Organization Strategy
 **Hybrid approach**: Feature-based organization within each process layer
 - Clear separation by process type (main/renderer/preload/shared)
-- Feature-based grouping within renderer (components, pages)
-- Service layer pattern for business logic
-- Shared types and utilities across processes
+- Feature-based grouping within renderer components (`features/search/`, `features/torrent/`)
+- Page components use co-located subcomponents and styles (`pages/ProjectLauncher/components/`)
+- PascalCase naming for all main process services
+- Service layer pattern for business logic with colocated unit tests (`.spec.ts` / `.test.ts`)
+- Shared types, schemas, and utilities across processes via `src/shared/`
+- Chakra UI primitive wrappers in `components/ui/`

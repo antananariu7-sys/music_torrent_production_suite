@@ -3,7 +3,7 @@
 ## Search with Filters
 
 ```typescript
-const response = await window.api.searchRuTracker({
+const response = await window.api.search.start({
   query: 'Pink Floyd',
   filters: {
     format: 'flac',        // mp3 | flac | wav | aac | ogg | alac | ape | any
@@ -24,23 +24,23 @@ const response = await window.api.searchRuTracker({
 
 ```typescript
 // Step 1: Find albums
-const albums = await window.api.findAlbumsBySong({
+const albums = await window.api.musicBrainz.findAlbumsBySong({
   songTitle: 'Bohemian Rhapsody',
   artist: 'Queen'  // Optional
 })
 
 // Step 2: Get album details
-const album = await window.api.getAlbumDetails(albums.albums[0].id)
+const album = await window.api.musicBrainz.getAlbumDetails(albums.albums[0].id)
 
 // Step 3: Create RuTracker query
-const query = await window.api.createRuTrackerQuery(album.id)
+const query = await window.api.musicBrainz.createRuTrackerQuery(album.id)
 // Returns: "Queen - A Night at the Opera"
 ```
 
 ## Download Torrent
 
 ```typescript
-const download = await window.api.downloadTorrent({
+const download = await window.api.torrent.download({
   torrentId: result.id,
   pageUrl: result.url,
   title: result.title

@@ -16,74 +16,80 @@ This document describes the security architecture and best practices for the app
 ```html
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'self';
-               script-src 'self';
+               script-src 'self' 'unsafe-inline';
                style-src 'self' 'unsafe-inline';
-               img-src 'self' data:;
-               font-src 'self';">
+               img-src 'self' data: https:;
+               media-src 'self' data:;">
 ```
 
+> **Note**: CSP is enforced both as an HTML meta tag in `src/renderer/index.html` and as HTTP response headers in `src/main/window.ts`.
+
 ### Security Considerations
-- **Credential Storage**: Use electron-store with encryption (AES-256)
+- **Credential Storage**: Password is **never stored** — only username kept in memory for convenience. Session cookies stored as plain JSON (see Current Implementation below)
 - **Secure Communication**: HTTPS only for database website
 - **Input Validation**: Validate all user input in both renderer and main
 - **File Operations**: Restricted to allowed directories
 - **No Code Execution**: No `eval()` or similar dynamic code execution
 - **External URLs**: Opened in default browser, not in-app
 - **Session Security**:
-  - Session cookies stored encrypted
-  - Auto-logout after inactivity period
+  - Session cookies stored in `{userData}/sessions/rutracker-session.json`
+  - Background session validation every 15 minutes
   - Clear session data on logout
 - **Web Scraping Security**:
   - Sanitize all extracted HTML content
   - Validate URLs before navigation
   - Timeout limits on page loads
 - **Regular Updates**: Automated dependency scanning and security audits
-- **Code Signing**: Required for both Windows and macOS builds
+- **Code Signing**: Recommended for both Windows and macOS builds (not currently enforced in build config)
 
-### Credential Storage Implementation
+### Credential Storage — Current Implementation
+
+The actual implementation in `src/main/services/AuthService.ts`:
+
 ```typescript
-import Store from 'electron-store'
+// Password is NEVER stored — only used during the Puppeteer login flow and discarded
+// Username is kept in memory only (when "remember me" is checked)
+
+// Session persistence: cookies saved as plain JSON
+// File: {userData}/sessions/rutracker-session.json
+interface PersistedSession {
+  cookies: Electron.Cookie[]
+  username: string
+  sessionExpiry: number
+  savedAt: string
+}
+
+// Background validation runs every 15 minutes
+// On logout, session file is deleted
+```
+
+> **Note**: Password is never stored, only the username for convenience.
+> Session cookies are stored as **unencrypted JSON**. See "Recommended Improvements" below.
+
+### Recommended Security Improvements
+
+The following improvements would strengthen the credential storage:
+
+```typescript
+// 1. Use safeStorage to encrypt session cookies before writing to disk
 import { safeStorage } from 'electron'
 
-// Encrypted store for credentials
-const store = new Store({
-  encryptionKey: 'your-encryption-key',
-  name: 'secure-credentials'
-})
+const encrypted = safeStorage.encryptString(JSON.stringify(sessionData))
+fs.writeFileSync(sessionPath, encrypted)
 
-// Store credentials (encrypted by electron-store)
-function saveCredentials(username: string, password: string) {
-  // Additional encryption using Electron's safeStorage
-  const encryptedPassword = safeStorage.encryptString(password)
-  store.set('credentials', {
-    username,
-    password: encryptedPassword.toString('base64')
-  })
-}
-
-// Retrieve credentials
-function getCredentials() {
-  const data = store.get('credentials')
-  if (!data) return null
-
-  const passwordBuffer = Buffer.from(data.password, 'base64')
-  const decryptedPassword = safeStorage.decryptString(passwordBuffer)
-
-  return {
-    username: data.username,
-    password: decryptedPassword
-  }
-}
+// 2. Use electron-store with encryptionKey for settings
+import Store from 'electron-store'
+const store = new Store({ encryptionKey: 'derived-key' })
 ```
 
 ### Threat Model
 | Threat | Risk | Mitigation |
 |--------|------|------------|
-| Credential theft | Critical | AES-256 encryption, OS-level keychain integration |
+| Credential theft | Critical | Password never stored; session cookies stored as plain JSON |
 | Malicious IPC messages | High | Strict validation, type checking, rate limiting |
 | Path traversal attacks | High | Sanitize all file paths, restrict to app directories |
 | XSS in renderer | Medium | CSP headers, React's built-in XSS protection |
-| Session hijacking | High | Encrypted cookie storage, session validation |
+| Session hijacking | High | Plain JSON cookie storage, background validation every 15 min |
 | Scraped content injection | Medium | Sanitize all HTML, validate extracted data |
 | Dependency vulnerabilities | Medium | Automated dependency scanning, regular updates |
 | Code injection | High | No eval, strict CSP, code signing |

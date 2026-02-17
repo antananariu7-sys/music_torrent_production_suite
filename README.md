@@ -5,16 +5,17 @@ Comprehensive Electron-based music production application with integrated torren
 ## Overview
 
 A project-based music production suite with three integrated components:
+
 1. **Torrent Search** - RuTracker automation for finding music
 2. **Download Manager** - WebTorrent-based download and seeding
-3. **Music Mixer** - Audio mixing interface *(Architecture TBD)*
+3. **Music Mixer** - Audio mixing interface _(Architecture TBD)_
 
 ## Features
 
 - **Project Management**: Create, save, and load music production projects
 - **Bulk Torrent Search**: Find multiple music tracks simultaneously
 - **Torrent Management**: In-app WebTorrent download queue with real-time progress, speed limits, and seeding controls
-- **Music Mixing**: Mix and edit downloaded audio files *(Component 3 - TBD)*
+- **Music Mixing**: Mix and edit downloaded audio files _(Component 3 - TBD)_
 - **Authenticated Sessions**: Secure RuTracker login with credential storage
 - **Real-time Monitoring**: Progress tracking for searches, downloads, and processing
 - **Cross-platform Support**: Works on Windows and macOS
@@ -44,12 +45,14 @@ A project-based music production suite with three integrated components:
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <repository-url>
 cd music-production-suite
 ```
 
 2. Install dependencies:
+
 ```bash
 yarn install
 ```
@@ -57,11 +60,13 @@ yarn install
 ### Development
 
 Start the development server:
+
 ```bash
 yarn dev
 ```
 
 This will:
+
 - Build main and preload processes with esbuild
 - Start Vite dev server for renderer process (port 5173)
 - Launch Electron in development mode with hot reload
@@ -69,11 +74,13 @@ This will:
 ### Building
 
 Build the application:
+
 ```bash
 yarn build
 ```
 
 Package for distribution:
+
 ```bash
 yarn package        # Package for current platform
 yarn package:win    # Windows (NSIS installer)
@@ -83,11 +90,13 @@ yarn package:mac    # macOS (DMG)
 ### Testing
 
 Run unit tests:
+
 ```bash
 yarn test
 ```
 
 Run E2E tests:
+
 ```bash
 yarn test:e2e
 ```
@@ -146,12 +155,14 @@ dist/                        # Build output (gitignored)
 ### Build System
 
 **Renderer Process** (Vite):
+
 - Fast HMR during development on port 5173
 - Optimized production builds with code splitting
 - Path aliases: `@/` → `src/renderer/`, `@shared/` → `src/shared/`
 - Target: ESNext for modern JavaScript features
 
 **Main Process** (esbuild):
+
 - Custom build script: `scripts/build-main.mjs`
 - Bundles to `dist/main/index.cjs` (CommonJS format)
 - Target: `node25` matching engine requirement
@@ -160,6 +171,7 @@ dist/                        # Build output (gitignored)
 - Sourcemaps in development, minification in production
 
 **Preload Script** (esbuild):
+
 - Custom build script: `scripts/build-preload.mjs`
 - Bundles to `dist/preload/index.cjs` (CommonJS format)
 - Target: `node25`
@@ -168,6 +180,7 @@ dist/                        # Build output (gitignored)
 - Sourcemaps in development, minification in production
 
 **Type Checking**:
+
 - Strict TypeScript with separate configs per process
 - `tsconfig.main.json` - Main process (CommonJS, Node types)
 - `tsconfig.preload.json` - Preload (CommonJS, Node + DOM types)
@@ -180,6 +193,7 @@ dist/                        # Build output (gitignored)
 See the [`docs/`](docs/) directory for comprehensive documentation:
 
 **Quick Links**:
+
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Main architecture index
 - [docs/architecture/01-overview.md](docs/architecture/01-overview.md) - Application overview
 - [docs/architecture/02-process-architecture.md](docs/architecture/02-process-architecture.md) - Electron process architecture
@@ -202,6 +216,7 @@ This project follows a project-based workflow similar to DAWs:
 **Component Library**: Chakra UI v3 with custom theming
 
 **Theme**:
+
 - **Color Scheme**: Dark mode by default (studio dark aesthetic)
 - **Brand Colors**: Electric blue palette (blue-500 to blue-900)
 - **Accent Colors**: Cyan shades for secondary highlights
@@ -209,12 +224,14 @@ This project follows a project-based workflow similar to DAWs:
 - **Responsive**: Adaptive layouts with Chakra's responsive props
 
 **Styling Approach**:
+
 - Emotion CSS-in-JS (required by Chakra UI)
 - Component-based styling with Chakra's sx prop
 - Global styles for base resets
 - Theme tokens for consistent spacing, colors, typography
 
 **Benefits**:
+
 - Pre-built accessible components (Button, Modal, Input, etc.)
 - Built-in dark mode support
 - TypeScript-first design
@@ -234,33 +251,38 @@ This project follows a project-based workflow similar to DAWs:
 ### Build Issues
 
 **Module resolution errors:**
+
 - Ensure Node.js >= 25.0.0 is installed: `node --version`
 - Clear dependencies and reinstall: `rm -rf node_modules yarn.lock && yarn install`
 - Check that `"type": "module"` is set in package.json
 
 **esbuild bundling errors:**
+
 - Verify all runtime dependencies are listed in the `external` array in build scripts
 - Check that path aliases match in both tsconfig and build scripts
 - Ensure target platform is set to `node25`
 
 **Electron fails to start:**
+
 - Build main and preload first: `yarn build:main && yarn build:preload`
 - Check that output files exist: `dist/main/index.cjs`, `dist/preload/index.cjs`
 - Verify Vite dev server is running on port 5173 in development mode
 
 **TypeScript errors in IDE:**
+
 - Ensure correct tsconfig is active for the file you're editing
 - Restart TypeScript server in your IDE
 - Check that path aliases are configured in the appropriate tsconfig file
 
 **Preload script not found:**
+
 - Verify preload path in [window.ts:19](src/main/window.ts#L19): `join(__dirname, '../preload/index.cjs')`
 - Ensure preload script is built: `yarn build:preload`
 - Check file exists at `dist/preload/index.cjs`
 
 ## Contributing
 
-See [agents.md](agents.md) for project rules and conventions.
+See [agents.md](AGENTS.md) for project rules and conventions.
 
 ## License
 
@@ -271,6 +293,7 @@ MIT
 **Current Phase**: Component 2 (Torrent Manager) core complete
 
 **Completed**:
+
 - Project management system
 - RuTracker authentication with session persistence
 - Smart search with MusicBrainz integration
@@ -278,5 +301,6 @@ MIT
 - WebTorrent download queue with real-time progress
 
 **Next Steps**:
+
 - Audio library with metadata extraction
 - Music mixer interface (Component 3)

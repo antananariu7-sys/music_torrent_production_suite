@@ -44,7 +44,7 @@ This document provides comprehensive development guidelines for the Music Produc
 
 Before committing code, verify:
 - [ ] Code follows project conventions
-- [ ] No console.log statements (use logger service)
+- [ ] No unnecessary console.log statements in production code
 - [ ] No commented-out code
 - [ ] TypeScript types are explicit (no `any`)
 - [ ] Error handling is implemented
@@ -61,7 +61,7 @@ Before committing code, verify:
 **Main Process** (Node.js environment):
 ```typescript
 // ✅ Good: Business logic in main process
-// src/main/services/project.service.ts
+// src/main/services/ProjectService.ts
 export class ProjectService {
   async createProject(name: string): Promise<Project> {
     // File system operations
@@ -104,19 +104,19 @@ export class SearchService {
     private authService: AuthService
   ) {}
 
-  async searchTorrents(query: string): Promise<SearchResult[]> {
+  async search(request: SearchRequest): Promise<SearchResponse> {
     const isAuthenticated = await this.authService.isAuthenticated()
     if (!isAuthenticated) {
       throw new Error('Authentication required')
     }
-    return this.scraperService.search(query)
+    return this.scraperService.search(request)
   }
 }
 
 // IPC handler is thin wrapper
-// src/main/ipc/search-handlers.ts
-ipcMain.handle('search:torrents', async (event, query: string) => {
-  return searchService.searchTorrents(query)
+// src/main/ipc/searchHandlers.ts
+ipcMain.handle(IPC_CHANNELS.SEARCH_START, async (_event, request: SearchRequest) => {
+  return searchService.search(request)
 })
 ```
 
@@ -240,7 +240,7 @@ export function useSearch() {
     setIsLoading(true)
     setError(null)
     try {
-      const data = await window.api.searchTorrents(query)
+      const data = await window.api.search.start(query)
       setResults(data)
     } catch (err) {
       setError(err as Error)
@@ -372,15 +372,14 @@ function ProjectList() {
 // src/shared/types/ipc.types.ts
 export interface IpcAPI {
   // Projects
-  createProject: (name: string) => Promise<Project>
-  loadProject: (id: string) => Promise<Project>
-  saveProject: (project: Project) => Promise<void>
+  createProject: (request: CreateProjectRequest) => Promise<ApiResponse<Project>>
+  openProject: (request: OpenProjectRequest) => Promise<ApiResponse<Project>>
 
-  // Search
-  searchTorrents: (query: string) => Promise<SearchResult[]>
-
-  // Events
-  onSearchProgress: (callback: (progress: SearchProgress) => void) => void
+  // Search (namespaced)
+  search: {
+    start: (request: SearchRequest) => Promise<SearchResponse>
+    onProgress: (callback: (progress: SearchProgressEvent) => void) => () => void
+  }
 }
 
 // Extend Window interface
@@ -680,7 +679,7 @@ function ProjectLoader({ projectId }: { projectId: string }) {
 
 1. **Never Swallow Errors**: At minimum, log them
 2. **User-Friendly Messages**: Don't expose technical details to users
-3. **Log Errors**: Use logger service for debugging
+3. **Log Errors**: Use `console.error()` for error logging
 4. **Validate Early**: Catch errors at system boundaries
 5. **Graceful Degradation**: App should remain usable after errors
 6. **Retry Logic**: Implement retry for transient failures
@@ -810,7 +809,7 @@ import { Button } from '../../components/common/Button'
 - Utilities: `camelCase.ts` (e.g., `validators.ts`)
 - Hooks: `useCamelCase.ts` (e.g., `useAuth.ts`)
 - Stores: `useCamelCase.ts` (e.g., `useProjectStore.ts`)
-- Services: `camelCase.service.ts` (e.g., `project.service.ts`)
+- Services: `PascalCase.ts` (e.g., `ProjectService.ts`)
 
 **Directories**:
 - Use `kebab-case` or `camelCase` consistently
@@ -848,7 +847,7 @@ export default function ProjectCard() { }
 1. **Pull latest changes**: `git pull origin main`
 2. **Check current state**: `git status`
 3. **Create feature branch**: `git checkout -b feature/feature-name`
-4. **Review related architecture docs**: Check `.architecture/` folder
+4. **Review related architecture docs**: Check `docs/architecture/` folder
 
 ### During Development
 

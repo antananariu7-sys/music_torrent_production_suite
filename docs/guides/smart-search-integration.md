@@ -220,11 +220,11 @@ await window.api.torrent.download({
 
 ### Custom Styling
 
-All components use Tailwind CSS classes. You can customize by:
+All components use Chakra UI v3 components and props. You can customize by:
 
-1. Modifying component classes directly
-2. Wrapping components with custom containers
-3. Using `className` props where available
+1. Modifying Chakra UI props directly (e.g., `bg`, `p`, `borderRadius`)
+2. Wrapping components with Chakra layout primitives (`Box`, `Flex`, `Stack`)
+3. Using semantic tokens from the theme (e.g., `bg.card`, `text.primary`)
 
 ### Custom Filters
 

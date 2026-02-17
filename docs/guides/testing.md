@@ -722,18 +722,23 @@ it('should show data when loaded', () => {
 
 ## Continuous Integration
 
-### Running Tests in CI
+### Test Scripts (from package.json)
 ```json
 {
   "scripts": {
     "test": "jest",
-    "test:unit": "jest --testPathPattern=unit",
-    "test:integration": "jest --testPathPattern=integration",
-    "test:e2e": "playwright test",
-    "test:ci": "jest --ci --coverage && playwright test"
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:main": "jest --config jest.config.main.ts",
+    "test:main:watch": "jest --config jest.config.main.ts --watch",
+    "test:main:coverage": "jest --config jest.config.main.ts --coverage",
+    "test:all": "jest && jest --config jest.config.main.ts",
+    "test:e2e": "playwright test"
   }
 }
 ```
+
+> **Note**: Renderer tests use `jest.config.ts`, main process tests use `jest.config.main.ts`. Run `yarn test:all` to execute both.
 
 ### CI Requirements
 - All tests must pass before merge

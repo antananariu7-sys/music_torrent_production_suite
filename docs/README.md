@@ -42,6 +42,9 @@ Practical implementation guides and best practices:
 - **[testing.md](guides/testing.md)** - Testing standards and strategies
 - **[rutracker-implementation.md](guides/rutracker-implementation.md)** - RuTracker integration
 - **[enhanced-search.md](guides/enhanced-search.md)** - Search features and MusicBrainz
+- **[smart-search-integration.md](guides/smart-search-integration.md)** - Smart search (MusicBrainz) integration
+- **[chakra-ui-style-guide.md](guides/chakra-ui-style-guide.md)** - Chakra UI v3 styling guide and patterns
+- **[unit-test-coverage-plan.md](guides/unit-test-coverage-plan.md)** - Unit test coverage plan
 
 ### [API](api/)
 
@@ -63,8 +66,8 @@ API documentation and quick references:
 
 ## 📝 Documentation Updates
 
-**Version**: 2.0
-**Last Updated**: 2026-02-04
+**Version**: 2.1
+**Last Updated**: 2026-02-17
 
 ### Recent Changes
 - Reorganized documentation from `.architecture/` to `docs/`

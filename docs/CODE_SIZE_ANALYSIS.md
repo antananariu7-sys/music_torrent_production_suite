@@ -1,6 +1,6 @@
 # Code Size Analysis & Refactoring Recommendations
 
-**Analysis Date**: 2026-02-09
+**Last Updated**: 2026-02-17 (originally analyzed 2026-02-09)
 **Target**: Keep all files under 400-500 lines for maintainability
 
 ---
@@ -15,8 +15,10 @@
 | Stores | 12 | 0 | 1 | 11 |
 | IPC Handlers | 9 | 0 | 0 | 9 |
 
-**Total Critical Files**: 8 files require immediate refactoring
+**Total Critical Files**: 6 files remain (2 successfully refactored since original analysis)
 **Total Warning Files**: 4 files should be monitored
+
+> **Update 2026-02-17**: RuTrackerSearchService.ts refactored from 910 to 364 lines (split into `rutracker/` subdirectory). Settings/index.tsx refactored from 899 to 142 lines (split into subcomponents). InlineSearchResults.tsx grew from 534 to 713 lines (needs attention).
 
 ---
 
@@ -133,7 +135,7 @@ src/renderer/components/features/search/
 
 ### Main Process Services
 
-#### 4. RuTrackerSearchService.ts - **910 lines** 🚨🚨 **HIGHEST PRIORITY**
+#### 4. RuTrackerSearchService.ts - ~~910 lines~~ **364 lines** ✅ REFACTORED
 
 **Location**: `src/main/services/RuTrackerSearchService.ts`
 
@@ -281,7 +283,7 @@ src/main/services/torrent/
 
 ### Pages
 
-#### 8. Settings/index.tsx - **899 lines** 🚨🚨
+#### 8. Settings/index.tsx - ~~899 lines~~ **142 lines** ✅ REFACTORED
 
 **Location**: `src/renderer/pages/Settings/index.tsx`
 
@@ -391,11 +393,11 @@ src/main/services/discography/
 ### Phase 1: Critical Services (Week 1-2)
 
 **Priority Order**:
-1. **RuTrackerSearchService.ts** (910 → ~200 lines)
+1. **RuTrackerSearchService.ts** (910 → 364 lines) ✅ DONE
    - Highest impact, most complex
    - Will improve search reliability
 
-2. **Settings/index.tsx** (899 → ~150 lines)
+2. **Settings/index.tsx** (899 → 142 lines) ✅ DONE
    - User-facing, frequently modified
    - Easy to split by settings category
 
