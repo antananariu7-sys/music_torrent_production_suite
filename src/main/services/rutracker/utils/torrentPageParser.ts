@@ -3,18 +3,27 @@ import type { TorrentPageMetadata, ParsedAlbum, TorrentTrack } from '@shared/typ
 
 /**
  * Parse numbered track lines from text content
- * Matches patterns like: "1. Track Title" or "01. Track Title"
+ * Matches patterns like:
+ *   "1. Track Title" or "01. Track Title (03:42)"  — numeric
+ *   "A1. Track Title" or "B3. Track Title"          — vinyl side+number
  */
 export function parseTracksFromText(text: string): TorrentTrack[] {
   const tracks: TorrentTrack[] = []
   const lines = text.split('\n').map(line => line.trim()).filter(Boolean)
 
+  // Regex: optional letter prefix (vinyl side), then digits, dot, space, title, optional duration
+  const trackPattern = /^([A-Z]?\d{1,3})\.\s+(.+?)(?:\s+\((\d{1,2}:\d{2}(?::\d{2})?)\))?$/
+
+  let seqPosition = 0
   for (const line of lines) {
-    // Match: "N. Title" or "NN. Title"
-    const match = line.match(/^(\d{1,3})\.\s+(.+?)(?:\s+\((\d{1,2}:\d{2}(?::\d{2})?)\))?$/)
+    const match = line.match(trackPattern)
     if (match) {
+      seqPosition++
+      const rawNum = match[1]
+      // Use the numeric part if purely numeric, otherwise sequential counter
+      const position = /^\d+$/.test(rawNum) ? parseInt(rawNum, 10) : seqPosition
       tracks.push({
-        position: parseInt(match[1], 10),
+        position,
         title: match[2].trim(),
         duration: match[3],
       })
@@ -83,7 +92,8 @@ export function extractFormatInfo(html: string): { format?: string; bitrate?: st
  *   "1986. Ноль - Album Title (2CD)"
  */
 function parseAlbumHeader(headerText: string): { title: string; year?: string } {
-  const trimmed = headerText.trim()
+  // Normalize whitespace (HTML formatting causes multiline headers)
+  const trimmed = headerText.replace(/\s+/g, ' ').trim()
 
   // Match: "YYYY. Title" or "YYYY. Artist - Title"
   const yearMatch = trimmed.match(/^(\d{4})\.\s+(.+)$/)
@@ -112,11 +122,39 @@ function extractTotalDuration($: cheerio.CheerioAPI): string | undefined {
 }
 
 /**
+ * Convert sp-body HTML to plain text for track parsing
+ */
+function spBodyToText(body: ReturnType<cheerio.CheerioAPI>): string {
+  // Clone, remove nested sp-wraps (logs, CUE sheets), then get text
+  const bodyClone = body.clone()
+  bodyClone.find('.sp-wrap').remove()
+
+  const bodyHtml = bodyClone.html() || ''
+  return bodyHtml
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<span class="post-br"><br\s*\/?><\/span>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+}
+
+/**
+ * Check if a sp-head text looks like an album header (starts with a year)
+ */
+function isAlbumHeader(headerText: string): boolean {
+  return /^\d{4}\.?\s/.test(headerText.replace(/\s+/g, ' ').trim())
+}
+
+/**
  * Parse a full RuTracker torrent page HTML and extract album/track metadata
  *
- * Handles two main formats:
- * 1. Discography pages: Multiple .sp-wrap sections, each with album header + tracks
- * 2. Single album pages: Track list directly in .post_body
+ * Handles multiple page layouts:
+ * 1. Flat discography: Albums are direct children of post_body
+ * 2. Nested discography: Albums inside category/sub-category sp-wraps
+ * 3. Single album: Track list directly in post_body (no sp-wraps)
  */
 export function parseAlbumsFromHtml(html: string): TorrentPageMetadata {
   const $ = cheerio.load(html)
@@ -124,17 +162,20 @@ export function parseAlbumsFromHtml(html: string): TorrentPageMetadata {
   const formatInfo = extractFormatInfo(html)
   const totalDuration = extractTotalDuration($)
 
-  // Strategy 1: Parse .sp-wrap sections (discography format)
   const postBody = $('.post_body').first()
-  const spWraps = postBody.children('.sp-wrap')
 
-  if (spWraps.length > 0) {
-    spWraps.each((_index, spWrap) => {
+  // Strategy 1: Find all sp-wraps with album headers (year-prefixed) at any depth
+  const allSpWraps = postBody.find('.sp-wrap')
+
+  if (allSpWraps.length > 0) {
+    allSpWraps.each((_index, spWrap) => {
       const $spWrap = $(spWrap)
-      const headerSpan = $spWrap.children('.sp-head').find('span').first()
-      const headerText = headerSpan.text()
+      const headerText = $spWrap.children('.sp-head').find('span').first().text()
 
-      // Skip non-album sections (logs, CUE sheets)
+      // Only process sp-wraps whose header starts with a year (album entries)
+      if (!isAlbumHeader(headerText)) return
+
+      // Skip log/CUE sections that happen to start with a number
       const headerLower = headerText.toLowerCase()
       if (
         headerLower.includes('лог') ||
@@ -148,22 +189,7 @@ export function parseAlbumsFromHtml(html: string): TorrentPageMetadata {
       const { title, year } = parseAlbumHeader(headerText)
       const body = $spWrap.children('.sp-body').first()
 
-      // Get text content of the body, excluding nested sp-wraps (logs, CUE sheets)
-      // Clone, remove nested sp-wraps, then get text
-      const bodyClone = body.clone()
-      bodyClone.find('.sp-wrap').remove()
-
-      // Convert <br> to newlines for parsing
-      const bodyHtml = bodyClone.html() || ''
-      const bodyText = bodyHtml
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<span class="post-br"><br\s*\/?><\/span>/gi, '\n')
-        .replace(/<[^>]+>/g, '') // strip remaining tags
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
+      const bodyText = spBodyToText(body)
 
       // Try parsing numbered tracks from text
       let tracks = parseTracksFromText(bodyText)
@@ -188,7 +214,7 @@ export function parseAlbumsFromHtml(html: string): TorrentPageMetadata {
     })
   }
 
-  // Strategy 2: If no sp-wrap albums found, try parsing track list directly from post body
+  // Strategy 2: If no album sp-wraps found, try parsing track list directly from post body
   if (albums.length === 0 && postBody.length > 0) {
     const bodyHtml = postBody.html() || ''
     const bodyText = bodyHtml

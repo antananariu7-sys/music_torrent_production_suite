@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Box, HStack, VStack, Text, Button, Icon, IconButton } from '@chakra-ui/react'
-import { FiDownload, FiCopy, FiTrash2, FiCheck, FiExternalLink } from 'react-icons/fi'
+import { FiDownload, FiCopy, FiTrash2, FiCheck, FiExternalLink, FiList, FiChevronUp } from 'react-icons/fi'
 import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useTorrentActivityStore } from '@/store/torrentActivityStore'
 import { toaster } from '@/components/ui/toaster'
 import type { CollectedTorrent } from '@shared/types/torrent.types'
+import type { TorrentPageMetadata } from '@shared/types/torrentMetadata.types'
+import { TorrentTrackListPreview, TorrentTrackListLoading, TorrentTrackListError } from '../search/TorrentTrackListPreview'
 
 interface CollectedTorrentItemProps {
   torrent: CollectedTorrent
@@ -19,6 +21,10 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
   const [isDownloading, setIsDownloading] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const [previewState, setPreviewState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
+  const [previewMetadata, setPreviewMetadata] = useState<TorrentPageMetadata | null>(null)
+  const [previewError, setPreviewError] = useState<string>('')
+  const [isPreviewExpanded, setIsPreviewExpanded] = useState(false)
 
   const formatSize = (bytes?: number): string => {
     if (!bytes) return ''
@@ -199,6 +205,33 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
     })
   }
 
+  const handlePreviewClick = useCallback(async () => {
+    if (previewState === 'loaded') {
+      setIsPreviewExpanded(!isPreviewExpanded)
+      return
+    }
+
+    setPreviewState('loading')
+    setIsPreviewExpanded(true)
+
+    try {
+      const response = await window.api.torrentMetadata.parse({
+        torrentUrl: torrent.pageUrl,
+        torrentId: torrent.torrentId,
+      })
+      if (response.success && response.metadata) {
+        setPreviewMetadata(response.metadata)
+        setPreviewState('loaded')
+      } else {
+        setPreviewError(response.error || 'Unknown error')
+        setPreviewState('error')
+      }
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : 'Failed to load')
+      setPreviewState('error')
+    }
+  }, [torrent.pageUrl, torrent.torrentId, previewState, isPreviewExpanded])
+
   const handleOpenPage = async () => {
     try {
       await window.api.search.openUrl(torrent.pageUrl)
@@ -301,6 +334,28 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
           </IconButton>
         </HStack>
       </HStack>
+
+      {/* Preview tracks button */}
+      <HStack mt={2}>
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={handlePreviewClick}
+          loading={previewState === 'loading'}
+        >
+          <Icon as={isPreviewExpanded && previewState === 'loaded' ? FiChevronUp : FiList} boxSize={3} />
+          {previewState === 'loaded' ? (isPreviewExpanded ? 'Hide tracks' : 'Show tracks') : 'Preview tracks'}
+        </Button>
+      </HStack>
+
+      {/* Expandable track list preview */}
+      {isPreviewExpanded && (
+        <Box mt={2} pl={2}>
+          {previewState === 'loading' && <TorrentTrackListLoading />}
+          {previewState === 'error' && <TorrentTrackListError error={previewError} />}
+          {previewState === 'loaded' && previewMetadata && <TorrentTrackListPreview metadata={previewMetadata} />}
+        </Box>
+      )}
     </Box>
   )
 }
