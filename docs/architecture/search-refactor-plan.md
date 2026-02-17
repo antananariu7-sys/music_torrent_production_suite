@@ -1,7 +1,8 @@
 # Search Functionality Refactor Plan
 
 **Date:** 2026-02-10
-**Status:** Draft - Awaiting Approval
+**Updated:** 2026-02-17
+**Status:** In Progress
 **Author:** Architecture Review
 
 ---
@@ -956,19 +957,55 @@ MUSICBRAINZ_FIND_TRACK: 'musicbrainz:findTrack'
 
 ---
 
-## Next Steps
+## Progress Tracker
 
-1. **Review this plan** with stakeholders
-2. **Approve scope and timeline**
-3. **Set up development branch** (`feature/search-refactor`)
-4. **Begin Phase 1 implementation**
-5. **Weekly progress reviews**
+### Completed
 
----
+#### Store Simplification (pre-plan)
+- `smartSearchStore` refactored to pure UI state
+- Orchestration moved to `useSmartSearchWorkflow` hook
+- Search error retry button added to `SearchErrorNotice`
 
-**Questions or Concerns?**
-Please review and provide feedback on:
-- Overall approach and architecture
-- Phase breakdown and timeline
-- Risk mitigation strategies
-- Any missing requirements or edge cases
+#### Result Grouping — Pure Logic (2026-02-17)
+- **Created** `src/main/services/rutracker/utils/resultGrouper.ts` — `classifyResult()`, `groupResults()`, `filterDiscographyPages()`
+- **Created** `src/shared/utils/resultClassifier.ts` — shared `isLikelyDiscography()` (importable by both main and renderer)
+- **Created** `src/main/services/rutracker/utils/resultGrouper.spec.ts` — 15 tests
+- **Deduplicated** discography detection from 3 files into single source of truth
+- **Updated** `DiscographySearchService.ts`, `useSmartSearchWorkflow.ts`, `InlineSearchResults.tsx` to use shared classifier
+- Classification: discography / live / compilation / studio (priority order)
+
+#### MusicBrainz Retry with Backoff (2026-02-17)
+- **Created** `src/main/services/utils/retryWithBackoff.ts` — generic async retry with exponential backoff + jitter
+- **Created** `src/main/services/utils/retryWithBackoff.spec.ts` — 8 tests
+- **Applied** to `MusicBrainzService.request()` — retries on 429, 503, 5xx, network errors (max 3 retries)
+
+#### Torrent Page Parser — Pure Logic (2026-02-17)
+- **Created** `src/shared/types/torrentMetadata.types.ts` — `TorrentTrack`, `ParsedAlbum`, `TorrentPageMetadata`
+- **Created** `src/main/services/rutracker/utils/torrentPageParser.ts` — `parseAlbumsFromHtml()`, `parseTracksFromText()`, `parseTracksFromCue()`, `extractFormatInfo()`
+- **Created** `src/main/services/rutracker/utils/torrentPageParser.spec.ts` — 18 tests
+- Handles: discography pages (multiple sp-wrap albums), single album pages, CUE sheet fallback, multi-CD, Russian text
+
+### Remaining
+
+#### Torrent Metadata Service + IPC (Step 4)
+- Wire `torrentPageParser` into `TorrentMetadataService` with Puppeteer
+- Add IPC channel `torrent:parse-metadata`, handler, preload API
+- Cache parsed results in memory
+
+#### Track List Preview UI (Step 5)
+- `TorrentTrackListPreview.tsx` component (Chakra UI)
+- Integrate into `InlineSearchResults.tsx` as action on torrent items
+
+#### Grouped Results UI (Step 6)
+- Render `groupResults()` output as collapsible category sections in `InlineSearchResults.tsx`
+- Group headers with counts, "Show more" per group
+
+#### Duplicate Detection (Step 7 — optional)
+- `trackMatcher.ts` — fuzzy matching pure functions
+- `DuplicateDetectionService` — scan project dir for audio files
+- `DuplicateWarningDialog.tsx` — warning before download
+
+### Dropped
+
+#### SearchOrchestrationService
+**Decision:** Not implementing. The workflow is inherently interactive (user picks at each step). Moving orchestration from the renderer hook to the main process would add IPC round-trips with no testability gain. The `useSmartSearchWorkflow` hook approach works well.

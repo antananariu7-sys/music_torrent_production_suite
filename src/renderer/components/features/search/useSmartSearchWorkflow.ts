@@ -5,6 +5,7 @@ import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
 import { toaster } from '@/components/ui/toaster'
 import type { SearchClassificationResult, MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
 import type { SearchResult, SearchProgressEvent } from '@shared/types/search.types'
+import { isLikelyDiscography } from '@shared/utils/resultClassifier'
 
 interface UseSmartSearchWorkflowOptions {
   onComplete?: (filePath: string) => void
@@ -336,18 +337,7 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
   const handleStartDiscographyScan = useCallback(async () => {
     if (!selectedAlbum || ruTrackerResults.length === 0) return
 
-    const discographyPages = ruTrackerResults.filter((t) => {
-      const titleLower = t.title.toLowerCase()
-      return (
-        titleLower.includes('discography') ||
-        titleLower.includes('дискография') ||
-        titleLower.includes('complete') ||
-        titleLower.includes('collection') ||
-        titleLower.includes('anthology') ||
-        titleLower.includes('box set') ||
-        titleLower.includes('all albums')
-      )
-    })
+    const discographyPages = ruTrackerResults.filter((t) => isLikelyDiscography(t.title))
 
     if (discographyPages.length === 0) {
       addActivityLog('No discography pages found to scan', 'warning')

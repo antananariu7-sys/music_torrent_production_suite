@@ -3,6 +3,7 @@ import { Box, VStack, Text, Button, HStack, Icon, Heading, Grid, Image } from '@
 import { FiMusic, FiDisc, FiUser, FiDownload, FiChevronRight, FiInfo } from 'react-icons/fi'
 import type { SearchClassificationResult, MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
+import { isLikelyDiscography } from '@shared/utils/resultClassifier'
 import type { DiscographySearchProgress, PageContentScanResult } from '@shared/types/discography.types'
 import { DiscographyScanPanel, AlbumFoundBadge } from './DiscographyScanPanel'
 
@@ -56,18 +57,7 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
 }) => {
   // Identify discography/collection pages from torrents
   const discographyTorrents = useMemo(() => {
-    return torrents.filter((t) => {
-      const titleLower = t.title.toLowerCase()
-      return (
-        titleLower.includes('discography') ||
-        titleLower.includes('дискография') ||
-        titleLower.includes('complete') ||
-        titleLower.includes('collection') ||
-        titleLower.includes('anthology') ||
-        titleLower.includes('box set') ||
-        titleLower.includes('all albums')
-      )
-    })
+    return torrents.filter((t) => isLikelyDiscography(t.title))
   }, [torrents])
 
   // Create a map of scan results by torrent ID

@@ -29,12 +29,12 @@ describe('DiscographySearchService', () => {
       expect(service.isLikelyDiscography('Pink Floyd - Complete Studio Albums')).toBe(true)
     })
 
-    it('should return true for titles containing "collection"', () => {
-      expect(service.isLikelyDiscography('The Best Collection 1967-2020')).toBe(true)
+    it('should return false for titles containing "collection" (classified as compilation)', () => {
+      expect(service.isLikelyDiscography('The Best Collection 1967-2020')).toBe(false)
     })
 
-    it('should return true for titles containing "anthology"', () => {
-      expect(service.isLikelyDiscography('Led Zeppelin Anthology')).toBe(true)
+    it('should return false for titles containing "anthology" (classified as compilation)', () => {
+      expect(service.isLikelyDiscography('Led Zeppelin Anthology')).toBe(false)
     })
 
     it('should return true for titles containing "box set"', () => {

@@ -3,6 +3,7 @@ import { execSync } from 'child_process'
 import { existsSync } from 'fs'
 import type { AuthService } from './AuthService'
 import type { SearchResult } from '@shared/types/search.types'
+import { isLikelyDiscography as isLikelyDiscographyUtil, filterDiscographyPages as filterDiscographyPagesUtil } from './rutracker/utils/resultGrouper'
 import type {
   DiscographySearchRequest,
   DiscographySearchResponse,
@@ -413,20 +414,13 @@ export class DiscographySearchService {
    * Quick check if a page title suggests it's a discography
    */
   isLikelyDiscography(title: string): boolean {
-    const titleLower = title.toLowerCase()
-    return titleLower.includes('discography') ||
-           titleLower.includes('дискография') ||
-           titleLower.includes('complete') ||
-           titleLower.includes('collection') ||
-           titleLower.includes('anthology') ||
-           titleLower.includes('box set') ||
-           titleLower.includes('all albums')
+    return isLikelyDiscographyUtil(title)
   }
 
   /**
    * Filter search results to find likely discography pages
    */
   filterDiscographyPages(results: SearchResult[]): SearchResult[] {
-    return results.filter(result => this.isLikelyDiscography(result.title))
+    return filterDiscographyPagesUtil(results)
   }
 }

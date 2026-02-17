@@ -91,6 +91,18 @@ export interface ProgressiveSearchRequest {
   maxPages?: number
 }
 
+/** Result group category for RuTracker results */
+export type ResultGroup = 'studio' | 'live' | 'compilation' | 'discography' | 'other'
+
+/** Search results grouped by category */
+export interface GroupedSearchResults {
+  studio: SearchResult[]
+  live: SearchResult[]
+  compilation: SearchResult[]
+  discography: SearchResult[]
+  other: SearchResult[]
+}
+
 /** Progress event for progressive search */
 export interface SearchProgressEvent {
   /** Current page being processed (1-based) */

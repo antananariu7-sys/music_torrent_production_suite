@@ -10,6 +10,7 @@ import type {
   ArtistAlbumsRequest,
   ArtistAlbumsResponse,
 } from '@shared/types/musicbrainz.types'
+import { retryWithBackoff } from './utils/retryWithBackoff'
 
 // MusicBrainz API response types
 interface MBRecording {
@@ -113,18 +114,37 @@ export class MusicBrainzService {
 
     console.log(`[MusicBrainzService] Requesting: ${url.toString()}`)
 
-    const response = await fetch(url.toString(), {
-      headers: {
-        'User-Agent': this.USER_AGENT,
-        Accept: 'application/json',
+    return retryWithBackoff(
+      async () => {
+        const response = await fetch(url.toString(), {
+          headers: {
+            'User-Agent': this.USER_AGENT,
+            Accept: 'application/json',
+          },
+        })
+
+        if (!response.ok) {
+          const error = new Error(`MusicBrainz API error: ${response.status} ${response.statusText}`)
+          ;(error as any).status = response.status
+          throw error
+        }
+
+        return response.json() as Promise<T>
       },
-    })
-
-    if (!response.ok) {
-      throw new Error(`MusicBrainz API error: ${response.status} ${response.statusText}`)
-    }
-
-    return response.json() as Promise<T>
+      {
+        maxRetries: 3,
+        baseDelayMs: 1000,
+        maxDelayMs: 8000,
+        retryOn: (error) => {
+          const status = (error as any).status
+          // Retry on rate limit, server errors, or network errors (no status)
+          return !status || status === 429 || status >= 500
+        },
+        onRetry: (attempt, error, delay) => {
+          console.warn(`[MusicBrainzService] Retry ${attempt}/3: ${error.message}, waiting ${delay}ms`)
+        },
+      },
+    )
   }
 
   /**
