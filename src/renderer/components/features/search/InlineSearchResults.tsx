@@ -101,6 +101,11 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
     const nonEmpty = Object.values(groups).filter(g => g.length > 0)
     return nonEmpty.length > 1 ? groups : null
   }, [sortedTorrents])
+  // Derive song name for track highlighting (only during song search flow)
+  const searchedSongName = selectedClassification?.type === 'song'
+    ? selectedClassification.name
+    : undefined
+
   return (
     <Box
       p={4}
@@ -142,7 +147,9 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
             <Heading size="sm" color="text.primary">
               {selectedClassification?.type === 'artist'
                 ? `Albums by ${selectedClassification.artist || selectedClassification.name}`
-                : 'Select an Album'}
+                : selectedClassification?.type === 'song'
+                  ? `Albums containing "${selectedClassification.name}"`
+                  : 'Select an Album'}
             </Heading>
             {onCancel && (
               <Button size="sm" variant="ghost" onClick={onCancel}>
@@ -232,6 +239,7 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
                 onSelectTorrent={onSelectTorrent}
                 isDownloading={isDownloading}
                 scanResultsMap={scanResultsMap}
+                highlightSongName={searchedSongName}
               />
             ) : (
               // Flat list (few results or single category)
@@ -242,6 +250,7 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
                   onSelect={onSelectTorrent}
                   isDownloading={isDownloading}
                   scanResult={scanResultsMap.get(torrent.id)}
+                  highlightSongName={searchedSongName}
                 />
               ))
             )}
@@ -270,6 +279,7 @@ interface GroupedTorrentListProps {
   onSelectTorrent?: (torrent: SearchResult) => void
   isDownloading?: boolean
   scanResultsMap: Map<string, PageContentScanResult>
+  highlightSongName?: string
 }
 
 const GroupedTorrentList: React.FC<GroupedTorrentListProps> = ({
@@ -277,6 +287,7 @@ const GroupedTorrentList: React.FC<GroupedTorrentListProps> = ({
   onSelectTorrent,
   isDownloading,
   scanResultsMap,
+  highlightSongName,
 }) => {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<ResultGroup>>(new Set())
 
@@ -335,6 +346,7 @@ const GroupedTorrentList: React.FC<GroupedTorrentListProps> = ({
                     onSelect={onSelectTorrent}
                     isDownloading={isDownloading}
                     scanResult={scanResultsMap.get(torrent.id)}
+                    highlightSongName={highlightSongName}
                   />
                 ))}
               </VStack>
@@ -566,9 +578,10 @@ interface TorrentItemProps {
   onSelect?: (torrent: SearchResult) => void
   isDownloading?: boolean
   scanResult?: PageContentScanResult
+  highlightSongName?: string
 }
 
-const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isDownloading, scanResult }) => {
+const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isDownloading, scanResult, highlightSongName }) => {
   const [previewState, setPreviewState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const [metadata, setMetadata] = useState<TorrentPageMetadata | null>(null)
   const [previewError, setPreviewError] = useState<string>('')
@@ -692,7 +705,7 @@ const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isDownload
         <Box px={3} pb={3} pl={10}>
           {previewState === 'loading' && <TorrentTrackListLoading />}
           {previewState === 'error' && <TorrentTrackListError error={previewError} />}
-          {previewState === 'loaded' && metadata && <TorrentTrackListPreview metadata={metadata} />}
+          {previewState === 'loaded' && metadata && <TorrentTrackListPreview metadata={metadata} highlightSongName={highlightSongName} />}
         </Box>
       )}
     </Box>

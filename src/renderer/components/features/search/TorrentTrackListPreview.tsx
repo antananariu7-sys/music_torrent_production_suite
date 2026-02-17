@@ -2,16 +2,19 @@ import { useState } from 'react'
 import { Box, VStack, HStack, Text, Icon, Spinner } from '@chakra-ui/react'
 import { FiMusic, FiDisc, FiChevronDown, FiChevronRight } from 'react-icons/fi'
 import type { TorrentPageMetadata, ParsedAlbum } from '@shared/types/torrentMetadata.types'
+import { isSongMatch } from '@shared/utils/songMatcher'
 
 interface TorrentTrackListPreviewProps {
   metadata: TorrentPageMetadata
+  /** Song name to highlight in the track list (from song search flow) */
+  highlightSongName?: string
 }
 
 /**
  * Displays parsed track listing from a torrent page.
  * Shows albums in collapsible sections with track listings.
  */
-export const TorrentTrackListPreview: React.FC<TorrentTrackListPreviewProps> = ({ metadata }) => {
+export const TorrentTrackListPreview: React.FC<TorrentTrackListPreviewProps> = ({ metadata, highlightSongName }) => {
   const { albums, format, bitrate } = metadata
 
   if (albums.length === 0) {
@@ -43,11 +46,11 @@ export const TorrentTrackListPreview: React.FC<TorrentTrackListPreviewProps> = (
       {/* Album sections */}
       {albums.length === 1 ? (
         // Single album — show tracks directly
-        <SingleAlbumView album={albums[0]} />
+        <SingleAlbumView album={albums[0]} highlightSongName={highlightSongName} />
       ) : (
         // Multiple albums — collapsible sections
         albums.map((album, index) => (
-          <CollapsibleAlbumView key={`${album.title}-${index}`} album={album} />
+          <CollapsibleAlbumView key={`${album.title}-${index}`} album={album} highlightSongName={highlightSongName} />
         ))
       )}
     </VStack>
@@ -55,7 +58,7 @@ export const TorrentTrackListPreview: React.FC<TorrentTrackListPreviewProps> = (
 }
 
 /** Shows tracks for a single album (no collapsing needed) */
-const SingleAlbumView: React.FC<{ album: ParsedAlbum }> = ({ album }) => {
+const SingleAlbumView: React.FC<{ album: ParsedAlbum; highlightSongName?: string }> = ({ album, highlightSongName }) => {
   return (
     <VStack align="stretch" gap={1}>
       <HStack gap={1}>
@@ -67,13 +70,13 @@ const SingleAlbumView: React.FC<{ album: ParsedAlbum }> = ({ album }) => {
           <Text fontSize="xs" color="text.muted">({album.year})</Text>
         )}
       </HStack>
-      <TrackList tracks={album.tracks} />
+      <TrackList tracks={album.tracks} highlightSongName={highlightSongName} />
     </VStack>
   )
 }
 
 /** Collapsible album section for discography pages */
-const CollapsibleAlbumView: React.FC<{ album: ParsedAlbum }> = ({ album }) => {
+const CollapsibleAlbumView: React.FC<{ album: ParsedAlbum; highlightSongName?: string }> = ({ album, highlightSongName }) => {
   const [isExpanded, setIsExpanded] = useState(false)
 
   return (
@@ -100,15 +103,18 @@ const CollapsibleAlbumView: React.FC<{ album: ParsedAlbum }> = ({ album }) => {
       </HStack>
       {isExpanded && (
         <Box pl={5} pt={1}>
-          <TrackList tracks={album.tracks} />
+          <TrackList tracks={album.tracks} highlightSongName={highlightSongName} />
         </Box>
       )}
     </Box>
   )
 }
 
-/** Renders a list of tracks */
-const TrackList: React.FC<{ tracks: { position: number; title: string; duration?: string }[] }> = ({ tracks }) => {
+/** Renders a list of tracks with optional song highlighting */
+const TrackList: React.FC<{
+  tracks: { position: number; title: string; duration?: string }[]
+  highlightSongName?: string
+}> = ({ tracks, highlightSongName }) => {
   if (tracks.length === 0) {
     return (
       <Text fontSize="xs" color="text.muted" fontStyle="italic">
@@ -119,22 +125,46 @@ const TrackList: React.FC<{ tracks: { position: number; title: string; duration?
 
   return (
     <VStack align="stretch" gap={0}>
-      {tracks.map((track) => (
-        <HStack key={track.position} gap={2} py={0.5}>
-          <Text fontSize="xs" color="text.muted" w="20px" textAlign="right" flexShrink={0}>
-            {track.position}.
-          </Text>
-          <Icon as={FiMusic} boxSize={2.5} color="text.muted" flexShrink={0} />
-          <Text fontSize="xs" color="text.primary" lineClamp={1} flex={1}>
-            {track.title}
-          </Text>
-          {track.duration && (
-            <Text fontSize="xs" color="text.muted" flexShrink={0}>
-              {track.duration}
+      {tracks.map((track) => {
+        const isHighlighted = highlightSongName
+          ? isSongMatch(track.title, highlightSongName)
+          : false
+
+        return (
+          <HStack
+            key={track.position}
+            gap={2}
+            py={0.5}
+            px={1}
+            borderRadius="sm"
+            bg={isHighlighted ? 'brand.500/15' : 'transparent'}
+          >
+            <Text fontSize="xs" color="text.muted" w="20px" textAlign="right" flexShrink={0}>
+              {track.position}.
             </Text>
-          )}
-        </HStack>
-      ))}
+            <Icon
+              as={FiMusic}
+              boxSize={2.5}
+              color={isHighlighted ? 'brand.400' : 'text.muted'}
+              flexShrink={0}
+            />
+            <Text
+              fontSize="xs"
+              color={isHighlighted ? 'brand.300' : 'text.primary'}
+              fontWeight={isHighlighted ? 'semibold' : 'normal'}
+              lineClamp={1}
+              flex={1}
+            >
+              {track.title}
+            </Text>
+            {track.duration && (
+              <Text fontSize="xs" color="text.muted" flexShrink={0}>
+                {track.duration}
+              </Text>
+            )}
+          </HStack>
+        )
+      })}
     </VStack>
   )
 }
