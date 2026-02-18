@@ -217,9 +217,17 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   }, [torrent.files, torrent.downloadPath])
 
   const handleOpenFolder = async () => {
-    if (torrent.downloadPath) {
-      await window.api.openPath(torrent.downloadPath)
+    if (!torrent.downloadPath) return
+    // Navigate to the torrent's subdirectory, not the root download path
+    const firstFile = torrent.files[0]
+    if (firstFile) {
+      const firstSeg = firstFile.path.split(/[\\/]/)[0]
+      if (firstSeg) {
+        await window.api.openPath(torrent.downloadPath + '/' + firstSeg)
+        return
+      }
     }
+    await window.api.openPath(torrent.downloadPath)
   }
 
   const handleRemoveClick = useCallback(() => {
@@ -770,12 +778,18 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
                 <Button variant="ghost" onClick={() => setShowRemoveDialog(false)}>
                   Cancel
                 </Button>
-                <Button variant="outline" onClick={handleRemoveKeepFiles}>
-                  Keep Files
-                </Button>
-                {downloadedFiles.length > 0 && (
-                  <Button colorPalette="red" onClick={handleRemoveDeleteFiles}>
-                    Delete Files
+                {downloadedFiles.length > 0 ? (
+                  <>
+                    <Button variant="outline" onClick={handleRemoveKeepFiles}>
+                      Keep Files
+                    </Button>
+                    <Button colorPalette="red" onClick={handleRemoveDeleteFiles}>
+                      Delete Files
+                    </Button>
+                  </>
+                ) : (
+                  <Button colorPalette="red" onClick={handleRemoveKeepFiles}>
+                    Remove
                   </Button>
                 )}
               </HStack>
