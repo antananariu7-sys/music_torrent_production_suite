@@ -1,6 +1,6 @@
 import { v4 as uuid } from 'uuid'
 import path from 'path'
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from 'fs'
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, rmSync } from 'fs'
 import { app, BrowserWindow } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
@@ -222,20 +222,88 @@ export class WebTorrentService {
 
   /**
    * Remove a torrent from the queue.
+   * If deleteFiles is true, also delete downloaded files from disk.
    */
-  remove(id: string): { success: boolean; error?: string } {
+  remove(id: string, deleteFiles = false): { success: boolean; error?: string } {
     const qt = this.queue.get(id)
     if (!qt) return { success: false, error: 'Torrent not found' }
 
     // Destroy WebTorrent instance if active
     this.destroyClientTorrent(id)
 
+    // Delete downloaded files from disk if requested
+    if (deleteFiles && qt.downloadPath && qt.files.length > 0) {
+      this.deleteDownloadedFiles(qt)
+    }
+
     this.queue.delete(id)
     this.persistQueue()
     this.processQueue()
 
-    console.log(`[WebTorrentService] Removed: ${qt.name} (${id})`)
+    console.log(`[WebTorrentService] Removed: ${qt.name} (${id})${deleteFiles ? ' (files deleted)' : ''}`)
     return { success: true }
+  }
+
+  /**
+   * Delete downloaded files and directories for a torrent from disk.
+   * Tries to find the torrent root directory and remove it recursively.
+   * Falls back to individual file + directory cleanup.
+   */
+  private deleteDownloadedFiles(qt: QueuedTorrent): void {
+    const downloadPath = path.resolve(qt.downloadPath)
+
+    // Try to find and recursively delete the torrent root directory.
+    // Strategy 1: use qt.name (torrent metadata name)
+    // Strategy 2: extract root from first file path
+    const candidates = new Set<string>()
+    candidates.add(qt.name)
+    if (qt.files.length > 0) {
+      const firstSeg = qt.files[0].path.split(/[\\/]/)[0]
+      if (firstSeg) candidates.add(firstSeg)
+    }
+
+    for (const candidate of candidates) {
+      const rootDir = path.join(downloadPath, candidate)
+      try {
+        if (existsSync(rootDir) && statSync(rootDir).isDirectory()) {
+          rmSync(rootDir, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 })
+          console.log(`[WebTorrentService] Deleted torrent directory: ${rootDir}`)
+          return
+        }
+      } catch (err) {
+        console.error(`[WebTorrentService] Failed to delete directory ${rootDir}:`, err)
+      }
+    }
+
+    // Fallback: delete individual files, then clean up empty directories bottom-up
+    const dirs = new Set<string>()
+    for (const file of qt.files) {
+      const fullPath = path.join(downloadPath, file.path)
+      try {
+        if (existsSync(fullPath)) {
+          rmSync(fullPath, { force: true })
+        }
+      } catch (err) {
+        console.error(`[WebTorrentService] Failed to delete file: ${fullPath}`, err)
+      }
+      // Collect all parent directories up to downloadPath
+      let dir = path.dirname(fullPath)
+      while (dir.length > downloadPath.length && dir.startsWith(downloadPath)) {
+        dirs.add(dir)
+        dir = path.dirname(dir)
+      }
+    }
+
+    // Remove empty directories deepest-first
+    const sortedDirs = [...dirs].sort((a, b) => b.length - a.length)
+    for (const dir of sortedDirs) {
+      try {
+        rmSync(dir, { recursive: true, force: true })
+      } catch {
+        // Not empty or permission error — skip
+      }
+    }
+    console.log(`[WebTorrentService] Deleted ${qt.files.length} files and cleaned up directories`)
   }
 
   /**

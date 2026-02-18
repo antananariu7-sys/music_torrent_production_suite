@@ -227,8 +227,8 @@ const api = {
     resume: (id: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_RESUME, id),
 
-    remove: (id: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_REMOVE, id),
+    remove: (id: string, deleteFiles?: boolean): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_REMOVE, id, deleteFiles),
 
     getAll: (): Promise<ApiResponse<QueuedTorrent[]>> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_GET_ALL),

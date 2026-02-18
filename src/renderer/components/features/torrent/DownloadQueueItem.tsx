@@ -1,8 +1,9 @@
-import { Box, HStack, VStack, Text, IconButton, Icon, Badge, Flex } from '@chakra-ui/react'
+import { Box, HStack, VStack, Text, IconButton, Icon, Badge, Flex, Button } from '@chakra-ui/react'
 import { FiPause, FiPlay, FiX, FiFolder, FiChevronDown, FiChevronRight, FiFile, FiMusic, FiDownload } from 'react-icons/fi'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useDownloadQueueStore } from '@/store/downloadQueueStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
+import { toaster } from '@/components/ui/toaster'
 import { isAudioFile, getFileName } from '@/utils/audioUtils'
 import type { QueuedTorrent, TorrentContentFile } from '@shared/types/torrent.types'
 
@@ -160,6 +161,7 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   const isPlaying = useAudioPlayerStore((s) => s.isPlaying)
   const [isExpanded, setIsExpanded] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false)
 
   const canPause = torrent.status === 'downloading' || torrent.status === 'seeding'
   const canResume = torrent.status === 'paused' || torrent.status === 'error'
@@ -219,6 +221,32 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
       await window.api.openPath(torrent.downloadPath)
     }
   }
+
+  const handleRemoveClick = useCallback(() => {
+    setShowRemoveDialog(true)
+  }, [])
+
+  const handleRemoveKeepFiles = useCallback(async () => {
+    setShowRemoveDialog(false)
+    await removeTorrent(torrent.id)
+    toaster.create({ title: 'Torrent removed', description: 'Files kept on disk', type: 'info' })
+  }, [removeTorrent, torrent.id])
+
+  const handleRemoveDeleteFiles = useCallback(async () => {
+    setShowRemoveDialog(false)
+    await removeTorrent(torrent.id, true)
+    toaster.create({ title: 'Torrent removed', description: 'Files deleted from disk', type: 'success' })
+  }, [removeTorrent, torrent.id])
+
+  const downloadedFiles = useMemo(
+    () => torrent.files.filter(f => f.downloaded > 0),
+    [torrent.files],
+  )
+
+  const downloadedSize = useMemo(
+    () => downloadedFiles.reduce((sum, f) => sum + f.downloaded, 0),
+    [downloadedFiles],
+  )
 
   const toggleExpanded = () => {
     if (hasMultipleFiles) {
@@ -585,7 +613,7 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
               size="sm"
               variant="ghost"
               colorPalette="red"
-              onClick={() => removeTorrent(torrent.id)}
+              onClick={handleRemoveClick}
               title="Remove from queue"
             >
               <Icon as={FiX} boxSize={4} />
@@ -658,6 +686,103 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
           </Text>
         )}
       </VStack>
+
+      {/* Remove confirmation dialog */}
+      {showRemoveDialog && (
+        <Box
+          position="fixed"
+          inset="0"
+          zIndex="modal"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          p={4}
+          bg="blackAlpha.700"
+          backdropFilter="blur(12px)"
+          onClick={() => setShowRemoveDialog(false)}
+        >
+          <Box
+            width="full"
+            maxW="lg"
+            borderRadius="xl"
+            bg="bg.surface"
+            border="1px solid"
+            borderColor="border.base"
+            shadow="modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <VStack align="stretch" gap={0}>
+              {/* Header */}
+              <Box p={6} borderBottom="1px solid" borderColor="border.base">
+                <Text fontSize="lg" fontWeight="semibold" color="text.primary">
+                  Remove Torrent
+                </Text>
+                <Text fontSize="sm" color="text.muted" mt={1} lineClamp={1}>
+                  {torrent.name}
+                </Text>
+              </Box>
+
+              {/* Body */}
+              <Box p={6}>
+                {downloadedFiles.length > 0 ? (
+                  <VStack align="stretch" gap={3}>
+                    <Text fontSize="sm" color="text.secondary">
+                      {downloadedFiles.length} file(s) downloaded ({formatSize(downloadedSize)}) to:
+                    </Text>
+                    <Text fontSize="xs" color="text.muted" fontFamily="mono">
+                      {torrent.downloadPath}
+                    </Text>
+                    <Box
+                      maxH="200px"
+                      overflowY="auto"
+                      borderRadius="md"
+                      bg="bg.elevated"
+                      p={2}
+                      borderWidth="1px"
+                      borderColor="border.base"
+                    >
+                      <VStack align="stretch" gap={1}>
+                        {downloadedFiles.map((f) => (
+                          <HStack key={f.path} justify="space-between" gap={2}>
+                            <HStack gap={1} minW={0}>
+                              <Icon as={isAudioFile(f.name) ? FiMusic : FiFile} boxSize={3} color="text.muted" flexShrink={0} />
+                              <Text fontSize="xs" color="text.secondary" lineClamp={1}>
+                                {f.name}
+                              </Text>
+                            </HStack>
+                            <Text fontSize="xs" color="text.muted" flexShrink={0}>
+                              {formatSize(f.downloaded)}
+                            </Text>
+                          </HStack>
+                        ))}
+                      </VStack>
+                    </Box>
+                  </VStack>
+                ) : (
+                  <Text fontSize="sm" color="text.secondary">
+                    No files have been downloaded yet.
+                  </Text>
+                )}
+              </Box>
+
+              {/* Footer */}
+              <HStack p={6} pt={0} justify="flex-end" gap={3}>
+                <Button variant="ghost" onClick={() => setShowRemoveDialog(false)}>
+                  Cancel
+                </Button>
+                <Button variant="outline" onClick={handleRemoveKeepFiles}>
+                  Keep Files
+                </Button>
+                {downloadedFiles.length > 0 && (
+                  <Button colorPalette="red" onClick={handleRemoveDeleteFiles}>
+                    Delete Files
+                  </Button>
+                )}
+              </HStack>
+            </VStack>
+          </Box>
+        </Box>
+      )}
     </Box>
   )
 }

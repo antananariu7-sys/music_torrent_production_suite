@@ -45,9 +45,9 @@ export function registerWebtorrentHandlers(webtorrentService: WebTorrentService)
   })
 
   // Remove a torrent from queue
-  ipcMain.handle(IPC_CHANNELS.WEBTORRENT_REMOVE, async (_event, id: string) => {
+  ipcMain.handle(IPC_CHANNELS.WEBTORRENT_REMOVE, async (_event, id: string, deleteFiles?: boolean) => {
     try {
-      return webtorrentService.remove(id)
+      return webtorrentService.remove(id, deleteFiles)
     } catch (error) {
       console.error('Failed to remove torrent:', error)
       return {

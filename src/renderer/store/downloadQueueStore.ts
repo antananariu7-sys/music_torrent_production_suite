@@ -20,7 +20,7 @@ interface DownloadQueueState {
   addTorrent: (request: AddTorrentRequest) => Promise<{ success: boolean; error?: string }>
   pauseTorrent: (id: string) => Promise<void>
   resumeTorrent: (id: string) => Promise<void>
-  removeTorrent: (id: string) => Promise<void>
+  removeTorrent: (id: string, deleteFiles?: boolean) => Promise<void>
   updateSettings: (settings: Partial<WebTorrentSettings>) => Promise<void>
 
   // Progress update handlers (called from listener)
@@ -105,8 +105,8 @@ export const useDownloadQueueStore = create<DownloadQueueState>((set) => ({
     }
   },
 
-  removeTorrent: async (id: string) => {
-    const response = await window.api.webtorrent.remove(id)
+  removeTorrent: async (id: string, deleteFiles?: boolean) => {
+    const response = await window.api.webtorrent.remove(id, deleteFiles)
     if (response.success) {
       set((state) => {
         const torrents = { ...state.torrents }
