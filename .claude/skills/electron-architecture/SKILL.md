@@ -109,7 +109,29 @@ The template includes:
 - Error handling & logging
 - Architecture Decision Records (ADRs)
 
-### 7. Review Architecture Quality
+### 7. Monitor Code Size
+
+Track file sizes to enforce maintainability thresholds using `scripts/count-lines.py`:
+
+```bash
+python scripts/count-lines.py --critical   # Files needing refactoring (>500 lines)
+python scripts/count-lines.py --top 15     # Top 15 largest files
+python scripts/count-lines.py --category services  # Filter by category
+python scripts/count-lines.py --json       # JSON output for CI/automation
+```
+
+**Categories**: Main Services, Renderer Components, Pages, Stores, IPC Handlers, Shared, Preload.
+**Thresholds**: Critical > 500 lines, Warning > 400 lines, Ideal: 200-300 lines.
+
+**When to use during architecture work**:
+- Review existing architecture — run `--critical` to find pain points
+- After refactoring — verify files dropped below thresholds
+- Planning splits — run `--category <name>` to scope the work
+- CI integration — use `--json` output to fail builds on threshold violations
+
+Full refactoring plans per file are in `docs/CODE_SIZE_ANALYSIS.md`.
+
+### 8. Review Architecture Quality (Checklist)
 
 When reviewing existing or planned architecture, check:
 

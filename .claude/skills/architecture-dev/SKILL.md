@@ -277,7 +277,27 @@ const result = await window.api.featureAction(data)
 - UI interactions without business logic
 - Presentational components
 
-### 8. Common Patterns
+### 8. Monitor Code Size
+
+Use `scripts/count-lines.py` to track file sizes and catch files growing beyond thresholds:
+
+```bash
+python scripts/count-lines.py --critical   # Show only files needing attention
+python scripts/count-lines.py --top 15     # Top 15 largest files
+python scripts/count-lines.py --category services  # Filter by category
+python scripts/count-lines.py --json       # JSON output for automation
+```
+
+**Thresholds**: Critical > 500 lines, Warning > 400 lines, Ideal: 200-300 lines.
+
+**When to run**:
+- After implementing a new feature — verify no file crossed thresholds
+- Before refactoring — identify highest-impact targets
+- During architecture reviews — assess overall codebase health
+
+Full analysis is maintained in `docs/CODE_SIZE_ANALYSIS.md` with refactoring plans for each oversized file.
+
+### 9. Common Patterns
 
 #### Creating a New Service
 
