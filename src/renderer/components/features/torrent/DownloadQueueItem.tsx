@@ -166,8 +166,10 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   const showProgress = torrent.status === 'downloading' || torrent.status === 'seeding' || torrent.status === 'paused'
 
   const hasMultipleFiles = torrent.files.length > 1
+  const isPartialComplete = torrent.status === 'completed' && torrent.files.some(f => !f.selected)
 
   // Auto-expand folder when current track changes
+  // Only react to currentTrack changes — not torrent.files updates (which happen every 1s during download)
   useEffect(() => {
     if (!currentTrack || !torrent.downloadPath) return
 
@@ -193,14 +195,11 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
           folderPaths.forEach(path => newSet.add(path))
           return newSet
         })
-
-        // Also expand the file list if it's collapsed
-        if (!isExpanded && hasMultipleFiles) {
-          setIsExpanded(true)
-        }
+        setIsExpanded(true)
       }
     }
-  }, [currentTrack, torrent.downloadPath, torrent.files, hasMultipleFiles, isExpanded])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTrack?.filePath, torrent.downloadPath])
 
   // Build file tree from ALL files (selected + skipped)
   const fileTree = useMemo(() => buildFileTree(torrent.files), [torrent.files])
@@ -504,7 +503,7 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
               </Text>
             <HStack gap={3} flexWrap="wrap">
               <Badge colorPalette={STATUS_COLOR[torrent.status]} variant="subtle" size="sm">
-                {torrent.status}
+                {isPartialComplete ? 'completed (partial)' : torrent.status}
               </Badge>
               {torrent.totalSize > 0 && (
                 <Text fontSize="xs" color="text.muted">

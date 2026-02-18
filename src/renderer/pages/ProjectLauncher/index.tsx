@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, SimpleGrid, VStack, Spinner, Text } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
-import { useActiveTorrents } from '@/store/downloadQueueStore'
+import { useQueuedTorrents } from '@/store/downloadQueueStore'
 import type { AppInfo } from '@shared/types/app.types'
 import { PageLayout, ErrorAlert } from '@/components/common'
 import { DownloadQueue } from '@/components/features/torrent/DownloadQueue'
@@ -46,7 +46,7 @@ export default function ProjectLauncher({
     }
   }, [currentProject, navigate])
 
-  const activeTorrents = useActiveTorrents()
+  const allTorrents = useQueuedTorrents()
 
   const handleCreateProject = async (
     name: string,
@@ -126,7 +126,7 @@ export default function ProjectLauncher({
         )}
 
         {/* Active Downloads */}
-        {!isLoading && activeTorrents.length > 0 && (
+        {!isLoading && allTorrents.length > 0 && (
           <Box mb={10}>
             <DownloadQueue />
           </Box>

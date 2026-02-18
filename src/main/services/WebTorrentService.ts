@@ -454,6 +454,35 @@ export class WebTorrentService {
         // apply the selection immediately and start downloading
         if (qt.selectedFileIndices && qt.selectedFileIndices.length > 0) {
           const selectedSet = new Set(qt.selectedFileIndices)
+
+          // Check if all selected files already exist with matching size (e.g. resumed after app restart)
+          if (qt.downloadPath) {
+            const allExist = qt.selectedFileIndices.every(index => {
+              if (index < 0 || index >= torrent.files.length) return false
+              const file = torrent.files[index]
+              const fullPath = path.join(qt.downloadPath, file.path)
+              try {
+                return statSync(fullPath).size === file.length
+              } catch {
+                return false
+              }
+            })
+
+            if (allExist) {
+              console.log(`[WebTorrentService] All selected files already exist, marking as completed: ${qt.name}`)
+              qt.status = 'completed'
+              qt.progress = 100
+              qt.completedAt = new Date().toISOString()
+              qt.files = this.mapTorrentFiles(torrent, selectedSet)
+              this.activeTorrents.delete(qt.id)
+              torrent.destroy()
+              this.persistQueue()
+              this.broadcastStatusChange(qt)
+              this.processQueue()
+              return
+            }
+          }
+
           torrent.files.forEach((file, index) => {
             if (selectedSet.has(index)) {
               file.select()
@@ -596,22 +625,20 @@ export class WebTorrentService {
           qt.progress = selectedSize > 0 ? Math.round((selectedDownloaded / selectedSize) * 100) : 0
 
           // All selected files complete — trigger manual completion
+          // Always destroy for partial selection (seeding partial content is not meaningful)
           if (qt.progress >= 100) {
-            qt.status = this.settings.seedAfterDownload ? 'seeding' : 'completed'
+            qt.status = 'completed'
             qt.progress = 100
             qt.completedAt = new Date().toISOString()
             qt.downloadSpeed = 0
             qt.uploadSpeed = 0
+            this.activeTorrents.delete(qt.id)
+            torrent.destroy()
             this.persistQueue()
             this.broadcastStatusChange(qt)
 
             console.log(`[WebTorrentService] Selected files complete: ${qt.name}`)
-
-            if (!this.settings.seedAfterDownload) {
-              this.activeTorrents.delete(qt.id)
-              torrent.destroy()
-              this.processQueue()
-            }
+            this.processQueue()
             continue
           }
         } else {
