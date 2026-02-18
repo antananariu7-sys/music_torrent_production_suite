@@ -59,6 +59,7 @@ export const AddTorrentRequestSchema = z.object({
   downloadPath: z.string().min(1, 'Download path is required'),
   fromCollectedTorrentId: z.string().optional(),
   torrentFilePath: z.string().optional(),
+  selectedFileIndices: z.array(z.number().int().nonnegative()).optional(),
 }).refine(
   (data) => data.magnetUri.length > 0 || (data.torrentFilePath && data.torrentFilePath.length > 0),
   { message: 'Either magnetUri or torrentFilePath must be provided', path: ['magnetUri'] }

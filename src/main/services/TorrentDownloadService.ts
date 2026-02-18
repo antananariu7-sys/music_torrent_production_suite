@@ -1,6 +1,6 @@
 import puppeteer, { Browser, Page } from 'puppeteer-core'
 import { execSync } from 'child_process'
-import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync, readFileSync, copyFileSync } from 'fs'
 import path from 'path'
 import { shell } from 'electron'
 import type {
@@ -31,7 +31,7 @@ export class TorrentDownloadService {
       torrentsFolder: settings?.torrentsFolder || this.getDefaultTorrentsFolder(),
       autoOpen: settings?.autoOpen ?? false,
       keepHistory: settings?.keepHistory ?? true,
-      preferMagnetLinks: settings?.preferMagnetLinks ?? true, // Prefer magnet links by default
+      preferMagnetLinks: settings?.preferMagnetLinks ?? false, // Prefer .torrent file download
     }
 
     // Ensure torrents folder exists
@@ -211,6 +211,67 @@ export class TorrentDownloadService {
   }
 
   /**
+   * Ensure a directory exists, creating it if necessary
+   */
+  private ensureDir(dirPath: string): void {
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true })
+    }
+  }
+
+  /**
+   * Build a human-readable .torrent filename.
+   * Format: "{Title}_[{torrentId}].torrent"
+   * e.g. "The_Doors_-_Hello,_I_Love_You_(EP)_[6817732].torrent"
+   */
+  private buildTorrentFileName(torrentId: string, title?: string): string {
+    if (!title) return `${torrentId}.torrent`
+
+    const sanitized = title
+      .replace(/[<>:"/\\|?*]/g, '')  // Forbidden filesystem chars
+      .replace(/\s+/g, '_')          // Spaces to underscores
+      .replace(/_+/g, '_')           // Collapse consecutive underscores
+      .replace(/^_|_$/g, '')         // Trim leading/trailing underscores
+      .slice(0, 150)                 // Keep total path length safe
+      .replace(/_$/, '')             // Trim trailing underscore after slice
+
+    if (!sanitized) return `${torrentId}.torrent`
+
+    return `${sanitized}_[${torrentId}].torrent`
+  }
+
+  /**
+   * Save .torrent file buffer to project torrents dir and global torrents folder.
+   * Returns the project-local file path (primary) or global path (fallback).
+   */
+  private saveTorrentFile(
+    torrentBuffer: Buffer,
+    torrentId: string,
+    title?: string,
+    projectDirectory?: string
+  ): { projectPath?: string; globalPath: string } {
+    const fileName = this.buildTorrentFileName(torrentId, title)
+
+    // Save to global torrents folder
+    this.ensureDir(this.settings.torrentsFolder)
+    const globalPath = path.join(this.settings.torrentsFolder, fileName)
+    writeFileSync(globalPath, torrentBuffer)
+    console.log(`[TorrentDownloadService] Saved to global: ${globalPath}`)
+
+    // Save to project directory
+    let projectPath: string | undefined
+    if (projectDirectory) {
+      const projectTorrentsDir = path.join(projectDirectory, 'torrents')
+      this.ensureDir(projectTorrentsDir)
+      projectPath = path.join(projectTorrentsDir, fileName)
+      copyFileSync(globalPath, projectPath)
+      console.log(`[TorrentDownloadService] Copied to project: ${projectPath}`)
+    }
+
+    return { projectPath, globalPath }
+  }
+
+  /**
    * Download a torrent file from RuTracker
    *
    * @param request - Torrent download request
@@ -234,8 +295,6 @@ export class TorrentDownloadService {
       // Get session cookies from AuthService
       const sessionCookies = this.authService.getSessionCookies()
       console.log(`[TorrentDownloadService] Using ${sessionCookies.length} session cookies`)
-
-      // Debug: Log cookie names (not values for security)
       console.log(`[TorrentDownloadService] Cookie names: ${sessionCookies.map(c => c.name).join(', ')}`)
 
       if (sessionCookies.length === 0) {
@@ -248,13 +307,6 @@ export class TorrentDownloadService {
       // Initialize browser
       const browser = await this.initBrowser()
       page = await browser.newPage()
-
-      // Set download behavior to capture the torrent file
-      const client = await page.createCDPSession()
-      await client.send('Page.setDownloadBehavior', {
-        behavior: 'allow',
-        downloadPath: this.settings.torrentsFolder,
-      })
 
       // Set viewport
       await page.setViewport({ width: 1280, height: 800 })
@@ -278,7 +330,6 @@ export class TorrentDownloadService {
         }))
       )
 
-      // Verify cookies were set
       const currentCookies = await page.cookies()
       console.log(`[TorrentDownloadService] Current cookies after setting: ${currentCookies.length}`)
 
@@ -304,24 +355,21 @@ export class TorrentDownloadService {
         }
       }
 
-      // Try to find magnet link first (preferred method)
+      // Always extract magnet link (for fallback / future use)
       const magnetSelector = 'a.magnet-link[href^="magnet:"]'
-      console.log(`[TorrentDownloadService] Looking for magnet link: ${magnetSelector}`)
-
       let magnetLink: string | null = null
       try {
         await page.waitForSelector(magnetSelector, { timeout: 5000 })
         magnetLink = await page.$eval(magnetSelector, (el) => (el as HTMLAnchorElement).href)
-        console.log(`[TorrentDownloadService] ✅ Found magnet link`)
-      } catch (error) {
-        console.log('[TorrentDownloadService] No magnet link found, will try .torrent download')
+        console.log(`[TorrentDownloadService] Found magnet link`)
+      } catch {
+        console.log('[TorrentDownloadService] No magnet link found on page')
       }
 
-      // If we have magnet link and prefer it, use that
+      // If preferMagnetLinks is on, use magnet and skip .torrent download
       if (magnetLink && this.settings.preferMagnetLinks) {
         console.log('[TorrentDownloadService] Using magnet link (preferred method)')
 
-        // Create torrent record with magnet link
         const torrentFile: TorrentFile = {
           id: request.torrentId,
           title: request.title || `Torrent ${request.torrentId}`,
@@ -330,153 +378,109 @@ export class TorrentDownloadService {
           downloadedAt: new Date(),
         }
 
-        // Add to history (save to project directory if provided)
         if (this.settings.keepHistory) {
           this.loadHistory(request.projectDirectory)
           this.downloadHistory.push(torrentFile)
           this.saveHistory(request.projectDirectory)
         }
 
-        // Close browser
         await this.closeBrowser()
-
-        console.log(`[TorrentDownloadService] ✅ Magnet link extracted successfully`)
-
-        return {
-          success: true,
-          torrent: torrentFile,
-        }
+        return { success: true, torrent: torrentFile }
       }
 
-      // Fall back to .torrent file download if no magnet link or not preferred
-      console.log('[TorrentDownloadService] Attempting .torrent file download')
+      // --- Download .torrent file via HTTP fetch ---
+      console.log('[TorrentDownloadService] Attempting .torrent file download via fetch')
 
-      // Find download link - RuTracker uses specific classes
-      // From the HTML: <a href="dl.php?t=2754895" class="dl-stub dl-link dl-topic">
       const downloadSelector = 'a.dl-link[href*="dl.php"]'
-      console.log(`[TorrentDownloadService] Waiting for download link: ${downloadSelector}`)
-
-      let downloadElement
+      let downloadHref: string | null = null
       try {
         await page.waitForSelector(downloadSelector, { timeout: 10000 })
-        downloadElement = await page.$(downloadSelector)
-
-        if (!downloadElement) {
-          throw new Error('Download element not found after wait')
-        }
-      } catch (error) {
-        // Get page content for debugging
-        const pageTitle = await page.title()
+        downloadHref = await page.$eval(
+          downloadSelector,
+          (el) => (el as HTMLAnchorElement).getAttribute('href')
+        )
+      } catch {
         const pageUrl = page.url()
-        console.error(`[TorrentDownloadService] Download link not found. Page title: "${pageTitle}", URL: ${pageUrl}`)
-
-        // Check if we got redirected to login
         if (pageUrl.includes('login.php')) {
           return {
             success: false,
             error: 'Redirected to login page. Session may have expired. Please login again.',
           }
         }
-
         throw new Error(`Download link not found on page. Expected selector: ${downloadSelector}`)
       }
 
-      // Get the download link URL for logging
-      const downloadLink = await page.$eval(downloadSelector, (el) => (el as HTMLAnchorElement).href)
-      console.log(`[TorrentDownloadService] Found download link: ${downloadLink}`)
-
-      // Set up download monitoring - listen for download events
-      let downloadStarted = false
-      client.on('Browser.downloadWillBegin', () => {
-        downloadStarted = true
-        console.log('[TorrentDownloadService] Download started')
-      })
-
-      // Click the download link instead of navigating
-      // This is the correct approach for file downloads
-      console.log('[TorrentDownloadService] Clicking download link')
-      await downloadElement.click()
-
-      // Wait a bit for download to start
-      await new Promise(resolve => setTimeout(resolve, 2000))
-
-      if (!downloadStarted) {
-        console.warn('[TorrentDownloadService] Download did not start after clicking. Checking for errors...')
-
-        // Check if we got redirected or page changed
-        const currentUrl = page.url()
-        if (currentUrl.includes('login.php')) {
-          return {
-            success: false,
-            error: 'Redirected to login after clicking download. Session expired. Please login again.',
-          }
-        }
-
-        // Check for error messages on page
-        const errorElement = await page.$('.mrg_16, .med.bold')
-        if (errorElement) {
-          const errorText = await page.evaluate(el => el?.textContent, errorElement)
-          console.error(`[TorrentDownloadService] Error on page: ${errorText}`)
-          return {
-            success: false,
-            error: `Download failed: ${errorText || 'Unknown error on page'}`,
-          }
-        }
+      if (!downloadHref) {
+        throw new Error('Download link href is empty')
       }
 
-      // Wait for download to complete
-      console.log('[TorrentDownloadService] Waiting for download to complete...')
-      await new Promise(resolve => setTimeout(resolve, 5000))
+      // Build absolute URL for the download
+      const downloadUrl = new URL(downloadHref, page.url()).href
+      console.log(`[TorrentDownloadService] Fetching .torrent from: ${downloadUrl}`)
 
-      // Generate file path
-      const fileName = `${request.torrentId}.torrent`
-      const filePath = path.join(this.settings.torrentsFolder, fileName)
-
-      // Verify file was downloaded
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      if (!existsSync(filePath)) {
-        console.error(`[TorrentDownloadService] Torrent file not found at expected path: ${filePath}`)
-        return {
-          success: false,
-          error: 'Download failed - torrent file was not saved. Check if session is valid.',
+      // Fetch .torrent binary content using the page's authenticated session
+      const torrentBase64 = await page.evaluate(async (url: string) => {
+        const resp = await fetch(url)
+        if (!resp.ok) {
+          throw new Error(`HTTP ${resp.status}: ${resp.statusText}`)
         }
+        const buf = await resp.arrayBuffer()
+        const bytes = new Uint8Array(buf)
+        let binary = ''
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i])
+        }
+        return btoa(binary)
+      }, downloadUrl)
+
+      const torrentBuffer = Buffer.from(torrentBase64, 'base64')
+
+      if (torrentBuffer.length < 50) {
+        throw new Error('Downloaded file is too small to be a valid .torrent')
       }
 
-      // Create torrent file record
+      console.log(`[TorrentDownloadService] Downloaded .torrent file: ${torrentBuffer.length} bytes`)
+
+      // Save to both global torrents folder and project directory
+      const { projectPath, globalPath } = this.saveTorrentFile(
+        torrentBuffer,
+        request.torrentId,
+        request.title,
+        request.projectDirectory
+      )
+
+      // The primary file path is the project-local copy (used by checkLocalFile),
+      // falling back to the global copy
+      const filePath = projectPath || globalPath
+
       const torrentFile: TorrentFile = {
         id: request.torrentId,
         title: request.title || `Torrent ${request.torrentId}`,
         filePath,
-        magnetLink: magnetLink || undefined, // Include magnet link if we found it
+        magnetLink: magnetLink || undefined,
         pageUrl: request.pageUrl,
         downloadedAt: new Date(),
       }
 
-      // Add to history (save to project directory if provided)
       if (this.settings.keepHistory) {
         this.loadHistory(request.projectDirectory)
         this.downloadHistory.push(torrentFile)
         this.saveHistory(request.projectDirectory)
       }
 
-      // Close browser
       await this.closeBrowser()
 
-      console.log(`[TorrentDownloadService] ✅ Torrent downloaded successfully: ${filePath}`)
+      console.log(`[TorrentDownloadService] Torrent downloaded successfully: ${filePath}`)
 
       return {
         success: true,
         torrent: torrentFile,
       }
     } catch (error) {
-      console.error('[TorrentDownloadService] Download failed with error:', error)
-      console.error('[TorrentDownloadService] Error name:', error instanceof Error ? error.name : 'Unknown')
-      console.error('[TorrentDownloadService] Error message:', error instanceof Error ? error.message : 'Unknown')
-      console.error('[TorrentDownloadService] Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+      console.error('[TorrentDownloadService] Download failed:', error)
 
       await this.closeBrowser()
 
-      // Provide more specific error messages
       let errorMessage = error instanceof Error ? error.message : 'Download failed'
 
       if (errorMessage.includes('ERR_ABORTED')) {

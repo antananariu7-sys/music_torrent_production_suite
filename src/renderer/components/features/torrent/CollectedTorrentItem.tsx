@@ -1,13 +1,14 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Box, HStack, VStack, Text, Button, Icon, IconButton } from '@chakra-ui/react'
 import { FiDownload, FiCopy, FiTrash2, FiCheck, FiExternalLink, FiList, FiChevronUp } from 'react-icons/fi'
 import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useTorrentActivityStore } from '@/store/torrentActivityStore'
 import { toaster } from '@/components/ui/toaster'
-import type { CollectedTorrent } from '@shared/types/torrent.types'
+import type { CollectedTorrent, TorrentContentFile } from '@shared/types/torrent.types'
 import type { TorrentPageMetadata } from '@shared/types/torrentMetadata.types'
 import { TorrentTrackListPreview, TorrentTrackListLoading, TorrentTrackListError } from '../search/TorrentTrackListPreview'
+import { FileSelectionDialog } from './FileSelectionDialog'
 
 interface CollectedTorrentItemProps {
   torrent: CollectedTorrent
@@ -25,6 +26,15 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
   const [previewMetadata, setPreviewMetadata] = useState<TorrentPageMetadata | null>(null)
   const [previewError, setPreviewError] = useState<string>('')
   const [isPreviewExpanded, setIsPreviewExpanded] = useState(false)
+
+  // File selection state for download flow
+  const [showFileSelection, setShowFileSelection] = useState(false)
+  const [fileSelectionFiles, setFileSelectionFiles] = useState<TorrentContentFile[]>([])
+  const pendingDownloadRef = useRef<{
+    magnetUri: string
+    torrentFilePath?: string
+    label: string
+  } | null>(null)
 
   const formatSize = (bytes?: number): string => {
     if (!bytes) return ''
@@ -107,9 +117,9 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
         }
       }
 
-      // Step 2: If no .torrent file AND no magnet link, extract via Puppeteer
+      // Step 2: If no .torrent file AND no magnet link, download via Puppeteer
       if (!torrentFilePath && !magnetUri) {
-        addLog(`[${label}] No magnet link available, extracting from RuTracker...`, 'info')
+        addLog(`[${label}] No local file or magnet link, downloading from RuTracker...`, 'info')
 
         const extractResponse = await window.api.torrent.download({
           torrentId: torrent.torrentId,
@@ -118,21 +128,110 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
           projectDirectory: currentProject?.projectDirectory,
         })
 
-        if (!extractResponse.success || !extractResponse.torrent?.magnetLink) {
-          const err = extractResponse.error || 'Could not extract magnet link'
-          addLog(`[${label}] Magnet extraction failed: ${err}`, 'error')
+        if (!extractResponse.success || !extractResponse.torrent) {
+          const err = extractResponse.error || 'Could not download torrent'
+          addLog(`[${label}] Download failed: ${err}`, 'error')
           throw new Error(err)
         }
 
-        magnetUri = extractResponse.torrent.magnetLink
-        addLog(`[${label}] Magnet link extracted successfully`, 'success')
+        // Prefer .torrent file path if available, fall back to magnet
+        if (extractResponse.torrent.filePath) {
+          torrentFilePath = extractResponse.torrent.filePath
+          addLog(`[${label}] .torrent file saved: ${torrentFilePath}`, 'success')
+        }
 
-        // Save the magnet link to collection for future downloads
-        updateMagnetLink(torrent.id, magnetUri)
-        addLog(`[${label}] Magnet link saved to collection`, 'info')
+        if (extractResponse.torrent.magnetLink) {
+          magnetUri = extractResponse.torrent.magnetLink
+          updateMagnetLink(torrent.id, magnetUri)
+          addLog(`[${label}] Magnet link saved to collection`, 'info')
+        }
+
+        if (!torrentFilePath && !magnetUri) {
+          throw new Error('Could not obtain .torrent file or magnet link')
+        }
       }
 
-      // Step 3: Prompt for download location
+      // Step 3: Parse .torrent file to get file list for selection
+      if (torrentFilePath) {
+        addLog(`[${label}] Parsing torrent file list...`, 'info')
+
+        const parseResult = await window.api.webtorrent.parseTorrentFiles(torrentFilePath)
+
+        if (parseResult.success && parseResult.files && parseResult.files.length > 0) {
+          addLog(`[${label}] Found ${parseResult.files.length} files, showing selection...`, 'info')
+
+          // Store pending data and show file selection dialog
+          pendingDownloadRef.current = { magnetUri: magnetUri || '', torrentFilePath, label }
+          setFileSelectionFiles(parseResult.files)
+          setShowFileSelection(true)
+          // Don't setIsDownloading(false) — the flow continues in handleFileSelectionConfirm
+          return
+        }
+
+        addLog(`[${label}] Could not parse file list, will download all files`, 'warning')
+      }
+
+      // Step 4 (no file selection): Prompt for location and add to queue
+      await addToQueue(magnetUri || '', torrentFilePath, label)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Download failed'
+      setDownloadError(errorMsg)
+      addLog(`[${label}] Error: ${errorMsg}`, 'error')
+
+      toaster.create({
+        title: 'Download failed',
+        description: errorMsg,
+        type: 'error',
+        duration: 5000,
+      })
+      setIsDownloading(false)
+    }
+  }
+
+  const handleFileSelectionConfirm = async (selectedFileIndices: number[]) => {
+    setShowFileSelection(false)
+    setFileSelectionFiles([])
+
+    const pending = pendingDownloadRef.current
+    if (!pending) return
+    pendingDownloadRef.current = null
+
+    try {
+      await addToQueue(pending.magnetUri, pending.torrentFilePath, pending.label, selectedFileIndices)
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Download failed'
+      setDownloadError(errorMsg)
+      addLog(`[${pending.label}] Error: ${errorMsg}`, 'error')
+
+      toaster.create({
+        title: 'Download failed',
+        description: errorMsg,
+        type: 'error',
+        duration: 5000,
+      })
+      setIsDownloading(false)
+    }
+  }
+
+  const handleFileSelectionCancel = () => {
+    const pending = pendingDownloadRef.current
+    const label = pending?.label || torrent.title
+    addLog(`[${label}] File selection cancelled by user`, 'warning')
+
+    setShowFileSelection(false)
+    setFileSelectionFiles([])
+    pendingDownloadRef.current = null
+    setIsDownloading(false)
+  }
+
+  const addToQueue = async (
+    magnetUri: string,
+    torrentFilePath: string | undefined,
+    label: string,
+    selectedFileIndices?: number[],
+  ) => {
+    try {
+      // Prompt for download location
       addLog(`[${label}] Prompting for download location...`, 'info')
 
       const savedPathResponse = await window.api.webtorrent.getDownloadPath(torrent.projectId)
@@ -141,6 +240,7 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
       const selectedPath = await window.api.selectDirectory('Select Download Location')
       if (!selectedPath) {
         addLog(`[${label}] Download cancelled by user`, 'warning')
+        setIsDownloading(false)
         return
       }
 
@@ -153,7 +253,7 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
       await window.api.webtorrent.setDownloadPath(torrent.projectId, downloadPath)
       addLog(`[${label}] Download path: ${downloadPath}`, 'info')
 
-      // Step 4: Add to WebTorrent download queue
+      // Add to WebTorrent download queue
       const source = torrentFilePath ? '.torrent file' : 'magnet link'
       addLog(`[${label}] Adding to download queue via ${source}...`, 'info')
 
@@ -164,6 +264,7 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
         downloadPath,
         fromCollectedTorrentId: torrent.id,
         torrentFilePath,
+        selectedFileIndices,
       })
 
       if (result.success) {
@@ -178,17 +279,6 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
         addLog(`[${label}] Failed to add to queue: ${result.error}`, 'error')
         throw new Error(result.error || 'Failed to add to queue')
       }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Download failed'
-      setDownloadError(errorMsg)
-      addLog(`[${label}] Error: ${errorMsg}`, 'error')
-
-      toaster.create({
-        title: 'Download failed',
-        description: errorMsg,
-        type: 'error',
-        duration: 5000,
-      })
     } finally {
       setIsDownloading(false)
     }
@@ -356,6 +446,15 @@ export function CollectedTorrentItem({ torrent }: CollectedTorrentItemProps): JS
           {previewState === 'loaded' && previewMetadata && <TorrentTrackListPreview metadata={previewMetadata} />}
         </Box>
       )}
+
+      {/* File selection dialog for download flow */}
+      <FileSelectionDialog
+        isOpen={showFileSelection}
+        torrentName={torrent.title}
+        files={fileSelectionFiles}
+        onConfirm={handleFileSelectionConfirm}
+        onCancel={handleFileSelectionCancel}
+      />
     </Box>
   )
 }

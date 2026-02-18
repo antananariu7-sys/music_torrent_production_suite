@@ -85,6 +85,41 @@ export class WebTorrentService {
   }
 
   // ====================================
+  // TORRENT FILE PARSING
+  // ====================================
+
+  /**
+   * Parse a .torrent file and return its file list without starting a download.
+   * Uses dynamic import for parse-torrent (ESM package).
+   */
+  async parseTorrentFiles(torrentFilePath: string): Promise<TorrentContentFile[]> {
+    if (!existsSync(torrentFilePath)) {
+      throw new Error(`Torrent file not found: ${torrentFilePath}`)
+    }
+
+    const buffer = readFileSync(torrentFilePath)
+    const parseTorrentModule = await import('parse-torrent')
+    const parseTorrent = parseTorrentModule.default || parseTorrentModule
+    const parsed = await parseTorrent(buffer)
+
+    console.log(`[parseTorrentFiles] Parsed: name=${parsed.name}, files=${parsed.files?.length}`)
+
+    const files = parsed.files
+    if (!files || files.length === 0) {
+      throw new Error(`No files found in .torrent (name: ${parsed.name})`)
+    }
+
+    return files.map((f, index) => ({
+      path: f.path || '',
+      name: f.name || f.path?.split(/[\\/]/).pop() || `file_${index}`,
+      size: f.length || 0,
+      downloaded: 0,
+      progress: 0,
+      selected: true,
+    }))
+  }
+
+  // ====================================
   // QUEUE OPERATIONS
   // ====================================
 
@@ -126,6 +161,7 @@ export class WebTorrentService {
       downloadPath: request.downloadPath,
       fromCollectedTorrentId: request.fromCollectedTorrentId,
       torrentFilePath: request.torrentFilePath,
+      selectedFileIndices: request.selectedFileIndices,
     }
 
     this.queue.set(id, queuedTorrent)
@@ -359,12 +395,30 @@ export class WebTorrentService {
         qt.name = torrent.name || qt.name
         qt.totalSize = torrent.length
 
-        // CRITICAL: Deselect all files immediately to prevent downloading
-        // This allows metadata to be fetched while preventing file content downloads
+        // If files were pre-selected (user already chose via dialog before adding),
+        // apply the selection immediately and start downloading
+        if (qt.selectedFileIndices && qt.selectedFileIndices.length > 0) {
+          const selectedSet = new Set(qt.selectedFileIndices)
+          torrent.files.forEach((file, index) => {
+            if (selectedSet.has(index)) {
+              file.select()
+            } else {
+              file.deselect()
+            }
+          })
+          qt.files = this.mapTorrentFiles(torrent, selectedSet)
+          qt.status = 'downloading'
+          qt.selectedFileIndices = undefined // Clear after applying
+          this.persistQueue()
+          this.broadcastStatusChange(qt)
+          console.log(`[WebTorrentService] Metadata received, pre-selected ${selectedSet.size}/${torrent.files.length} files: ${qt.name}`)
+          return
+        }
+
+        // No pre-selection: deselect all files and wait for user to pick
         torrent.files.forEach(file => file.deselect())
         qt.files = this.mapTorrentFiles(torrent)
 
-        // Set status to awaiting file selection (don't pause - files are already deselected)
         qt.status = 'awaiting-file-selection'
         this.torrentsAwaitingSelection.add(qt.id)
 

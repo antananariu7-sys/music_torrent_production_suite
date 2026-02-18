@@ -41,6 +41,7 @@ import type {
   SelectTorrentFilesRequest,
   SelectTorrentFilesResponse,
   TorrentContentFile,
+  ParseTorrentFilesResponse,
 } from '@shared/types/torrent.types'
 import type {
   SaveSearchHistoryRequest,
@@ -276,6 +277,9 @@ const api = {
 
     selectFiles: (request: SelectTorrentFilesRequest): Promise<SelectTorrentFilesResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_SELECT_FILES, request),
+
+    parseTorrentFiles: (torrentFilePath: string): Promise<ParseTorrentFilesResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_PARSE_TORRENT_FILES, torrentFilePath),
   },
 
   // Torrent metadata parsing

@@ -61,6 +61,7 @@ export const IPC_CHANNELS = {
   WEBTORRENT_STATUS_CHANGE: 'webtorrent:status-change',
   WEBTORRENT_SELECT_FILES: 'webtorrent:select-files',
   WEBTORRENT_FILE_SELECTION_NEEDED: 'webtorrent:file-selection-needed',
+  WEBTORRENT_PARSE_TORRENT_FILES: 'webtorrent:parse-torrent-files',
 
   // MusicBrainz operations
   MUSICBRAINZ_FIND_ALBUMS: 'musicbrainz:find-albums',

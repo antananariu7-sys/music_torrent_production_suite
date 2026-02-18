@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import path from 'path'
-import { existsSync } from 'fs'
+import { existsSync, readdirSync } from 'fs'
 import { IPC_CHANNELS } from '@shared/constants'
 import { CheckLocalTorrentRequestSchema } from '@shared/schemas/torrent.schema'
 import type { TorrentDownloadService } from '../services/TorrentDownloadService'
@@ -87,10 +87,28 @@ export function registerTorrentHandlers(torrentService: TorrentDownloadService):
     async (_event, request: unknown): Promise<CheckLocalTorrentResponse> => {
       try {
         const { torrentId, projectDirectory } = CheckLocalTorrentRequestSchema.parse(request)
-        const filePath = path.join(projectDirectory, 'torrents', `${torrentId}.torrent`)
-        const found = existsSync(filePath)
-        console.log(`[torrentHandlers] Check local .torrent: ${filePath} => ${found ? 'FOUND' : 'NOT FOUND'}`)
-        return { found, filePath: found ? filePath : undefined }
+        const torrentsDir = path.join(projectDirectory, 'torrents')
+
+        // Check legacy name first: {torrentId}.torrent
+        const legacyPath = path.join(torrentsDir, `${torrentId}.torrent`)
+        if (existsSync(legacyPath)) {
+          console.log(`[torrentHandlers] Check local .torrent: ${legacyPath} => FOUND (legacy)`)
+          return { found: true, filePath: legacyPath }
+        }
+
+        // Search for human-readable name: *[{torrentId}].torrent
+        if (existsSync(torrentsDir)) {
+          const suffix = `[${torrentId}].torrent`
+          const match = readdirSync(torrentsDir).find((f) => f.endsWith(suffix))
+          if (match) {
+            const matchPath = path.join(torrentsDir, match)
+            console.log(`[torrentHandlers] Check local .torrent: ${matchPath} => FOUND`)
+            return { found: true, filePath: matchPath }
+          }
+        }
+
+        console.log(`[torrentHandlers] Check local .torrent for ${torrentId} => NOT FOUND`)
+        return { found: false }
       } catch (error) {
         console.error('Failed to check local torrent file:', error)
         return { found: false }

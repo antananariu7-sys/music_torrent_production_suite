@@ -22,6 +22,7 @@ async function buildMain() {
         'cheerio',
         'music-metadata',
         'webtorrent',
+        'parse-torrent',
         'csv-stringify',
         'uuid'
       ],

@@ -198,6 +198,8 @@ export interface QueuedTorrent {
   error?: string
   /** Path to the .torrent file used (if any) */
   torrentFilePath?: string
+  /** Pre-selected file indices (skip file selection dialog) */
+  selectedFileIndices?: number[]
 }
 
 /** Progress event pushed from main to renderer for active torrents */
@@ -231,6 +233,20 @@ export interface AddTorrentRequest {
   fromCollectedTorrentId?: string
   /** Path to a local .torrent file (used instead of magnetUri when available) */
   torrentFilePath?: string
+  /** Pre-selected file indices — skip the file selection dialog when provided */
+  selectedFileIndices?: number[]
+}
+
+/** Request to parse a .torrent file and get its file list */
+export interface ParseTorrentFilesRequest {
+  torrentFilePath: string
+}
+
+/** Response from parsing a .torrent file */
+export interface ParseTorrentFilesResponse {
+  success: boolean
+  files?: TorrentContentFile[]
+  error?: string
 }
 
 /** Response after adding a torrent to the queue */

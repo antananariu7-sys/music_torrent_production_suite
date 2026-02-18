@@ -117,6 +117,20 @@ export function registerWebtorrentHandlers(webtorrentService: WebTorrentService)
     }
   })
 
+  // Parse .torrent file and return file list (without starting download)
+  ipcMain.handle(IPC_CHANNELS.WEBTORRENT_PARSE_TORRENT_FILES, async (_event, torrentFilePath: string) => {
+    try {
+      const files = await webtorrentService.parseTorrentFiles(torrentFilePath)
+      return { success: true, files }
+    } catch (error) {
+      console.error('Failed to parse torrent files:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to parse torrent file',
+      }
+    }
+  })
+
   // Select files for a torrent
   ipcMain.handle(IPC_CHANNELS.WEBTORRENT_SELECT_FILES, async (_event, request: unknown) => {
     try {
