@@ -144,4 +144,17 @@ export function registerWebtorrentHandlers(webtorrentService: WebTorrentService)
       }
     }
   })
+
+  // Download additional files for an existing torrent
+  ipcMain.handle(IPC_CHANNELS.WEBTORRENT_DOWNLOAD_MORE_FILES, async (_event, id: string, fileIndices: number[]) => {
+    try {
+      return await webtorrentService.downloadMoreFiles(id, fileIndices)
+    } catch (error) {
+      console.error('Failed to download more files:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to download more files',
+      }
+    }
+  })
 }

@@ -280,6 +280,9 @@ const api = {
 
     parseTorrentFiles: (torrentFilePath: string): Promise<ParseTorrentFilesResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_PARSE_TORRENT_FILES, torrentFilePath),
+
+    downloadMoreFiles: (id: string, fileIndices: number[]): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_DOWNLOAD_MORE_FILES, id, fileIndices),
   },
 
   // Torrent metadata parsing

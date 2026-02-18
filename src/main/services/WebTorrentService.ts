@@ -316,6 +316,7 @@ export class WebTorrentService {
     })
 
     // Update our tracking with correct selection state
+    qt.selectedFileIndices = selectedFileIndices
     qt.files = this.mapTorrentFiles(torrent, selectedSet)
     qt.status = 'downloading'
     this.torrentsAwaitingSelection.delete(id)
@@ -329,6 +330,60 @@ export class WebTorrentService {
 
     console.log(`[WebTorrentService] ${message}`)
     return { success: true }
+  }
+
+  /**
+   * Download additional files for a torrent that already has a partial selection.
+   * Works for both active (still downloading) and completed (destroyed) torrents.
+   */
+  async downloadMoreFiles(id: string, additionalFileIndices: number[]): Promise<{ success: boolean; error?: string }> {
+    const qt = this.queue.get(id)
+    if (!qt) return { success: false, error: 'Torrent not found' }
+
+    if (!additionalFileIndices.length) return { success: false, error: 'No files specified' }
+
+    // Merge new indices with existing selection
+    const existingIndices = new Set(qt.selectedFileIndices || [])
+    additionalFileIndices.forEach(i => existingIndices.add(i))
+    qt.selectedFileIndices = Array.from(existingIndices).sort((a, b) => a - b)
+
+    const torrent = this.activeTorrents.get(id)
+
+    if (torrent) {
+      // Torrent is still active — just select the additional files
+      additionalFileIndices.forEach(index => {
+        if (index >= 0 && index < torrent.files.length) {
+          torrent.files[index].select()
+        }
+      })
+
+      const selectedSet = new Set(qt.selectedFileIndices)
+      qt.files = this.mapTorrentFiles(torrent, selectedSet)
+      qt.status = 'downloading'
+      qt.completedAt = undefined
+      this.persistQueue()
+      this.broadcastStatusChange(qt)
+
+      console.log(`[WebTorrentService] Added ${additionalFileIndices.length} files to active torrent: ${qt.name}`)
+      return { success: true }
+    }
+
+    // Torrent was destroyed (completed) — restart it
+    if (qt.status === 'completed' || qt.status === 'error' || qt.status === 'paused') {
+      qt.status = 'queued'
+      qt.progress = 0
+      qt.completedAt = undefined
+      qt.downloadSpeed = 0
+      qt.uploadSpeed = 0
+      this.persistQueue()
+      this.broadcastStatusChange(qt)
+
+      console.log(`[WebTorrentService] Re-queuing torrent with ${additionalFileIndices.length} additional files: ${qt.name}`)
+      await this.processQueue()
+      return { success: true }
+    }
+
+    return { success: false, error: `Cannot add files while torrent is ${qt.status}` }
   }
 
   // ====================================
@@ -408,7 +463,7 @@ export class WebTorrentService {
           })
           qt.files = this.mapTorrentFiles(torrent, selectedSet)
           qt.status = 'downloading'
-          qt.selectedFileIndices = undefined // Clear after applying
+          // Keep selectedFileIndices — needed for partial completion check in progress broadcast
           this.persistQueue()
           this.broadcastStatusChange(qt)
           console.log(`[WebTorrentService] Metadata received, pre-selected ${selectedSet.size}/${torrent.files.length} files: ${qt.name}`)
@@ -432,10 +487,11 @@ export class WebTorrentService {
       })
 
       torrent.on('done', () => {
+        const selectedSet = qt.selectedFileIndices ? new Set(qt.selectedFileIndices) : undefined
         qt.status = this.settings.seedAfterDownload ? 'seeding' : 'completed'
         qt.progress = 100
         qt.completedAt = new Date().toISOString()
-        qt.files = this.mapTorrentFiles(torrent)
+        qt.files = this.mapTorrentFiles(torrent, selectedSet)
         this.persistQueue()
         this.broadcastStatusChange(qt)
 
@@ -483,14 +539,17 @@ export class WebTorrentService {
    * Map WebTorrent files to our TorrentContentFile type.
    */
   private mapTorrentFiles(torrent: Torrent, selectedIndices?: Set<number>): TorrentContentFile[] {
-    return torrent.files.map((f, index) => ({
-      path: f.path,
-      name: f.name,
-      size: f.length,
-      downloaded: f.downloaded,
-      progress: f.length > 0 ? Math.round((f.downloaded / f.length) * 100) : 0,
-      selected: selectedIndices ? selectedIndices.has(index) : true,
-    }))
+    return torrent.files.map((f, index) => {
+      const downloaded = Math.max(0, f.downloaded)
+      return {
+        path: f.path,
+        name: f.name,
+        size: f.length,
+        downloaded,
+        progress: f.length > 0 ? Math.round((downloaded / f.length) * 100) : 0,
+        selected: selectedIndices ? selectedIndices.has(index) : true,
+      }
+    })
   }
 
   // ====================================
@@ -513,16 +572,54 @@ export class WebTorrentService {
         const torrent = this.activeTorrents.get(qt.id)
         if (!torrent) continue
 
+        const selectedSet = qt.selectedFileIndices ? new Set(qt.selectedFileIndices) : undefined
+
         // Update queue entry with live data
-        qt.progress = Math.round(torrent.progress * 100)
         qt.downloadSpeed = torrent.downloadSpeed
         qt.uploadSpeed = torrent.uploadSpeed
-        qt.downloaded = torrent.downloaded
         qt.uploaded = torrent.uploaded
-        qt.totalSize = torrent.length
         qt.seeders = torrent.numPeers
-        qt.ratio = torrent.downloaded > 0 ? torrent.uploaded / torrent.downloaded : 0
-        qt.files = this.mapTorrentFiles(torrent)
+        qt.files = this.mapTorrentFiles(torrent, selectedSet)
+
+        // Calculate progress/size based on selected files only
+        if (selectedSet && selectedSet.size < torrent.files.length) {
+          let selectedSize = 0
+          let selectedDownloaded = 0
+          torrent.files.forEach((f, index) => {
+            if (selectedSet.has(index)) {
+              selectedSize += f.length
+              selectedDownloaded += Math.max(0, f.downloaded)
+            }
+          })
+          qt.totalSize = selectedSize
+          qt.downloaded = selectedDownloaded
+          qt.progress = selectedSize > 0 ? Math.round((selectedDownloaded / selectedSize) * 100) : 0
+
+          // All selected files complete — trigger manual completion
+          if (qt.progress >= 100) {
+            qt.status = this.settings.seedAfterDownload ? 'seeding' : 'completed'
+            qt.progress = 100
+            qt.completedAt = new Date().toISOString()
+            qt.downloadSpeed = 0
+            qt.uploadSpeed = 0
+            this.persistQueue()
+            this.broadcastStatusChange(qt)
+
+            console.log(`[WebTorrentService] Selected files complete: ${qt.name}`)
+
+            if (!this.settings.seedAfterDownload) {
+              this.activeTorrents.delete(qt.id)
+              torrent.destroy()
+              this.processQueue()
+            }
+            continue
+          }
+        } else {
+          qt.progress = Math.round(torrent.progress * 100)
+          qt.downloaded = torrent.downloaded
+          qt.totalSize = torrent.length
+        }
+        qt.ratio = qt.downloaded > 0 ? qt.uploaded / qt.downloaded : 0
 
         updates.push({
           id: qt.id,

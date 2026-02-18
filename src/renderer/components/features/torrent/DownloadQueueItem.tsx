@@ -1,5 +1,5 @@
 import { Box, HStack, VStack, Text, IconButton, Icon, Badge, Flex } from '@chakra-ui/react'
-import { FiPause, FiPlay, FiX, FiFolder, FiChevronDown, FiChevronRight, FiFile, FiMusic } from 'react-icons/fi'
+import { FiPause, FiPlay, FiX, FiFolder, FiChevronDown, FiChevronRight, FiFile, FiMusic, FiDownload } from 'react-icons/fi'
 import { useState, useMemo, useEffect } from 'react'
 import { useDownloadQueueStore } from '@/store/downloadQueueStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
@@ -19,6 +19,7 @@ interface TreeNode {
   size: number
   downloaded: number
   progress: number
+  selected: boolean // Whether this file/folder is selected for download
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -65,6 +66,7 @@ function buildFileTree(files: TorrentContentFile[]): TreeNode {
     size: 0,
     downloaded: 0,
     progress: 0,
+    selected: true,
   }
 
   files.forEach((file) => {
@@ -88,6 +90,7 @@ function buildFileTree(files: TorrentContentFile[]): TreeNode {
           size: 0,
           downloaded: 0,
           progress: 0,
+          selected: true,
         }
         currentNode.children.push(folderNode)
       }
@@ -106,6 +109,7 @@ function buildFileTree(files: TorrentContentFile[]): TreeNode {
       size: file.size,
       downloaded: file.downloaded,
       progress: file.progress,
+      selected: file.selected,
     })
   })
 
@@ -125,6 +129,8 @@ function buildFileTree(files: TorrentContentFile[]): TreeNode {
     }
 
     node.progress = node.size > 0 ? Math.round((node.downloaded / node.size) * 100) : 0
+    // Folder is selected if at least one child is selected
+    node.selected = node.children.some(child => child.selected)
   }
 
   calculateFolderData(root)
@@ -159,17 +165,15 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   const canResume = torrent.status === 'paused' || torrent.status === 'error'
   const showProgress = torrent.status === 'downloading' || torrent.status === 'seeding' || torrent.status === 'paused'
 
-  // Filter to show only selected files (the ones being downloaded)
-  const selectedFiles = torrent.files.filter(f => f.selected)
-  const hasMultipleFiles = selectedFiles.length > 1
+  const hasMultipleFiles = torrent.files.length > 1
 
   // Auto-expand folder when current track changes
   useEffect(() => {
     if (!currentTrack || !torrent.downloadPath) return
 
     // Check if the current track belongs to this torrent
-    const currentTrackInThisTorrent = selectedFiles.find(
-      file => currentTrack.filePath === `${torrent.downloadPath}/${file.path}`.replace(/\\/g, '/')
+    const currentTrackInThisTorrent = torrent.files.find(
+      file => file.selected && currentTrack.filePath === `${torrent.downloadPath}/${file.path}`.replace(/\\/g, '/')
     )
 
     if (currentTrackInThisTorrent) {
@@ -196,20 +200,20 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
         }
       }
     }
-  }, [currentTrack, torrent.downloadPath, selectedFiles, hasMultipleFiles, isExpanded])
+  }, [currentTrack, torrent.downloadPath, torrent.files, hasMultipleFiles, isExpanded])
 
-  // Build file tree from selected files
-  const fileTree = useMemo(() => buildFileTree(selectedFiles), [selectedFiles])
+  // Build file tree from ALL files (selected + skipped)
+  const fileTree = useMemo(() => buildFileTree(torrent.files), [torrent.files])
 
-  // Get all audio files for playlist
+  // Get audio files for playlist (only selected + completed)
   const audioFiles = useMemo(() => {
-    return selectedFiles
-      .filter(f => f.progress === 100 && isAudioFile(f.path))
+    return torrent.files
+      .filter(f => f.selected && f.progress === 100 && isAudioFile(f.path))
       .map(f => ({
         filePath: `${torrent.downloadPath}/${f.path}`.replace(/\\/g, '/'),
         name: getFileName(f.path),
       }))
-  }, [selectedFiles, torrent.downloadPath])
+  }, [torrent.files, torrent.downloadPath])
 
   const handleOpenFolder = async () => {
     if (torrent.downloadPath) {
@@ -259,6 +263,17 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   const handlePlayAll = () => {
     if (audioFiles.length === 0) return
     playPlaylist(audioFiles, 0)
+  }
+
+  const handleDownloadFile = async (file: TorrentContentFile) => {
+    const fileIndex = torrent.files.findIndex(f => f.path === file.path)
+    if (fileIndex === -1) return
+
+    try {
+      await window.api.webtorrent.downloadMoreFiles(torrent.id, [fileIndex])
+    } catch (err) {
+      console.error('Failed to download file:', err)
+    }
   }
 
   // Render a tree node (file or folder)
@@ -351,55 +366,81 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
               <Icon
                 as={isAudioFile(node.path) ? FiMusic : FiFile}
                 boxSize={3}
-                color={isCurrentlyPlaying ? 'blue.500' : isAudioFile(node.path) ? 'blue.400' : 'text.muted'}
+                color={!node.selected ? 'text.muted' : isCurrentlyPlaying ? 'blue.500' : isAudioFile(node.path) ? 'blue.400' : 'text.muted'}
                 flexShrink={0}
+                opacity={node.selected ? 1 : 0.4}
               />
               <Text
                 flex="1"
-                color={isCurrentlyPlaying ? 'blue.500' : 'text.primary'}
+                color={!node.selected ? 'text.muted' : isCurrentlyPlaying ? 'blue.500' : 'text.primary'}
                 fontWeight={isCurrentlyPlaying ? 'semibold' : 'normal'}
                 lineClamp={1}
                 title={node.path}
+                opacity={node.selected ? 1 : 0.4}
+                textDecoration={node.selected ? undefined : 'line-through'}
               >
                 {node.name}
               </Text>
-              <Text color="text.muted" flexShrink={0}>
-                {formatSize(node.downloaded)} / {formatSize(node.size)}
-              </Text>
-              <Text
-                color={node.progress === 100 ? 'green.500' : 'blue.500'}
-                fontWeight="medium"
-                w="35px"
-                textAlign="right"
-                flexShrink={0}
-              >
-                {node.progress}%
-              </Text>
-              {/* Mini progress bar for file */}
-              <Box w="50px" flexShrink={0}>
-                <div
-                  style={{
-                    height: 3,
-                    background: 'var(--chakra-colors-bg-muted, #2d2d44)',
-                    borderRadius: 9999,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      height: '100%',
-                      width: `${node.progress}%`,
-                      background: node.progress === 100
-                        ? 'var(--chakra-colors-green-500, #48bb78)'
-                        : 'var(--chakra-colors-blue-500, #3b82f6)',
-                      borderRadius: 9999,
-                      transition: 'width 0.5s ease',
+              {node.selected ? (
+                <>
+                  <Text color="text.muted" flexShrink={0}>
+                    {formatSize(node.downloaded)} / {formatSize(node.size)}
+                  </Text>
+                  <Text
+                    color={node.progress === 100 ? 'green.500' : 'blue.500'}
+                    fontWeight="medium"
+                    w="35px"
+                    textAlign="right"
+                    flexShrink={0}
+                  >
+                    {node.progress}%
+                  </Text>
+                  {/* Mini progress bar for file */}
+                  <Box w="50px" flexShrink={0}>
+                    <div
+                      style={{
+                        height: 3,
+                        background: 'var(--chakra-colors-bg-muted, #2d2d44)',
+                        borderRadius: 9999,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: '100%',
+                          width: `${node.progress}%`,
+                          background: node.progress === 100
+                            ? 'var(--chakra-colors-green-500, #48bb78)'
+                            : 'var(--chakra-colors-blue-500, #3b82f6)',
+                          borderRadius: 9999,
+                          transition: 'width 0.5s ease',
+                        }}
+                      />
+                    </div>
+                  </Box>
+                </>
+              ) : (
+                <>
+                  <Text fontSize="2xs" color="text.muted" opacity={0.5} flexShrink={0}>
+                    {formatSize(node.size)}
+                  </Text>
+                  <IconButton
+                    aria-label="Download this file"
+                    size="xs"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (node.files[0]) handleDownloadFile(node.files[0])
                     }}
-                  />
-                </div>
-              </Box>
+                    title="Download this file"
+                    flexShrink={0}
+                  >
+                    <Icon as={FiDownload} boxSize={3} />
+                  </IconButton>
+                </>
+              )}
               {/* Play button for completed audio files */}
-              {node.progress === 100 && isAudioFile(node.path) && node.files[0] && (
+              {node.selected && node.progress === 100 && isAudioFile(node.path) && node.files[0] && (
                 <IconButton
                   aria-label="Play"
                   size="xs"
@@ -596,7 +637,7 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
             borderColor="border.base"
           >
             <Text fontSize="xs" fontWeight="semibold" color="text.secondary" mb={2}>
-              Files ({selectedFiles.length})
+              Files ({torrent.files.length})
             </Text>
             <VStack align="stretch" gap={0}>
               {renderTreeNode(fileTree, 0)}

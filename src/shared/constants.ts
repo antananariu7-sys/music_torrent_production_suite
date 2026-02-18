@@ -60,6 +60,7 @@ export const IPC_CHANNELS = {
   WEBTORRENT_PROGRESS: 'webtorrent:progress',
   WEBTORRENT_STATUS_CHANGE: 'webtorrent:status-change',
   WEBTORRENT_SELECT_FILES: 'webtorrent:select-files',
+  WEBTORRENT_DOWNLOAD_MORE_FILES: 'webtorrent:download-more-files',
   WEBTORRENT_FILE_SELECTION_NEEDED: 'webtorrent:file-selection-needed',
   WEBTORRENT_PARSE_TORRENT_FILES: 'webtorrent:parse-torrent-files',
 
