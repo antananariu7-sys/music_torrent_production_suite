@@ -9,16 +9,18 @@
 
 | Category | Files Analyzed | Critical (>500) | Warning (400-500) | Good (<400) |
 |----------|----------------|-----------------|-------------------|-------------|
-| Renderer Components | 33 | 0 | 2 | 31 |
-| Main Services | 13 | 0 | 1 | 12 |
+| Renderer Components | 33 | 0 | 0 | 33 |
+| Main Services | 13 | 0 | 0 | 13 |
 | Pages | 23 | 0 | 0 | 23 |
 | Stores | 11 | 0 | 1 | 10 |
 | IPC Handlers | 10 | 0 | 0 | 10 |
 
 **Total Critical Files**: 0 (all resolved!)
-**Total Warning Files**: 4 files should be monitored
+**Total Warning Files**: 1 file (smartSearchStore.ts — monitor only)
 
-> **Update 2026-02-19**: Major refactoring session completed. All 6 critical files (>500 lines) have been split into focused modules. Largest file in codebase is now 359 lines (TorrentDownloadService.ts facade). Build passes, all tests pass.
+> **Update 2026-02-19 (Phase 3)**: All 4 warning files (400-500 lines) from Phase 3 have been split. All files in codebase are now under 400 lines except smartSearchStore.ts (434 lines, stable, only split if grows past 500).
+>
+> **Update 2026-02-19 (Phase 2)**: Major refactoring session completed. All 6 critical files (>500 lines) have been split into focused modules. Build passes, all tests pass.
 >
 > **Previous updates**: RuTrackerSearchService.ts refactored from 910 to 364 lines. Settings/index.tsx refactored from 899 to 142 lines.
 
@@ -106,7 +108,7 @@ src/main/services/auth/
 **Shared utility**:
 ```
 src/main/services/utils/
-└── browserUtils.ts (43 lines) — findChromePath() (shared with TorrentDownloadService)
+└── browserUtils.ts (43 lines) — findChromePath() (shared across Auth, TorrentDownload, Discography)
 ```
 
 ---
@@ -150,73 +152,82 @@ Split into GeneralSettings, RuTrackerAuthCard, SearchSettings, WebTorrentSetting
 
 ---
 
-## WARNING - Consider Refactoring (400-500 lines)
+## Phase 3 — Warning Files Now Resolved ✅
 
-### 1. MusicBrainzService.ts - **464 lines** (was 444, growing)
+### 1. MusicBrainzService.ts — ~~465 lines~~ → **6 files, max 132 lines** ✅
 
-**Location**: `src/main/services/MusicBrainzService.ts`
+**Location**: `src/main/services/MusicBrainzService.ts` (re-export stub)
 
-**Refactoring Plan**:
+**Split into**:
 ```
 src/main/services/musicbrainz/
-├── MusicBrainzService.ts (150 lines) — Main service
+├── MusicBrainzService.ts (48 lines) — Facade
+├── MusicBrainzApiClient.ts (76 lines) — HTTP client + rate limiting
+├── types.ts (42 lines) — Internal MB API response types
 └── api/
-    ├── AlbumSearchAPI.ts (100 lines)
-    ├── ArtistSearchAPI.ts (100 lines)
-    └── ClassificationAPI.ts (114 lines)
+    ├── albumSearch.ts (132 lines) — findAlbumsBySong, getAlbumDetails
+    ├── classifySearch.ts (105 lines) — classifySearch
+    └── artistAlbums.ts (58 lines) — getArtistAlbums
 ```
 
 ---
 
-### 2. CollectedTorrentItem.tsx - **460 lines**
+### 2. CollectedTorrentItem.tsx — ~~461 lines~~ → **4 files, max 244 lines** ✅
 
 **Location**: `src/renderer/components/features/torrent/CollectedTorrentItem.tsx`
 
-**Refactoring Plan**:
+**Split into**:
 ```
 src/renderer/components/features/torrent/
-├── CollectedTorrentItem.tsx (150 lines) — Main container
-├── components/
-│   ├── CollectedItemActions.tsx (100 lines)
-│   └── CollectedItemDetails.tsx (100 lines)
+├── CollectedTorrentItem.tsx (221 lines) — Container, actions, JSX
 └── hooks/
-    └── useCollectedItemActions.ts (80 lines)
+    ├── useCollectedItemDownload.ts (244 lines) — Multi-step download flow
+    └── useCollectedItemPreview.ts (52 lines) — Track list preview
 ```
 
 ---
 
-### 3. smartSearchStore.ts - **433 lines** (stable)
-
-**Location**: `src/renderer/store/smartSearchStore.ts`
-
-**Recommendation**: If exceeds 500 lines, split into core state, action creators, and selectors.
-
----
-
-### 4. FileSelectionDialog.tsx - **430 lines** (stable)
+### 3. FileSelectionDialog.tsx — ~~431 lines~~ → **5 files, max 168 lines** ✅
 
 **Location**: `src/renderer/components/features/torrent/FileSelectionDialog.tsx`
 
-**Refactoring Plan**:
+**Split into**:
 ```
 src/renderer/components/features/torrent/
-├── FileSelectionDialog.tsx (150 lines)
-└── components/
-    ├── FileSelectionTree.tsx (150 lines)
-    └── FileSelectionControls.tsx (80 lines)
+├── FileSelectionDialog.tsx (168 lines) — Modal container + state
+├── components/
+│   ├── FileSelectionTree.tsx (121 lines) — Recursive tree renderer
+│   └── FileSelectionControls.tsx (89 lines) — Footer toolbar
+└── utils/
+    └── fileSelectionTree.ts (104 lines) — SelectionTreeNode, buildSelectionFileTree, formatBytes
 ```
 
 ---
 
-## WATCH - Approaching Warning (350-400 lines)
+### 4. DiscographySearchService.ts — ~~427 lines~~ → **3 files, max 187 lines** ✅
+
+**Location**: `src/main/services/DiscographySearchService.ts` (re-export stub)
+
+**Split into**:
+```
+src/main/services/discography/
+├── DiscographySearchService.ts (169 lines) — Orchestration + browser lifecycle
+└── PageContentParser.ts (187 lines) — scanSinglePage + parsePageContent
+```
+
+**Also fixed**: Removed duplicate `findChromePath()` — now uses shared `browserUtils.ts`.
+
+---
+
+## WATCH - Monitor Only
 
 | File | Lines | Notes |
 |------|-------|-------|
-| `TorrentDownloadService.ts` | 359 | In webtorrent/ — stable |
-| `ProjectService.ts` | 395 | Approaching 400-line warning threshold |
+| `smartSearchStore.ts` | 434 | Stable — split only if exceeds 500 |
+| `TorrentDownloadService.ts` | 359 | In torrent/ — stable |
+| `ProjectService.ts` | 396 | Approaching 400-line warning threshold |
 | `RuTrackerSearchService.ts` | 364 | Stable post-refactor |
-| `RuTrackerAuthCard.tsx` | 351 | Settings subcomponent, monitor |
-| `DiscographySearchService.ts` | 426 | Warning zone, stable |
+| `RuTrackerAuthCard.tsx` | 352 | Settings subcomponent, monitor |
 
 ---
 
@@ -256,4 +267,4 @@ Extract complex logic into custom hooks per concern.
 ---
 
 **Last Updated**: 2026-02-19
-**Status**: All Phase 1 & 2 critical files resolved. Phase 3 (warning files) queued for future sessions.
+**Status**: All Phase 1, 2 & 3 files resolved. Only smartSearchStore.ts (434 lines) remains in monitor list.

@@ -1,0 +1,1 @@
+export { DiscographySearchService } from './DiscographySearchService'
