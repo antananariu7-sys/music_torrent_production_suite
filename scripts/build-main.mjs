@@ -24,7 +24,8 @@ async function buildMain() {
         'webtorrent',
         'parse-torrent',
         'csv-stringify',
-        'uuid'
+        'uuid',
+        'ffmpeg-static'
       ],
       alias: {
         '@shared': resolve(rootDir, 'src/shared')

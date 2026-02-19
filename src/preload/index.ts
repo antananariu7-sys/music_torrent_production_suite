@@ -60,6 +60,7 @@ import type {
   TorrentMetadataRequest,
   TorrentMetadataResponse,
 } from '@shared/types/torrentMetadata.types'
+import type { FfmpegCheckResult } from '@shared/types/mixExport.types'
 
 // API response wrapper
 interface ApiResponse<T> {
@@ -295,6 +296,12 @@ const api = {
   torrentMetadata: {
     parse: (request: TorrentMetadataRequest): Promise<TorrentMetadataResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_PARSE_METADATA, request),
+  },
+
+  // Audio mix export
+  mixExport: {
+    checkFfmpeg: (): Promise<ApiResponse<FfmpegCheckResult>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MIX_EXPORT_FFMPEG_CHECK),
   },
 
   // Audio playback
