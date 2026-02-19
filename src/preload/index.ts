@@ -60,7 +60,7 @@ import type {
   TorrentMetadataRequest,
   TorrentMetadataResponse,
 } from '@shared/types/torrentMetadata.types'
-import type { FfmpegCheckResult } from '@shared/types/mixExport.types'
+import type { FfmpegCheckResult, MixExportRequest, MixExportProgress } from '@shared/types/mixExport.types'
 
 // API response wrapper
 interface ApiResponse<T> {
@@ -302,6 +302,22 @@ const api = {
   mixExport: {
     checkFfmpeg: (): Promise<ApiResponse<FfmpegCheckResult>> =>
       ipcRenderer.invoke(IPC_CHANNELS.MIX_EXPORT_FFMPEG_CHECK),
+
+    start: (request: MixExportRequest): Promise<ApiResponse<{ jobId: string }>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MIX_EXPORT_START, request),
+
+    cancel: (): Promise<ApiResponse<void>> =>
+      ipcRenderer.invoke(IPC_CHANNELS.MIX_EXPORT_CANCEL),
+
+    onProgress: (callback: (progress: MixExportProgress) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: MixExportProgress) => {
+        callback(progress)
+      }
+      ipcRenderer.on(IPC_CHANNELS.MIX_EXPORT_PROGRESS, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.MIX_EXPORT_PROGRESS, handler)
+      }
+    },
   },
 
   // Audio playback

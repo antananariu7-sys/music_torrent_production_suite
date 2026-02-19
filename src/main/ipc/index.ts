@@ -18,6 +18,8 @@ import { registerWebtorrentHandlers } from './webtorrentHandlers'
 import { registerAudioHandlers } from './audioHandlers'
 import { TorrentMetadataService } from '../services/TorrentMetadataService'
 import { registerTorrentMetadataHandlers } from './torrentMetadataHandlers'
+import { MixExportService } from '../services/mixExport/MixExportService'
+import { registerMixExportHandlers } from './mixExportHandlers'
 
 // Service instances (initialized in registerIpcHandlers)
 let fileSystemService: FileSystemService
@@ -31,6 +33,7 @@ let musicBrainzService: MusicBrainzService
 let discographySearchService: DiscographySearchService
 let torrentMetadataService: TorrentMetadataService
 let projectService: ProjectService
+let mixExportService: MixExportService
 
 export function registerIpcHandlers(): void {
   console.log('Registering IPC handlers...')
@@ -62,6 +65,8 @@ export function registerIpcHandlers(): void {
   registerMusicBrainzHandlers(musicBrainzService)
   registerTorrentMetadataHandlers(torrentMetadataService)
   registerAudioHandlers()
+  mixExportService = new MixExportService(projectService)
+  registerMixExportHandlers(mixExportService)
 
   // Resume any persisted WebTorrent downloads
   webtorrentService.resumePersistedDownloads()
@@ -79,5 +84,6 @@ export async function cleanupServices(): Promise<void> {
   await webtorrentService.destroy()
   await discographySearchService.closeBrowser()
   await torrentMetadataService.closeBrowser()
+  mixExportService.cleanup()
   console.log('Services cleaned up successfully')
 }
