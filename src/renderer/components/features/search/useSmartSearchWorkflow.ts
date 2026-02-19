@@ -1,11 +1,14 @@
-import { useEffect, useCallback, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSmartSearchStore } from '@/store/smartSearchStore'
 import { useSettingsStore } from '@/store/useSettingsStore'
 import { useTorrentCollectionStore } from '@/store/torrentCollectionStore'
 import { toaster } from '@/components/ui/toaster'
-import type { SearchClassificationResult, MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
-import type { SearchResult, SearchProgressEvent } from '@shared/types/search.types'
-import { isLikelyDiscography } from '@shared/utils/resultClassifier'
+import type { MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
+import type { SearchResult } from '@shared/types/search.types'
+
+import { useRuTrackerSearch } from './hooks/useRuTrackerSearch'
+import { useSearchClassification } from './hooks/useSearchClassification'
+import { useDiscographyScan } from './hooks/useDiscographyScan'
 
 interface UseSmartSearchWorkflowOptions {
   onComplete?: (filePath: string) => void
@@ -15,7 +18,6 @@ interface UseSmartSearchWorkflowOptions {
 export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchWorkflowOptions) {
   const autoScanDiscography = useSettingsStore((s) => s.autoScanDiscography)
   const autoScanFiredRef = useRef(false)
-  const [searchProgress, setSearchProgress] = useState<{ currentPage: number; totalPages: number } | null>(null)
 
   const {
     step,
@@ -48,224 +50,52 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     startSearch,
   } = useSmartSearchStore()
 
-  // Handle classification
-  const handleClassify = async (query: string) => {
-    try {
-      addActivityLog(`Starting search for: "${query}"`, 'info')
-      addActivityLog('Classifying search term with MusicBrainz...', 'info')
+  // ====================================
+  // SUB-HOOKS
+  // ====================================
 
-      const response = await window.api.musicBrainz.classifySearch({ query })
+  const { searchRuTracker, searchProgress } = useRuTrackerSearch({
+    addActivityLog,
+    setRuTrackerResults,
+    setError,
+  })
 
-      if (response.success && response.results) {
-        addActivityLog(`Found ${response.results.length} classification matches`, 'success')
-        setClassificationResults(response.results)
-      } else {
-        const errorMsg = response.error || 'Failed to classify search term'
-        addActivityLog(errorMsg, 'error')
-        setError(errorMsg)
-        addToHistory({ query, status: 'error' })
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to classify search'
-      addActivityLog(errorMsg, 'error')
-      setError(errorMsg)
-      addToHistory({ query, status: 'error' })
-    }
-  }
+  const { handleClassify, handleSelectClassification } = useSearchClassification({
+    addActivityLog,
+    setClassificationResults,
+    selectClassification,
+    setAlbums,
+    selectAlbum,
+    setError,
+    addToHistory,
+    searchRuTracker,
+  })
 
-  // Search RuTracker for album (parallel: direct album search + progressive discography search)
-  const searchRuTracker = async (album: MusicBrainzAlbum) => {
-    try {
-      addActivityLog('Creating optimized RuTracker search query...', 'info')
-      const queryResponse = await window.api.musicBrainz.createRuTrackerQuery(album.id)
+  const { handleStartDiscographyScan, handleStopDiscographyScan } = useDiscographyScan({
+    selectedAlbum,
+    ruTrackerResults,
+    isScannningDiscography,
+    addActivityLog,
+    startDiscographyScan,
+    stopDiscographyScan,
+    setDiscographyScanProgress,
+    setDiscographyScanResults,
+  })
 
-      if (!queryResponse.success || !queryResponse.data) {
-        addActivityLog('Failed to create RuTracker query', 'error')
-        setError('Failed to create RuTracker query')
-        return
-      }
+  // ====================================
+  // ALBUM HANDLERS
+  // ====================================
 
-      const albumQuery = queryResponse.data
-      const discographyQuery = album.artist
-
-      console.log('[SmartSearch] RuTracker search queries:', { albumQuery, discographyQuery })
-      console.log('[SmartSearch] Album details:', { title: album.title, artist: album.artist, id: album.id })
-      addActivityLog(`Searching RuTracker: "${albumQuery}" + artist pages...`, 'info')
-
-      let albumResults: SearchResult[] = []
-
-      const cleanupProgress = window.api.search.onProgress((progress: SearchProgressEvent) => {
-        console.log(`[SmartSearch] Discography progress: page ${progress.currentPage}/${progress.totalPages}, ${progress.results.length} results`)
-        // Only update loading progress indicator, don't show partial results
-        setSearchProgress({ currentPage: progress.currentPage, totalPages: progress.totalPages })
-      })
-
-      const [albumResponse, discographyResponse] = await Promise.allSettled([
-        window.api.search.start({
-          query: albumQuery,
-          filters: {
-            format: 'any',
-            minSeeders: 5,
-          },
-          sort: {
-            by: 'relevance',
-            order: 'desc',
-          },
-          maxResults: 50,
-        }),
-        window.api.search.startProgressive({
-          query: discographyQuery,
-          filters: {
-            minSeeders: 5,
-          },
-          maxPages: 50, // Search all available pages (up to 50)
-        }),
-      ])
-
-      cleanupProgress()
-      setSearchProgress(null)
-
-      albumResults = albumResponse.status === 'fulfilled' && albumResponse.value.success
-        ? (albumResponse.value.results || []).map(r => ({ ...r, searchSource: 'album' as const }))
-        : []
-
-      const discographyResults = discographyResponse.status === 'fulfilled' && discographyResponse.value.success
-        ? (discographyResponse.value.results || [])
-        : []
-
-      console.log('[SmartSearch] RuTracker search responses:', {
-        albumResults: albumResults.length,
-        discographyResults: discographyResults.length,
-      })
-
-      const finalSeenIds = new Set<string>()
-      const finalResults: SearchResult[] = []
-
-      for (const r of albumResults) {
-        if (!finalSeenIds.has(r.id)) {
-          finalSeenIds.add(r.id)
-          finalResults.push(r)
-        }
-      }
-
-      for (const r of discographyResults) {
-        if (!finalSeenIds.has(r.id)) {
-          finalSeenIds.add(r.id)
-          finalResults.push({ ...r, searchSource: 'discography' as const })
-        }
-      }
-
-      if (finalResults.length > 0) {
-        const albumCount = albumResults.length
-        const discographyCount = finalResults.filter(r => r.searchSource === 'discography').length
-
-        if (albumCount === 0 && discographyCount > 0) {
-          addActivityLog(`No direct results for "${album.title}", showing ${discographyCount} results from artist discography`, 'warning')
-        } else {
-          const logMsg = discographyCount > 0
-            ? `Found ${albumCount} direct + ${discographyCount} from artist search`
-            : `Found ${albumCount} torrents on RuTracker`
-          addActivityLog(logMsg, 'success')
-        }
-        setRuTrackerResults(albumQuery, finalResults)
-      } else {
-        const errorMsg = 'No torrents found on RuTracker'
-        addActivityLog(errorMsg, 'warning')
-        setError(errorMsg)
-      }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to search RuTracker'
-      addActivityLog(errorMsg, 'error')
-      setError(errorMsg)
-    }
-  }
-
-  // Handle classification selection
-  const handleSelectClassification = async (result: SearchClassificationResult) => {
-    addActivityLog(`Selected: ${result.name} (${result.type})`, 'info')
-    selectClassification(result)
-
-    if (result.type === 'song') {
-      try {
-        addActivityLog(`Finding albums containing "${result.name}"...`, 'info')
-        const response = await window.api.musicBrainz.findAlbumsBySong({
-          songTitle: result.name,
-          artist: result.artist,
-        })
-
-        if (response.success && response.albums) {
-          addActivityLog(`Found ${response.albums.length} albums`, 'success')
-          setAlbums(response.albums)
-        } else {
-          const errorMsg = response.error || 'No albums found for this song'
-          addActivityLog(errorMsg, 'error')
-          setError(errorMsg)
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to find albums'
-        addActivityLog(errorMsg, 'error')
-        setError(errorMsg)
-      }
-    } else if (result.type === 'artist') {
-      try {
-        if (!result.albumId) {
-          addActivityLog('Artist ID not found', 'error')
-          setError('Artist ID not found')
-          return
-        }
-
-        addActivityLog(`Fetching albums by ${result.artist || result.name}...`, 'info')
-        const response = await window.api.musicBrainz.getArtistAlbums({
-          artistId: result.albumId,
-          limit: 50,
-        })
-
-        if (response.success && response.albums) {
-          addActivityLog(`Found ${response.albums.length} albums`, 'success')
-          setAlbums(response.albums)
-        } else {
-          const errorMsg = response.error || 'No albums found for this artist'
-          addActivityLog(errorMsg, 'error')
-          setError(errorMsg)
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to get artist albums'
-        addActivityLog(errorMsg, 'error')
-        setError(errorMsg)
-      }
-    } else if (result.type === 'album' && result.albumId) {
-      try {
-        addActivityLog(`Fetching album details...`, 'info')
-        const albumResponse = await window.api.musicBrainz.getAlbumDetails(result.albumId)
-
-        if (albumResponse.success && albumResponse.data) {
-          selectAlbum(albumResponse.data)
-          await searchRuTracker(albumResponse.data)
-        } else {
-          addActivityLog('Failed to get album details', 'error')
-          setError('Failed to get album details')
-        }
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Failed to search RuTracker'
-        addActivityLog(errorMsg, 'error')
-        setError(errorMsg)
-      }
-    }
-  }
-
-  // Handle album selection
   const handleSelectAlbum = async (album: MusicBrainzAlbum) => {
     addActivityLog(`Selected album: ${album.title} by ${album.artist}`, 'info')
     selectAlbum(album)
     await searchRuTracker(album)
   }
 
-  // Handle discography selection
   const handleSelectDiscography = async () => {
     if (!selectedClassification) return
 
     selectAction('discography')
-
     const artistName = selectedClassification.artist || selectedClassification.name
 
     try {
@@ -276,20 +106,15 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
 
       const discographyResponse = await window.api.search.start({
         query: discographyQuery,
-        filters: {
-          minSeeders: 5,
-        },
-        sort: {
-          by: 'seeders',
-          order: 'desc',
-        },
+        filters: { minSeeders: 5 },
+        sort: { by: 'seeders', order: 'desc' },
         maxResults: 20,
       })
 
       console.log('[SmartSearch] Discography search response:', {
         success: discographyResponse.success,
         resultCount: discographyResponse.results?.length || 0,
-        error: discographyResponse.error
+        error: discographyResponse.error,
       })
 
       if (discographyResponse.success && discographyResponse.results && discographyResponse.results.length > 0) {
@@ -303,20 +128,15 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
 
       const artistResponse = await window.api.search.start({
         query: artistName,
-        filters: {
-          minSeeders: 5,
-        },
-        sort: {
-          by: 'seeders',
-          order: 'desc',
-        },
+        filters: { minSeeders: 5 },
+        sort: { by: 'seeders', order: 'desc' },
         maxResults: 20,
       })
 
       console.log('[SmartSearch] Artist name search response:', {
         success: artistResponse.success,
         resultCount: artistResponse.results?.length || 0,
-        error: artistResponse.error
+        error: artistResponse.error,
       })
 
       if (artistResponse.success && artistResponse.results && artistResponse.results.length > 0) {
@@ -334,80 +154,10 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     }
   }
 
-  // Handle discography content scan (scan pages for album)
-  const handleStartDiscographyScan = useCallback(async () => {
-    if (!selectedAlbum || ruTrackerResults.length === 0) return
+  // ====================================
+  // TORRENT / FLOW HANDLERS
+  // ====================================
 
-    const discographyPages = ruTrackerResults.filter((t) => isLikelyDiscography(t.title))
-
-    if (discographyPages.length === 0) {
-      addActivityLog('No discography pages found to scan', 'warning')
-      return
-    }
-
-    addActivityLog(`Scanning ${discographyPages.length} discography pages for "${selectedAlbum.title}"...`, 'info')
-    startDiscographyScan()
-
-    const cleanupProgress = window.api.discography.onProgress((progress) => {
-      setDiscographyScanProgress(progress)
-    })
-
-    try {
-      const response = await window.api.discography.search({
-        searchResults: discographyPages,
-        albumName: selectedAlbum.title,
-        artistName: selectedAlbum.artist,
-        maxConcurrent: 3,
-        pageTimeout: 30000,
-      })
-
-      cleanupProgress()
-
-      if (response.success) {
-        setDiscographyScanResults(response.scanResults)
-        if (response.matchCount > 0) {
-          addActivityLog(
-            `Found "${selectedAlbum.title}" in ${response.matchCount} of ${response.totalScanned} pages`,
-            'success'
-          )
-          toaster.create({
-            title: 'Album found!',
-            description: `"${selectedAlbum.title}" found in ${response.matchCount} discography pages`,
-            type: 'success',
-            duration: 5000,
-          })
-        } else {
-          addActivityLog(
-            `Album not found in ${response.totalScanned} scanned pages`,
-            'warning'
-          )
-        }
-      } else {
-        addActivityLog(response.error || 'Scan failed', 'error')
-        stopDiscographyScan()
-      }
-    } catch (err) {
-      cleanupProgress()
-      const errorMsg = err instanceof Error ? err.message : 'Scan failed'
-      addActivityLog(errorMsg, 'error')
-      stopDiscographyScan()
-    }
-  }, [
-    selectedAlbum,
-    ruTrackerResults,
-    addActivityLog,
-    startDiscographyScan,
-    setDiscographyScanProgress,
-    setDiscographyScanResults,
-    stopDiscographyScan,
-  ])
-
-  const handleStopDiscographyScan = useCallback(() => {
-    addActivityLog('Discography scan stopped by user', 'warning')
-    stopDiscographyScan()
-  }, [addActivityLog, stopDiscographyScan])
-
-  // Handle torrent selection - add to collection
   const handleSelectTorrent = async (torrent: SearchResult) => {
     selectTorrent(torrent)
 
@@ -454,7 +204,6 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     }
   }
 
-  // Handle cancel
   const handleCancel = () => {
     addActivityLog('Search cancelled by user', 'warning')
     if (originalQuery) {
@@ -466,16 +215,17 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     }
   }
 
-  // Handle retry
   const handleRetry = () => {
     if (!originalQuery) return
-
     addActivityLog(`Retrying search: "${originalQuery}"`, 'info')
     reset()
     startSearch(originalQuery)
   }
 
-  // Auto-classify when step changes to classifying
+  // ====================================
+  // EFFECTS
+  // ====================================
+
   useEffect(() => {
     if (step === 'classifying' && originalQuery) {
       autoScanFiredRef.current = false
@@ -484,7 +234,6 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, originalQuery])
 
-  // Auto-scan discography pages when results arrive (if setting enabled)
   useEffect(() => {
     if (
       autoScanDiscography &&
@@ -500,7 +249,6 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, selectedAlbum, ruTrackerResults, autoScanDiscography, isScannningDiscography])
 
-  // Show error notification
   useEffect(() => {
     if (error) {
       console.error('SmartSearch error:', error)
@@ -515,7 +263,10 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     }
   }, [error])
 
-  // Derived state
+  // ====================================
+  // DERIVED STATE
+  // ====================================
+
   const getInlineStep = (): 'classification' | 'albums' | 'torrents' | null => {
     if (step === 'user-choice') return 'classification'
     if (step === 'selecting-album') return 'albums'

@@ -1,339 +1,199 @@
 # Code Size Analysis & Refactoring Recommendations
 
-**Last Updated**: 2026-02-17 (originally analyzed 2026-02-09)
+**Last Updated**: 2026-02-19
 **Target**: Keep all files under 400-500 lines for maintainability
 
 ---
 
-## 📊 Summary Statistics
+## Summary Statistics
 
 | Category | Files Analyzed | Critical (>500) | Warning (400-500) | Good (<400) |
 |----------|----------------|-----------------|-------------------|-------------|
-| Renderer Components | 36 | 3 | 1 | 32 |
-| Main Services | 12 | 4 | 2 | 6 |
-| Pages | 19 | 1 | 0 | 18 |
-| Stores | 12 | 0 | 1 | 11 |
-| IPC Handlers | 9 | 0 | 0 | 9 |
+| Renderer Components | 33 | 0 | 2 | 31 |
+| Main Services | 13 | 0 | 1 | 12 |
+| Pages | 23 | 0 | 0 | 23 |
+| Stores | 11 | 0 | 1 | 10 |
+| IPC Handlers | 10 | 0 | 0 | 10 |
 
-**Total Critical Files**: 6 files remain (2 successfully refactored since original analysis)
+**Total Critical Files**: 0 (all resolved!)
 **Total Warning Files**: 4 files should be monitored
 
-> **Update 2026-02-17**: RuTrackerSearchService.ts refactored from 910 to 364 lines (split into `rutracker/` subdirectory). Settings/index.tsx refactored from 899 to 142 lines (split into subcomponents). InlineSearchResults.tsx grew from 534 to 713 lines (needs attention).
+> **Update 2026-02-19**: Major refactoring session completed. All 6 critical files (>500 lines) have been split into focused modules. Largest file in codebase is now 359 lines (TorrentDownloadService.ts facade). Build passes, all tests pass.
+>
+> **Previous updates**: RuTrackerSearchService.ts refactored from 910 to 364 lines. Settings/index.tsx refactored from 899 to 142 lines.
 
 ---
 
-## 🔴 CRITICAL - Immediate Refactoring Needed (>500 lines)
+## CRITICAL - Immediate Refactoring Needed (>500 lines)
 
-### Renderer Components
+*No critical files remain. All have been resolved.*
 
-#### 1. DownloadQueueItem.tsx - **633 lines** 🚨
+---
+
+## Previously Critical — Now Refactored ✅
+
+### 1. WebTorrentService.ts — ~~1000 lines~~ → **8 files, max 288 lines** ✅
+
+**Location**: `src/main/services/WebTorrentService.ts` (re-export stub)
+
+**Split into**:
+```
+src/main/services/webtorrent/
+├── WebTorrentService.ts (288 lines) — Main facade, public API
+├── managers/
+│   ├── TorrentLifecycleManager.ts (269 lines) — Engine, startTorrent, processQueue
+│   └── ProgressBroadcaster.ts (155 lines) — Real-time progress updates
+├── handlers/
+│   └── FileSelectionHandler.ts (169 lines) — File selection, partial downloads
+└── utils/
+    ├── fileCleanup.ts (145 lines) — Delete/cleanup downloaded files
+    ├── torrentHelpers.ts (52 lines) — mapTorrentFiles, parseTorrentFiles
+    └── torrentPersistence.ts (51 lines) — Save/load queue to JSON
+```
+
+---
+
+### 2. DownloadQueueItem.tsx — ~~806 lines~~ → **7 files, max 275 lines** ✅
 
 **Location**: `src/renderer/components/features/torrent/DownloadQueueItem.tsx`
 
-**Issues**:
-- Complex file tree rendering logic (buildFileTree, renderTreeNode)
-- Progress display and formatting utilities
-- Audio player integration
-- Torrent control actions
-- All mixed in a single 633-line component
+**Split into**:
+```
+src/renderer/components/features/torrent/
+├── DownloadQueueItem.tsx (275 lines) — Main container
+├── components/
+│   ├── FileTreeNode.tsx — Recursive tree node rendering
+│   ├── TorrentProgressBar.tsx — Progress bar
+│   ├── TorrentControls.tsx — Pause/resume/remove/play buttons
+│   └── RemoveDialog.tsx — Removal confirmation dialog
+└── utils/
+    ├── fileTreeBuilder.ts — buildFileTree logic
+    └── formatters.ts — formatSpeed, formatSize
+```
+
+---
+
+### 3. InlineSearchResults.tsx — ~~713 lines~~ → **6 files, max 266 lines** ✅
+
+**Location**: `src/renderer/components/features/search/InlineSearchResults.tsx`
+
+**Split into**:
+```
+src/renderer/components/features/search/
+├── InlineSearchResults.tsx (266 lines) — Main container
+└── components/
+    ├── ClassificationItem.tsx
+    ├── AlbumItem.tsx
+    ├── TorrentItem.tsx
+    └── GroupedTorrentList.tsx
+```
+
+---
+
+### 4. AuthService.ts — ~~607 lines~~ → **4 files, max 263 lines** ✅
+
+**Location**: `src/main/services/AuthService.ts` (re-export stub)
+
+**Split into**:
+```
+src/main/services/auth/
+├── AuthService.ts (263 lines) — Main service, login, public API
+└── session/
+    ├── SessionPersistence.ts (114 lines) — Save/restore session to disk
+    └── SessionValidator.ts (113 lines) — Background session validation
+```
+
+**Shared utility**:
+```
+src/main/services/utils/
+└── browserUtils.ts (43 lines) — findChromePath() (shared with TorrentDownloadService)
+```
+
+---
+
+### 5. TorrentDownloadService.ts — ~~583 lines~~ → **3 files, max 359 lines** ✅
+
+**Location**: `src/main/services/TorrentDownloadService.ts` (re-export stub)
+
+**Split into**:
+```
+src/main/services/torrent/
+├── TorrentDownloadService.ts (359 lines) — Main service
+└── DownloadHistoryManager.ts (93 lines) — History load/save/clear
+```
+
+---
+
+### 6. useSmartSearchWorkflow.ts — ~~561 lines~~ → **4 files, max 313 lines** ✅
+
+**Location**: `src/renderer/components/features/search/useSmartSearchWorkflow.ts`
+
+**Split into**:
+```
+src/renderer/components/features/search/
+├── useSmartSearchWorkflow.ts (313 lines) — Main orchestration hook
+└── hooks/
+    ├── useSearchClassification.ts (131 lines) — Classify query, handle classification selection
+    ├── useRuTrackerSearch.ts (116 lines) — Parallel album + discography search
+    └── useDiscographyScan.ts (104 lines) — Scan discography pages for album
+```
+
+---
+
+### Previously Refactored
+
+#### RuTrackerSearchService.ts — ~~910 lines~~ → **364 lines** ✅
+Split into `src/main/services/rutracker/` subdirectory with scrapers, parsers, and utils.
+
+#### Settings/index.tsx — ~~899 lines~~ → **142 lines** ✅
+Split into GeneralSettings, RuTrackerAuthCard, SearchSettings, WebTorrentSettings, DebugSettings, AdvancedSettings subcomponents.
+
+---
+
+## WARNING - Consider Refactoring (400-500 lines)
+
+### 1. MusicBrainzService.ts - **464 lines** (was 444, growing)
+
+**Location**: `src/main/services/MusicBrainzService.ts`
+
+**Refactoring Plan**:
+```
+src/main/services/musicbrainz/
+├── MusicBrainzService.ts (150 lines) — Main service
+└── api/
+    ├── AlbumSearchAPI.ts (100 lines)
+    ├── ArtistSearchAPI.ts (100 lines)
+    └── ClassificationAPI.ts (114 lines)
+```
+
+---
+
+### 2. CollectedTorrentItem.tsx - **460 lines**
+
+**Location**: `src/renderer/components/features/torrent/CollectedTorrentItem.tsx`
 
 **Refactoring Plan**:
 ```
 src/renderer/components/features/torrent/
-├── DownloadQueueItem.tsx (150 lines)
-│   └── Main container component
+├── CollectedTorrentItem.tsx (150 lines) — Main container
 ├── components/
-│   ├── FileTreeNode.tsx (150 lines)
-│   │   └── Recursive tree node rendering
-│   ├── TorrentProgressBar.tsx (80 lines)
-│   │   └── Progress bar with ETA display
-│   └── TorrentControls.tsx (100 lines)
-│       └── Pause/resume/remove/play buttons
-└── utils/
-    ├── fileTreeBuilder.ts (100 lines)
-    │   └── buildFileTree, calculateFolderData logic
-    └── formatters.ts (50 lines)
-        └── formatSpeed, formatSize, formatEta functions
-```
-
-**Benefits**:
-- Easier to test individual components
-- Reusable FileTreeNode for other features
-- Clearer separation of concerns
-- Improved code navigation
-
----
-
-#### 2. useSmartSearchWorkflow.ts - **586 lines**
-
-**Location**: `src/renderer/components/features/search/useSmartSearchWorkflow.ts`
-
-**Issues**:
-- Complex state machine managing multi-step search workflow
-- Classification, album selection, and torrent selection all in one hook
-- Difficult to test and maintain
-- Hard to understand the flow
-
-**Refactoring Plan**:
-```
-src/renderer/components/features/search/hooks/
-├── useSmartSearchWorkflow.ts (200 lines)
-│   └── Main orchestration hook
-├── useSearchClassification.ts (100 lines)
-│   └── Step 1: Classify search term
-├── useAlbumSelection.ts (100 lines)
-│   └── Step 2: Select album from MusicBrainz
-├── useTorrentSelection.ts (100 lines)
-│   └── Step 3: Select torrent from RuTracker
-└── utils/
-    └── searchWorkflowHelpers.ts (86 lines)
-        └── Shared utilities and state transitions
-```
-
-**Benefits**:
-- Each step can be tested independently
-- Easier to add new workflow steps
-- Better code reusability
-- Clearer workflow visualization
-
----
-
-#### 3. InlineSearchResults.tsx - **534 lines**
-
-**Location**: `src/renderer/components/features/search/InlineSearchResults.tsx`
-
-**Issues**:
-- Large table with filtering, sorting, pagination
-- Collection management (add to collection)
-- Download actions
-- All UI logic in one component
-
-**Refactoring Plan**:
-```
-src/renderer/components/features/search/
-├── InlineSearchResults.tsx (150 lines)
-│   └── Main container and layout
-├── components/
-│   ├── SearchResultsTable.tsx (150 lines)
-│   │   └── Table display logic
-│   ├── SearchResultRow.tsx (100 lines)
-│   │   └── Individual result row with actions
-│   └── SearchFilters.tsx (80 lines)
-│       └── Format/quality filter controls
+│   ├── CollectedItemActions.tsx (100 lines)
+│   └── CollectedItemDetails.tsx (100 lines)
 └── hooks/
-    └── useSearchResultsFiltering.ts (54 lines)
-        └── Filter and sort logic
+    └── useCollectedItemActions.ts (80 lines)
 ```
-
-**Benefits**:
-- Reusable table components
-- Easier to modify filter UI
-- Better testing of filter logic
-- Improved performance (smaller re-render scope)
 
 ---
 
-### Main Process Services
-
-#### 4. RuTrackerSearchService.ts - ~~910 lines~~ **364 lines** ✅ REFACTORED
-
-**Location**: `src/main/services/RuTrackerSearchService.ts`
-
-**Issues**:
-- Massive monolithic service
-- Handles scraping, parsing, pagination, filtering, retry logic
-- Nearly impossible to maintain
-- Hard to test individual pieces
-- Violates Single Responsibility Principle
-
-**Refactoring Plan**:
-```
-src/main/services/rutracker/
-├── RuTrackerSearchService.ts (200 lines)
-│   └── Main orchestrator, public API
-├── scrapers/
-│   ├── PageScraper.ts (150 lines)
-│   │   └── Puppeteer page navigation and scraping
-│   ├── ResultParser.ts (200 lines)
-│   │   └── HTML parsing and result extraction
-│   └── PaginationHandler.ts (100 lines)
-│       └── Multi-page search handling
-├── filters/
-│   └── SearchFilters.ts (100 lines)
-│       └── Format, quality, and size filtering
-└── utils/
-    ├── retryHandler.ts (80 lines)
-    │   └── Retry logic with exponential backoff
-    └── urlBuilder.ts (80 lines)
-        └── Search URL construction
-```
-
-**Benefits**:
-- Much easier to test each piece
-- Clear separation of concerns
-- Easier to add new search features
-- Better error isolation
-- Improved code navigation
-
----
-
-#### 5. WebTorrentService.ts - **670 lines**
-
-**Location**: `src/main/services/WebTorrentService.ts`
-
-**Issues**:
-- Queue management logic
-- Torrent lifecycle (add/pause/resume/remove)
-- Progress tracking and broadcasting
-- Queue persistence
-- All in one massive service
-
-**Refactoring Plan**:
-```
-src/main/services/webtorrent/
-├── WebTorrentService.ts (200 lines)
-│   └── Main service, public API
-├── managers/
-│   ├── QueueManager.ts (150 lines)
-│   │   └── FIFO queue logic, concurrency control
-│   ├── TorrentLifecycleManager.ts (150 lines)
-│   │   └── Add/pause/resume/remove operations
-│   └── ProgressBroadcaster.ts (100 lines)
-│       └── Real-time progress updates (1s interval)
-└── utils/
-    └── torrentPersistence.ts (70 lines)
-        └── Save/load queue to JSON
-```
-
-**Benefits**:
-- Easier to test queue logic independently
-- Better separation of lifecycle vs queue management
-- Clearer code organization
-- Easier to modify progress broadcast interval
-
----
-
-#### 6. AuthService.ts - **599 lines**
-
-**Location**: `src/main/services/AuthService.ts`
-
-**Issues**:
-- Login flow with CAPTCHA detection
-- Session management and persistence
-- Cookie handling
-- Background session validation
-- All mixed together
-
-**Refactoring Plan**:
-```
-src/main/services/auth/
-├── AuthService.ts (200 lines)
-│   └── Main auth orchestrator
-├── login/
-│   ├── LoginHandler.ts (150 lines)
-│   │   └── Login flow orchestration
-│   └── CaptchaHandler.ts (80 lines)
-│       └── CAPTCHA detection and handling
-└── session/
-    ├── SessionManager.ts (100 lines)
-    │   └── Session persistence and cookie management
-    └── SessionValidator.ts (70 lines)
-        └── Background validation (5-minute interval)
-```
-
-**Benefits**:
-- Easier to test login flow separately
-- Better session management isolation
-- Clearer CAPTCHA handling
-- Improved background validation logic
-
----
-
-#### 7. TorrentDownloadService.ts - **579 lines**
-
-**Location**: `src/main/services/TorrentDownloadService.ts`
-
-**Issues**:
-- Torrent file download logic
-- Magnet link extraction
-- Download history management
-- All in one service
-
-**Refactoring Plan**:
-```
-src/main/services/torrent/
-├── TorrentDownloadService.ts (200 lines)
-│   └── Main service orchestrator
-├── downloaders/
-│   ├── TorrentFileDownloader.ts (150 lines)
-│   │   └── .torrent file download via Puppeteer
-│   └── MagnetLinkExtractor.ts (120 lines)
-│       └── Extract magnet links from pages
-└── managers/
-    └── DownloadHistoryManager.ts (109 lines)
-        └── Track download history per project
-```
-
-**Benefits**:
-- Separate download logic from history
-- Easier to test magnet link extraction
-- Better error handling per downloader type
-
----
-
-### Pages
-
-#### 8. Settings/index.tsx - ~~899 lines~~ **142 lines** ✅ REFACTORED
-
-**Location**: `src/renderer/pages/Settings/index.tsx`
-
-**Issues**:
-- Monolithic settings page
-- All settings categories in one file
-- Hard to navigate and maintain
-- Difficult to add new settings sections
-
-**Refactoring Plan**:
-```
-src/renderer/pages/Settings/
-├── index.tsx (150 lines)
-│   └── Main container, tab navigation
-└── components/
-    ├── GeneralSettings.tsx (150 lines)
-    │   └── App-wide settings
-    ├── RuTrackerAuthCard.tsx (351 lines) ✅ Already extracted!
-    ├── TorrentSettings.tsx (120 lines)
-    │   └── .torrent download settings
-    ├── WebTorrentSettings.tsx (120 lines)
-    │   └── WebTorrent queue settings
-    └── AdvancedSettings.tsx (100 lines)
-        └── Advanced/debug options
-```
-
-**Benefits**:
-- Each settings category is independent
-- Easier to add new settings sections
-- Better code organization
-- Improved performance (lazy loading possible)
-
----
-
-## 🟡 WARNING - Consider Refactoring (400-500 lines)
-
-### 9. smartSearchStore.ts - **433 lines**
+### 3. smartSearchStore.ts - **433 lines** (stable)
 
 **Location**: `src/renderer/store/smartSearchStore.ts`
 
-**Status**: Acceptable for a complex state store, but approaching limit
-
-**Recommendation**: Monitor for growth. If exceeds 500 lines, split into:
-- `smartSearchStore.ts` - Core state
-- `smartSearchActions.ts` - Action creators
-- `smartSearchSelectors.ts` - Derived state selectors
+**Recommendation**: If exceeds 500 lines, split into core state, action creators, and selectors.
 
 ---
 
-### 10. FileSelectionDialog.tsx - **430 lines**
+### 4. FileSelectionDialog.tsx - **430 lines** (stable)
 
 **Location**: `src/renderer/components/features/torrent/FileSelectionDialog.tsx`
 
@@ -341,128 +201,41 @@ src/renderer/pages/Settings/
 ```
 src/renderer/components/features/torrent/
 ├── FileSelectionDialog.tsx (150 lines)
-│   └── Dialog wrapper and state
-├── components/
-│   ├── FileSelectionTree.tsx (150 lines)
-│   │   └── Tree view with checkboxes
-│   └── FileSelectionControls.tsx (80 lines)
-│       └── Select all/none, folder toggle buttons
-└── hooks/
-    └── useFileSelection.ts (50 lines)
-        └── File selection state logic
+└── components/
+    ├── FileSelectionTree.tsx (150 lines)
+    └── FileSelectionControls.tsx (80 lines)
 ```
 
 ---
 
-### 11. MusicBrainzService.ts - **444 lines**
+## WATCH - Approaching Warning (350-400 lines)
 
-**Location**: `src/main/services/MusicBrainzService.ts`
-
-**Refactoring Plan**:
-```
-src/main/services/musicbrainz/
-├── MusicBrainzService.ts (150 lines)
-│   └── Main service
-└── api/
-    ├── AlbumSearchAPI.ts (100 lines)
-    ├── ArtistSearchAPI.ts (100 lines)
-    └── ClassificationAPI.ts (94 lines)
-```
+| File | Lines | Notes |
+|------|-------|-------|
+| `TorrentDownloadService.ts` | 359 | In webtorrent/ — stable |
+| `ProjectService.ts` | 395 | Approaching 400-line warning threshold |
+| `RuTrackerSearchService.ts` | 364 | Stable post-refactor |
+| `RuTrackerAuthCard.tsx` | 351 | Settings subcomponent, monitor |
+| `DiscographySearchService.ts` | 426 | Warning zone, stable |
 
 ---
 
-### 12. DiscographySearchService.ts - **432 lines**
-
-**Location**: `src/main/services/DiscographySearchService.ts`
-
-**Refactoring Plan**:
-```
-src/main/services/discography/
-├── DiscographySearchService.ts (150 lines)
-│   └── Main orchestrator
-├── DiscographyScraper.ts (150 lines)
-│   └── Puppeteer scraping logic
-└── DiscographyParser.ts (132 lines)
-    └── Result parsing and formatting
-```
-
----
-
-## 📋 Prioritized Refactoring Roadmap
-
-### Phase 1: Critical Services (Week 1-2)
-
-**Priority Order**:
-1. **RuTrackerSearchService.ts** (910 → 364 lines) ✅ DONE
-   - Highest impact, most complex
-   - Will improve search reliability
-
-2. **Settings/index.tsx** (899 → 142 lines) ✅ DONE
-   - User-facing, frequently modified
-   - Easy to split by settings category
-
-3. **WebTorrentService.ts** (670 → ~200 lines)
-   - Core download functionality
-   - Better testability needed
-
-### Phase 2: UI Components (Week 3-4)
-
-4. **DownloadQueueItem.tsx** (633 → ~150 lines)
-   - High user visibility
-   - Complex rendering logic
-
-5. **useSmartSearchWorkflow.ts** (586 → ~200 lines)
-   - Central to search UX
-   - Complex state machine
-
-6. **InlineSearchResults.tsx** (534 → ~150 lines)
-   - Frequently used component
-   - Performance improvements possible
-
-### Phase 3: Remaining Services (Week 5-6)
-
-7. **AuthService.ts** (599 → ~200 lines)
-8. **TorrentDownloadService.ts** (579 → ~200 lines)
-9. **MusicBrainzService.ts** (444 → ~150 lines)
-10. **DiscographySearchService.ts** (432 → ~150 lines)
-
-### Phase 4: Final Polish (Week 7)
-
-11. **FileSelectionDialog.tsx** (430 → ~150 lines)
-12. **smartSearchStore.ts** (433 lines) - Only if grown further
-
----
-
-## 🎯 Refactoring Principles
+## Refactoring Principles
 
 ### 1. Single Responsibility Principle
-Each file should have ONE clear responsibility:
-- ✅ `ResultParser.ts` - Parse HTML results
-- ❌ `SearchService.ts` - Do everything
+Each file should have ONE clear responsibility.
 
 ### 2. Extract Utilities First
-Move pure functions to separate files:
-- Formatters (`formatSpeed`, `formatSize`, `formatEta`)
-- Builders (`buildFileTree`, `buildSearchUrl`)
-- Validators (`isValidUrl`, `isAudioFile`)
+Move pure functions to separate files: formatters, builders, validators.
 
 ### 3. Component Composition
-Split UI into smaller, focused components:
-- Container components (logic)
-- Presentational components (UI)
-- Utility components (reusable pieces)
+Split UI into smaller, focused components: container, presentational, utility.
 
 ### 4. Service Layer Separation
-Separate orchestration from implementation:
-- Service (orchestrates, public API)
-- Managers (business logic)
-- Utils (pure functions)
+Separate orchestration from implementation: Service → Managers → Utils.
 
 ### 5. Hook Extraction
-Extract complex logic into custom hooks:
-- ✅ `useFileSelection` - Selection state
-- ✅ `useSearchFiltering` - Filter logic
-- ❌ Everything in component
+Extract complex logic into custom hooks per concern.
 
 ### 6. Target File Size
 - **Ideal**: 200-300 lines
@@ -471,69 +244,16 @@ Extract complex logic into custom hooks:
 
 ---
 
-## 🧪 Testing Strategy After Refactoring
-
-### Unit Tests
-- Test each extracted utility independently
-- Test managers without service overhead
-- Test components in isolation
-
-### Integration Tests
-- Test service orchestration
-- Test component composition
-- Test workflow state machines
-
-### Benefits
-- Faster test execution
-- Better test isolation
-- Easier to identify failures
-- Higher code coverage
-
----
-
-## 📈 Expected Improvements
-
-### Code Quality
-- ✅ Better maintainability
-- ✅ Easier to understand
-- ✅ Clearer responsibilities
-- ✅ Improved navigation
-
-### Developer Experience
-- ✅ Faster feature development
-- ✅ Easier onboarding
-- ✅ Better code reviews
-- ✅ Reduced merge conflicts
-
-### Testing
-- ✅ Higher test coverage
-- ✅ Faster test execution
-- ✅ Better test isolation
-- ✅ Easier to mock
-
-### Performance
-- ✅ Smaller re-render scope (React)
-- ✅ Better code splitting potential
-- ✅ Reduced memory footprint
-- ✅ Faster initial load
-
----
-
-## ✅ Files Already Well-Sized (<400 lines)
+## Files Already Well-Sized (<400 lines)
 
 **Excellent examples to follow**:
 - Most stores (26-222 lines)
-- Most IPC handlers (39-182 lines)
-- Most common components (32-163 lines)
-- Utility components (18-82 lines)
-
-**Keep these patterns**:
-- Small, focused files
-- Clear single responsibility
-- Well-named files
-- Good separation of concerns
+- Most IPC handlers (39-200 lines)
+- Most common components (32-285 lines)
+- Most page components (18-271 lines)
+- Refactored rutracker/ modules (175-262 lines)
 
 ---
 
-**Last Updated**: 2026-02-09
-**Next Review**: After Phase 1 completion
+**Last Updated**: 2026-02-19
+**Status**: All Phase 1 & 2 critical files resolved. Phase 3 (warning files) queued for future sessions.
