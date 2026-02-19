@@ -15,7 +15,7 @@ export function registerAppHandlers(configService: ConfigService): void {
   ipcMain.handle(IPC_CHANNELS.APP_READY, async () => {
     return {
       name: 'Music Production Suite',
-      version: '0.1.0',
+      version: '0.2.0',
       platform: process.platform,
       arch: process.arch,
     }

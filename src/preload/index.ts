@@ -101,6 +101,9 @@ const api = {
   selectDirectory: (title?: string): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.FILE_SELECT_DIRECTORY, title),
 
+  selectAudioFiles: (): Promise<string[] | null> =>
+    ipcRenderer.invoke(IPC_CHANNELS.FILE_SELECT_AUDIO_FILES),
+
   openPath: (filePath: string): Promise<{ success: boolean; error?: string }> =>
     ipcRenderer.invoke(IPC_CHANNELS.FILE_OPEN_PATH, filePath),
 
@@ -316,6 +319,9 @@ const api = {
 
     reorderSongs: (projectId: string, orderedSongIds: string[]): Promise<{ success: boolean; data?: Project; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.PROJECT_REORDER_SONGS, projectId, orderedSongIds),
+
+    syncAudioFolder: (projectId: string): Promise<{ success: boolean; data?: Project; newCount?: number; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SYNC_AUDIO_FOLDER, projectId),
   },
 }
 

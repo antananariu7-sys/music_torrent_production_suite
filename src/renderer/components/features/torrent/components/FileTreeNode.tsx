@@ -1,5 +1,5 @@
 import { Box, Flex, Text, Icon, IconButton } from '@chakra-ui/react'
-import { FiChevronDown, FiChevronRight, FiFolder, FiFile, FiMusic, FiPlay, FiDownload, FiPlus } from 'react-icons/fi'
+import { FiChevronDown, FiChevronRight, FiFolder, FiFile, FiMusic, FiPlay, FiDownload, FiPlus, FiCheck } from 'react-icons/fi'
 import { isAudioFile } from '@/utils/audioUtils'
 import type { TorrentContentFile } from '@shared/types/torrent.types'
 import type { TreeNode } from '../utils/fileTreeBuilder'
@@ -16,6 +16,7 @@ interface FileTreeNodeProps {
   onPlayFile: (file: TorrentContentFile) => void
   onDownloadFile: (file: TorrentContentFile) => void
   onAddToMix?: (file: TorrentContentFile) => void
+  mixedFileNames?: Set<string>
 }
 
 /** Mini progress bar used for both files and folders in the tree. */
@@ -57,6 +58,7 @@ export function FileTreeNode({
   onPlayFile,
   onDownloadFile,
   onAddToMix,
+  mixedFileNames,
 }: FileTreeNodeProps): JSX.Element {
   if (!node.isFolder && node.files.length === 0) return <></>
 
@@ -69,6 +71,7 @@ export function FileTreeNode({
     currentTrackFilePath === `${downloadPath}/${node.files[0].path}`.replace(/\\/g, '/')
 
   const isPlayableAudio = !node.isFolder && node.progress === 100 && isAudioFile(node.path)
+  const isInMix = !node.isFolder && (mixedFileNames?.has(node.name.toLowerCase()) ?? false)
 
   return (
     <>
@@ -80,13 +83,13 @@ export function FileTreeNode({
           pr={2}
           py={0}
           cursor={node.isFolder ? 'pointer' : isPlayableAudio ? 'pointer' : 'default'}
-          _hover={node.isFolder || isPlayableAudio ? { bg: 'bg.muted' } : undefined}
+          _hover={node.isFolder || isPlayableAudio ? { bg: isInMix ? 'green.500/15' : 'bg.muted' } : undefined}
           align="center"
           gap={2}
           fontSize="xs"
-          bg={isCurrentlyPlaying ? 'blue.500/10' : undefined}
-          borderLeft={isCurrentlyPlaying ? '2px solid' : undefined}
-          borderColor={isCurrentlyPlaying ? 'blue.500' : undefined}
+          bg={isCurrentlyPlaying ? 'blue.500/10' : isInMix ? 'green.500/8' : undefined}
+          borderLeft={isCurrentlyPlaying ? '2px solid' : isInMix ? '2px solid' : undefined}
+          borderColor={isCurrentlyPlaying ? 'blue.500' : isInMix ? 'green.500' : undefined}
           onClick={node.isFolder ? () => toggleFolder(node.path) : (isPlayableAudio && node.files[0]) ? () => onPlayFile(node.files[0]) : undefined}
         >
           {node.isFolder ? (
@@ -99,6 +102,7 @@ export function FileTreeNode({
               onPlayFile={onPlayFile}
               onDownloadFile={onDownloadFile}
               onAddToMix={onAddToMix}
+              isInMix={isInMix}
             />
           )}
         </Flex>
@@ -118,6 +122,7 @@ export function FileTreeNode({
           onPlayFile={onPlayFile}
           onDownloadFile={onDownloadFile}
           onAddToMix={onAddToMix}
+          mixedFileNames={mixedFileNames}
         />
       ))}
     </>
@@ -161,6 +166,7 @@ function FileRow({
   onPlayFile,
   onDownloadFile,
   onAddToMix,
+  isInMix,
 }: {
   node: TreeNode
   isCurrentlyPlaying: boolean
@@ -168,6 +174,7 @@ function FileRow({
   onPlayFile: (file: TorrentContentFile) => void
   onDownloadFile: (file: TorrentContentFile) => void
   onAddToMix?: (file: TorrentContentFile) => void
+  isInMix: boolean
 }): JSX.Element {
   return (
     <>
@@ -180,14 +187,14 @@ function FileRow({
       <Icon
         as={isAudioFile(node.path) ? FiMusic : FiFile}
         boxSize={3}
-        color={!node.selected ? 'text.muted' : isCurrentlyPlaying ? 'blue.500' : isAudioFile(node.path) ? 'blue.400' : 'text.muted'}
+        color={!node.selected ? 'text.muted' : isCurrentlyPlaying ? 'blue.500' : isInMix ? 'green.400' : isAudioFile(node.path) ? 'blue.400' : 'text.muted'}
         flexShrink={0}
         opacity={node.selected ? 1 : 0.4}
       />
       <Text
         flex="1"
-        color={!node.selected ? 'text.muted' : isCurrentlyPlaying ? 'blue.500' : 'text.primary'}
-        fontWeight={isCurrentlyPlaying ? 'semibold' : 'normal'}
+        color={!node.selected ? 'text.muted' : isCurrentlyPlaying ? 'blue.500' : isInMix ? 'green.300' : 'text.primary'}
+        fontWeight={isCurrentlyPlaying ? 'semibold' : isInMix ? 'medium' : 'normal'}
         lineClamp={1}
         title={node.path}
         opacity={node.selected ? 1 : 0.4}
@@ -249,20 +256,34 @@ function FileRow({
             <Icon as={FiPlay} boxSize={3} />
           </IconButton>
           {onAddToMix && (
-            <IconButton
-              aria-label="Add to Mix"
-              size="xs"
-              variant="ghost"
-              colorPalette="green"
-              onClick={(e) => {
-                e.stopPropagation()
-                onAddToMix(node.files[0])
-              }}
-              title="Add to Mix"
-              flexShrink={0}
-            >
-              <Icon as={FiPlus} boxSize={3} />
-            </IconButton>
+            isInMix ? (
+              <IconButton
+                aria-label="In Mix"
+                size="xs"
+                variant="ghost"
+                colorPalette="green"
+                disabled
+                title="Already in Mix"
+                flexShrink={0}
+              >
+                <Icon as={FiCheck} boxSize={3} />
+              </IconButton>
+            ) : (
+              <IconButton
+                aria-label="Add to Mix"
+                size="xs"
+                variant="ghost"
+                colorPalette="green"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onAddToMix(node.files[0])
+                }}
+                title="Add to Mix"
+                flexShrink={0}
+              >
+                <Icon as={FiPlus} boxSize={3} />
+              </IconButton>
+            )
           )}
         </>
       )}

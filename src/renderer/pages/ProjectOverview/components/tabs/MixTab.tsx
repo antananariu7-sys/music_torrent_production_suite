@@ -1,9 +1,12 @@
+import { useEffect } from 'react'
 import { HStack, VStack, Text, Icon, IconButton } from '@chakra-ui/react'
 import { FiPlay } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
+import { toaster } from '@/components/ui/toaster'
 import { MetadataSection } from '../MetadataSection'
 import { MixTracklist } from '@/components/features/mix/MixTracklist'
+import { AddFilesDropZone } from '@/components/features/mix/AddFilesDropZone'
 import { formatDuration, calculateTotalDuration, calculateTotalSize, formatFileSize } from '../../utils'
 import type { Song } from '@shared/types/project.types'
 import type { Track } from '@/store/audioPlayerStore'
@@ -18,7 +21,23 @@ function songToTrack(song: Song): Track {
 
 export function MixTab(): JSX.Element {
   const currentProject = useProjectStore((state) => state.currentProject)
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const playPlaylist = useAudioPlayerStore((s) => s.playPlaylist)
+
+  // Sync assets/audio/ folder on every tab visit
+  useEffect(() => {
+    if (!currentProject) return
+    window.api.mix.syncAudioFolder(currentProject.id).then((response) => {
+      if (response.success && response.data && response.newCount && response.newCount > 0) {
+        setCurrentProject(response.data)
+        toaster.create({
+          title: `Synced ${response.newCount} new ${response.newCount === 1 ? 'track' : 'tracks'} from audio folder`,
+          type: 'success',
+        })
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProject?.id])
 
   if (!currentProject) {
     return <></>
@@ -73,6 +92,9 @@ export function MixTab(): JSX.Element {
 
       {/* Tracklist */}
       <MixTracklist />
+
+      {/* Add files */}
+      <AddFilesDropZone />
 
       {/* Metadata Section */}
       <MetadataSection

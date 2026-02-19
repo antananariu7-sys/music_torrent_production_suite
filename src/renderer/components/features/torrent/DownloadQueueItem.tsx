@@ -68,6 +68,15 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
 
   const fileTree = useMemo(() => buildFileTree(torrent.files), [torrent.files])
 
+  const mixedFileNames = useMemo(() => {
+    if (!currentProject) return new Set<string>()
+    return new Set(
+      currentProject.songs
+        .map((s) => (s.localFilePath ?? '').split(/[\\/]/).pop()?.toLowerCase() ?? '')
+        .filter(Boolean)
+    )
+  }, [currentProject])
+
   const audioFiles = useMemo(() => {
     return torrent.files
       .filter(f => f.selected && f.progress === 100 && isAudioFile(f.path))
@@ -276,6 +285,7 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
                 onPlayFile={handlePlayFile}
                 onDownloadFile={handleDownloadFile}
                 onAddToMix={currentProject ? handleAddToMix : undefined}
+              mixedFileNames={mixedFileNames}
               />
             </VStack>
           </Box>

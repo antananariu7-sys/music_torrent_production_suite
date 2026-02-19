@@ -86,6 +86,7 @@ export const IPC_CHANNELS = {
   // File operations
   FILE_SELECT_DIRECTORY: 'file:select-directory',
   FILE_OPEN_PATH: 'file:open-path',
+  FILE_SELECT_AUDIO_FILES: 'file:select-audio-files',
 
   // Audio playback
   AUDIO_READ_FILE: 'audio:read-file',
@@ -96,6 +97,7 @@ export const IPC_CHANNELS = {
   PROJECT_REMOVE_SONG: 'project:remove-song',
   PROJECT_UPDATE_SONG: 'project:update-song',
   PROJECT_REORDER_SONGS: 'project:reorder-songs',
+  PROJECT_SYNC_AUDIO_FOLDER: 'project:sync-audio-folder',
 } as const
 
 // Application settings

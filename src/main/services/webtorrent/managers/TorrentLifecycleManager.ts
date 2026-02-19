@@ -111,6 +111,12 @@ export class TorrentLifecycleManager {
         path: qt.downloadPath,
       })
 
+      // Immediately deselect all files to prevent downloading before selection is applied.
+      // For .torrent files: torrent.files is populated synchronously, so this stops any
+      // piece requests before the metadata handler runs and applies the correct selection.
+      // For magnet links: torrent.files is empty here (no-op); the metadata handler handles it.
+      torrent.files.forEach(f => f.deselect())
+
       this.deps.activeTorrents.set(qt.id, torrent)
 
       qt.infoHash = torrent.infoHash

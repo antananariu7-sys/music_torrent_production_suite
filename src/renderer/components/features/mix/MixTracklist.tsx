@@ -132,14 +132,14 @@ export function MixTracklist(): JSX.Element {
       <Table.Root variant="outline">
         <Table.Header>
           <Table.Row>
-            <Table.ColumnHeader w="50px" textAlign="center">#</Table.ColumnHeader>
+            <Table.ColumnHeader w="44px" textAlign="center"></Table.ColumnHeader>
             <Table.ColumnHeader>Title</Table.ColumnHeader>
             <Table.ColumnHeader>Artist</Table.ColumnHeader>
             <Table.ColumnHeader w="90px" textAlign="right">Duration</Table.ColumnHeader>
-            <Table.ColumnHeader w="70px">Format</Table.ColumnHeader>
+            <Table.ColumnHeader w="80px" pl={4}>Format</Table.ColumnHeader>
             <Table.ColumnHeader w="80px" textAlign="right">Bitrate</Table.ColumnHeader>
             <Table.ColumnHeader w="80px" textAlign="right">Size</Table.ColumnHeader>
-            <Table.ColumnHeader w="120px" textAlign="center">Actions</Table.ColumnHeader>
+            <Table.ColumnHeader w="90px" textAlign="center">Actions</Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -157,8 +157,17 @@ export function MixTracklist(): JSX.Element {
               borderColor={dragOverIndex === index ? 'blue.500' : undefined}
               _hover={{ bg: 'bg.muted' }}
             >
-              <Table.Cell textAlign="center" color="text.muted" fontFamily="monospace" fontSize="xs">
-                {index + 1}
+              <Table.Cell textAlign="center" px={1}>
+                <IconButton
+                  aria-label="Play"
+                  size="xs"
+                  variant="ghost"
+                  colorPalette="blue"
+                  onClick={() => playPlaylist(tracks, index)}
+                  title="Play"
+                >
+                  <Icon as={FiPlay} boxSize={3} />
+                </IconButton>
               </Table.Cell>
               <Table.Cell>
                 <Text fontWeight="medium" color="text.primary" lineClamp={1} title={song.title}>
@@ -171,7 +180,7 @@ export function MixTracklist(): JSX.Element {
               <Table.Cell textAlign="right" fontFamily="monospace" fontSize="sm" color="text.secondary">
                 {formatDuration(song.duration)}
               </Table.Cell>
-              <Table.Cell>
+              <Table.Cell pl={4}>
                 {song.format ? (
                   <Badge
                     fontSize="2xs"
@@ -194,16 +203,6 @@ export function MixTracklist(): JSX.Element {
               </Table.Cell>
               <Table.Cell>
                 <Flex gap={1} justify="center">
-                  <IconButton
-                    aria-label="Play"
-                    size="xs"
-                    variant="ghost"
-                    colorPalette="blue"
-                    onClick={() => playPlaylist(tracks, index)}
-                    title="Play"
-                  >
-                    <Icon as={FiPlay} boxSize={3} />
-                  </IconButton>
                   <IconButton
                     aria-label="Move up"
                     size="xs"
