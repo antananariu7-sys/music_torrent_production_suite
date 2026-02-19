@@ -1,4 +1,4 @@
-// tests/integration/ipc/{{FEATURE_NAME}}-handlers.test.ts
+// tests/integration/ipc/{{FEATURE_NAME}}-handlers.spec.ts
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ipcMain } from 'electron'

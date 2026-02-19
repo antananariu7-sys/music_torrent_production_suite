@@ -14,7 +14,7 @@ This example demonstrates implementing a new feature using Test-Driven Developme
 ### Step 1: Write the Service Test (RED)
 
 ```typescript
-// tests/unit/services/export.service.test.ts
+// tests/unit/services/export.service.spec.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ExportService } from '../../../src/main/services/export.service'
 import type { SearchResult } from '../../../src/shared/types/search.types'
@@ -284,7 +284,7 @@ The code is clean and follows SOLID principles. No refactoring needed.
 ### Step 4: Write IPC Handler Test (RED)
 
 ```typescript
-// tests/integration/ipc/export-handlers.test.ts
+// tests/integration/ipc/export-handlers.spec.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ipcMain } from 'electron'
 import '../../../src/main/ipc/export-handlers'
@@ -358,7 +358,7 @@ ipcMain.handle('export:csv', async (event, data) => {
 ### Step 6: Write Component Test (RED)
 
 ```typescript
-// tests/unit/components/ExportButton.test.tsx
+// tests/unit/components/ExportButton.spec.tsx
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { ExportButton } from '../../../src/renderer/components/features/SearchResults/ExportButton'

@@ -62,7 +62,7 @@ This guide outlines pragmatic testing practices for Electron applications, focus
 **Step 1: Write the test (Red)**
 
 ```typescript
-// tests/unit/services/search.service.test.ts
+// tests/unit/services/search.service.spec.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { SearchService } from '../../../src/main/services/search.service'
 import type { SearchQuery } from '../../../src/shared/types/search.types'
@@ -189,7 +189,7 @@ If you must test a component, follow the pattern in the testing guidelines docum
 **Step 1: Write integration test (Red)**
 
 ```typescript
-// tests/integration/ipc/search-handlers.test.ts
+// tests/integration/ipc/search-handlers.spec.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ipcMain } from 'electron'
 import '../../../src/main/ipc/search-handlers'
@@ -265,7 +265,7 @@ ipcMain.handle('search:execute', async (event, data) => {
 ### Testing Service Integration
 
 ```typescript
-// tests/integration/services/search-flow.test.ts
+// tests/integration/services/search-flow.spec.ts
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { SearchService } from '../../../src/main/services/search.service'
 import { ScraperService } from '../../../src/main/services/scraper.service'
@@ -310,7 +310,7 @@ describe('Search Flow Integration', () => {
 ### Testing Critical User Flows
 
 ```typescript
-// tests/e2e/search-flow.test.ts
+// tests/e2e/search-flow.spec.ts
 import { test, expect, _electron as electron } from '@playwright/test'
 import { ElectronApplication, Page } from 'playwright'
 
@@ -375,27 +375,27 @@ test.describe('Search Flow', () => {
 tests/
 ├── unit/                       # Unit tests
 │   ├── services/
-│   │   ├── search.service.test.ts
-│   │   ├── scraper.service.test.ts
-│   │   └── results.service.test.ts
+│   │   ├── search.service.spec.ts
+│   │   ├── scraper.service.spec.ts
+│   │   └── results.service.spec.ts
 │   ├── components/
-│   │   ├── ResultsTable.test.tsx
-│   │   ├── SearchForm.test.tsx
-│   │   └── ErrorDialog.test.tsx
+│   │   ├── ResultsTable.spec.tsx
+│   │   ├── SearchForm.spec.tsx
+│   │   └── ErrorDialog.spec.tsx
 │   └── utils/
-│       └── validation.test.ts
+│       └── validation.spec.ts
 │
 ├── integration/                # Integration tests
 │   ├── ipc/
-│   │   ├── search-handlers.test.ts
-│   │   └── project-handlers.test.ts
+│   │   ├── search-handlers.spec.ts
+│   │   └── project-handlers.spec.ts
 │   └── services/
-│       └── search-flow.test.ts
+│       └── search-flow.spec.ts
 │
 └── e2e/                        # E2E tests
-    ├── search-flow.test.ts
-    ├── download-flow.test.ts
-    └── project-management.test.ts
+    ├── search-flow.spec.ts
+    ├── download-flow.spec.ts
+    └── project-management.spec.ts
 ```
 
 ## Testing Utilities

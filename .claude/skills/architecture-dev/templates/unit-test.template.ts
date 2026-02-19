@@ -1,4 +1,4 @@
-// tests/unit/{{TEST_PATH}}/{{FILE_NAME}}.test.ts
+// tests/unit/{{TEST_PATH}}/{{FILE_NAME}}.spec.ts
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { {{CLASS_NAME}} } from '../../../src/{{SOURCE_PATH}}/{{FILE_NAME}}'

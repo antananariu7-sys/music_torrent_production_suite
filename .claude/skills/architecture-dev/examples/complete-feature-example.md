@@ -387,7 +387,7 @@ export function Settings() {
 ### Step 9: Write Tests
 
 ```typescript
-// tests/unit/services/settings.service.test.ts
+// tests/unit/services/settings.service.spec.ts
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { SettingsService } from '../../../src/main/services/settings.service'
 

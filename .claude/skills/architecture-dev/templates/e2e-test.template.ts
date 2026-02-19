@@ -1,4 +1,4 @@
-// tests/e2e/{{FEATURE_NAME}}-flow.test.ts
+// tests/e2e/{{FEATURE_NAME}}-flow.spec.ts
 
 import { test, expect, _electron as electron } from '@playwright/test'
 import { ElectronApplication, Page } from 'playwright'
