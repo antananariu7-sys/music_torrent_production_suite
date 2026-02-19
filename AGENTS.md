@@ -51,6 +51,9 @@ This project uses custom skill triggers for specialized AI capabilities. Use the
 - **"Hello designer"** → Activates `frontend-design` skill
   - Use designing user interface
 
+- **"Hello ba"** → Activates `business-analyst` skill
+  - Use for feature discovery, requirements analysis, and writing feature specs
+
 ### Usage
 
 Simply start your message with the trigger phrase to activate the corresponding skill context. The skill will remain active for the duration of that conversation context.
