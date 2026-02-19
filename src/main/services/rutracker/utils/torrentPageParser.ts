@@ -220,6 +220,7 @@ export function parseAlbumsFromHtml(html: string): TorrentPageMetadata {
               return false // break after first successful CUE parse
             }
           }
+          return undefined // continue iteration
         })
       }
 

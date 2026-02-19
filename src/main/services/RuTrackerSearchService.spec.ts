@@ -199,8 +199,8 @@ describe('RuTrackerSearchService', () => {
       expect(mockPage.goto).toHaveBeenCalledWith(
         'https://rutracker.org/forum/',
         expect.objectContaining({
-          waitUntil: 'networkidle2',
-          timeout: 30000,
+          waitUntil: 'domcontentloaded',
+          timeout: 45000,
         })
       )
     })
@@ -224,7 +224,7 @@ describe('RuTrackerSearchService', () => {
       expect(mockPage.goto).toHaveBeenCalledWith(
         'https://rutracker.org/forum/tracker.php?nm=test%20query%20with%20spaces',
         expect.objectContaining({
-          waitUntil: 'networkidle2',
+          waitUntil: 'domcontentloaded',
         })
       )
     })
@@ -236,7 +236,7 @@ describe('RuTrackerSearchService', () => {
         '#tor-tbl',
         expect.objectContaining({
           visible: true,
-          timeout: 10000,
+          timeout: 15000,
         })
       )
     })
@@ -335,8 +335,8 @@ describe('RuTrackerSearchService', () => {
       expect(mockPage.goto).toHaveBeenCalledWith(
         'https://rutracker.org/forum/',
         expect.objectContaining({
-          waitUntil: 'networkidle2',
-          timeout: 30000,
+          waitUntil: 'domcontentloaded',
+          timeout: 45000,
         })
       )
     })
@@ -358,8 +358,8 @@ describe('RuTrackerSearchService', () => {
       expect(mockPage.goto).toHaveBeenCalledWith(
         testUrl,
         expect.objectContaining({
-          waitUntil: 'networkidle2',
-          timeout: 30000,
+          waitUntil: 'domcontentloaded',
+          timeout: 45000,
         })
       )
     })

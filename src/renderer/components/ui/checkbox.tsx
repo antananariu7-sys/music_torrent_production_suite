@@ -11,7 +11,8 @@ export function Checkbox({ checked, children, ...props }: CheckboxProps) {
       <ChakraCheckbox.HiddenInput />
       <ChakraCheckbox.Control />
       <ChakraCheckbox.Indicator />
-      {children && <ChakraCheckbox.Label>{children}</ChakraCheckbox.Label>}
+      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+      {children && <ChakraCheckbox.Label {...{ children } as any} />}
     </ChakraCheckbox.Root>
   )
 }

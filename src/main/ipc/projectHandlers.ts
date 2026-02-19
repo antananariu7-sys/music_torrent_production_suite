@@ -10,6 +10,7 @@ import type {
   AddSongFromFileRequest,
   UpdateSongRequest,
 } from '@shared/types/project.types'
+import { parseAudioMeta } from '../utils/parseAudioMeta'
 
 export function registerProjectHandlers(
   projectService: ProjectService,
@@ -111,32 +112,9 @@ export function registerProjectHandlers(
         throw new Error(`Project not found: ${request.projectId}`)
       }
 
-      // 1. Read audio metadata (best-effort — some files have malformed tags)
-      const mm = await import('music-metadata')
-      const { statSync } = await import('fs')
-      const fileSize = statSync(request.sourcePath).size
-
-      let meta: Awaited<ReturnType<typeof mm.parseFile>> | null = null
-      try {
-        meta = await mm.parseFile(request.sourcePath, { duration: true })
-      } catch (err) {
-        console.warn('[projectHandlers] Could not parse metadata, adding without it:', err)
-      }
-
-      const metadata = {
-        title: meta?.common.title,
-        artist: meta?.common.artist,
-        album: meta?.common.album,
-        duration: meta?.format.duration,
-        format: meta?.format.container?.toLowerCase(),
-        bitrate: meta?.format.bitrate ? Math.round(meta.format.bitrate / 1000) : undefined,
-        sampleRate: meta?.format.sampleRate,
-        channels: meta?.format.numberOfChannels,
-        year: meta?.common.year,
-        genre: meta?.common.genre?.[0],
-        trackNumber: meta?.common.track?.no ?? undefined,
-        fileSize,
-      }
+      // 1. Read audio metadata (best-effort — handles FLAC+ID3v2 and other edge cases)
+      const meta = await parseAudioMeta(request.sourcePath)
+      const metadata = meta ?? { fileSize: 0 }
 
       // 2. Copy file into project assets/audio/
       const fileName = path.basename(request.sourcePath)
@@ -144,7 +122,7 @@ export function registerProjectHandlers(
       await fileSystemService.copyFile(request.sourcePath, destPath)
 
       // 3. Determine title (override > metadata > filename)
-      const title = request.title || meta?.common.title || path.basename(fileName, path.extname(fileName))
+      const title = request.title || meta?.title || path.basename(fileName, path.extname(fileName))
 
       // 4. Add song to project (returns updated Project)
       const updatedProject = await projectService.addSong(request.projectId, {
@@ -279,7 +257,7 @@ export function registerProjectHandlers(
       }
 
       const audioDir = path.join(project.projectDirectory, 'assets', 'audio')
-      const { existsSync, statSync } = await import('fs')
+      const { existsSync } = await import('fs')
       if (!existsSync(audioDir)) {
         return { success: true, data: project, newCount: 0 }
       }
@@ -309,42 +287,17 @@ export function registerProjectHandlers(
         return { success: true, data: project, newCount: 0 }
       }
 
-      const mm = await import('music-metadata')
       let updatedProject = project
 
       for (const file of newFiles) {
         const filePath = path.join(audioDir, file)
         try {
-          const fileSize = statSync(filePath).size
-
-          // Best-effort metadata — malformed tags (e.g. ID3v2 on FLAC) must not block the add
-          let meta: Awaited<ReturnType<typeof mm.parseFile>> | null = null
-          try {
-            meta = await mm.parseFile(filePath, { duration: true })
-          } catch (err) {
-            console.warn(`[projectHandlers] Could not parse metadata for ${file}, adding without it:`, err)
-          }
-
-          const metadata = {
-            title: meta?.common.title,
-            artist: meta?.common.artist,
-            album: meta?.common.album,
-            duration: meta?.format.duration,
-            format: meta?.format.container?.toLowerCase(),
-            bitrate: meta?.format.bitrate ? Math.round(meta.format.bitrate / 1000) : undefined,
-            sampleRate: meta?.format.sampleRate,
-            channels: meta?.format.numberOfChannels,
-            year: meta?.common.year,
-            genre: meta?.common.genre?.[0],
-            trackNumber: meta?.common.track?.no ?? undefined,
-            fileSize,
-          }
-
+          const meta = await parseAudioMeta(filePath)
           updatedProject = await projectService.addSong(projectId, {
-            title: meta?.common.title || path.basename(file, path.extname(file)),
+            title: meta?.title || path.basename(file, path.extname(file)),
             localFilePath: filePath,
             order: updatedProject.songs.length,
-            metadata,
+            metadata: meta ?? { fileSize: 0 },
           })
         } catch (err) {
           console.error(`[projectHandlers] Failed to sync file ${file}:`, err)

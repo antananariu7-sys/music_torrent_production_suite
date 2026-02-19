@@ -268,47 +268,48 @@ describe('ProjectService', () => {
     it('should add song to project', async () => {
       const project = await projectService.createProject('Test Project', testDir)
 
-      const song = await projectService.addSong(project.id, {
+      const updatedProject = await projectService.addSong(project.id, {
         title: 'Test Song',
         externalFilePath: '/test/path/song.mp3',
         order: 0,
       })
 
+      const song = updatedProject.songs[0]
       expect(song.id).toBeDefined()
       expect(song.title).toBe('Test Song')
       expect(song.externalFilePath).toBe('/test/path/song.mp3')
       expect(song.order).toBe(0)
-      expect(project.songs).toHaveLength(1)
+      expect(updatedProject.songs).toHaveLength(1)
     })
 
     it('should assign unique ID to song', async () => {
       const project = await projectService.createProject('Test Project', testDir)
 
-      const song1 = await projectService.addSong(project.id, {
+      const p1 = await projectService.addSong(project.id, {
         title: 'Song 1',
         externalFilePath: '/test/song1.mp3',
         order: 0,
       })
 
-      const song2 = await projectService.addSong(project.id, {
+      const p2 = await projectService.addSong(project.id, {
         title: 'Song 2',
         externalFilePath: '/test/song2.mp3',
         order: 1,
       })
 
-      expect(song1.id).not.toBe(song2.id)
+      expect(p1.songs[0].id).not.toBe(p2.songs[1].id)
     })
 
     it('should set addedAt timestamp', async () => {
       const project = await projectService.createProject('Test Project', testDir)
 
-      const song = await projectService.addSong(project.id, {
+      const updatedProject = await projectService.addSong(project.id, {
         title: 'Test Song',
         externalFilePath: '/test/song.mp3',
         order: 0,
       })
 
-      expect(song.addedAt).toBeInstanceOf(Date)
+      expect(updatedProject.songs[0].addedAt).toBeInstanceOf(Date)
     })
 
     it('should auto-save project after adding song', async () => {
@@ -341,13 +342,13 @@ describe('ProjectService', () => {
     it('should remove song from project', async () => {
       const project = await projectService.createProject('Test Project', testDir)
 
-      const song = await projectService.addSong(project.id, {
+      const updatedProject = await projectService.addSong(project.id, {
         title: 'Test Song',
         externalFilePath: '/test/song.mp3',
         order: 0,
       })
 
-      await projectService.removeSong(project.id, song.id)
+      await projectService.removeSong(project.id, updatedProject.songs[0].id)
 
       expect(project.songs).toHaveLength(0)
     })
@@ -355,13 +356,13 @@ describe('ProjectService', () => {
     it('should auto-save project after removing song', async () => {
       const project = await projectService.createProject('Test Project', testDir)
 
-      const song = await projectService.addSong(project.id, {
+      const updatedProject = await projectService.addSong(project.id, {
         title: 'Test Song',
         externalFilePath: '/test/song.mp3',
         order: 0,
       })
 
-      await projectService.removeSong(project.id, song.id)
+      await projectService.removeSong(project.id, updatedProject.songs[0].id)
 
       const projectFilePath = path.join(project.projectDirectory, 'project.json')
       const savedProject = await fs.readJson(projectFilePath)
@@ -388,18 +389,19 @@ describe('ProjectService', () => {
     it('should update song properties', async () => {
       const project = await projectService.createProject('Test Project', testDir)
 
-      const song = await projectService.addSong(project.id, {
+      const addedProject = await projectService.addSong(project.id, {
         title: 'Original Title',
         externalFilePath: '/test/song.mp3',
         order: 0,
       })
+      const songId = addedProject.songs[0].id
 
-      await projectService.updateSong(project.id, song.id, {
+      await projectService.updateSong(project.id, songId, {
         title: 'Updated Title',
         artist: 'New Artist',
       })
 
-      const updatedSong = project.songs.find((s) => s.id === song.id)
+      const updatedSong = project.songs.find((s) => s.id === songId)
       expect(updatedSong?.title).toBe('Updated Title')
       expect(updatedSong?.artist).toBe('New Artist')
     })
@@ -407,13 +409,13 @@ describe('ProjectService', () => {
     it('should auto-save project after updating song', async () => {
       const project = await projectService.createProject('Test Project', testDir)
 
-      const song = await projectService.addSong(project.id, {
+      const addedProject = await projectService.addSong(project.id, {
         title: 'Test Song',
         externalFilePath: '/test/song.mp3',
         order: 0,
       })
 
-      await projectService.updateSong(project.id, song.id, {
+      await projectService.updateSong(project.id, addedProject.songs[0].id, {
         title: 'Updated Title',
       })
 

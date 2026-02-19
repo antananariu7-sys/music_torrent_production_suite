@@ -103,7 +103,7 @@ describe('TorrentLifecycleManager', () => {
     })
 
     it('processes queued torrents in FIFO order (oldest addedAt first)', async () => {
-      const mockTorrent = { infoHash: '', on: jest.fn() }
+      const mockTorrent = { infoHash: '', on: jest.fn(), files: [] }
       const mockClient = { add: jest.fn().mockReturnValue(mockTorrent) }
       jest.spyOn(manager, 'ensureClient').mockResolvedValue(mockClient as any)
 
@@ -122,7 +122,7 @@ describe('TorrentLifecycleManager', () => {
     })
 
     it('starts only up to the available slots', async () => {
-      const mockTorrent = { infoHash: '', on: jest.fn() }
+      const mockTorrent = { infoHash: '', on: jest.fn(), files: [] }
       const mockClient = { add: jest.fn().mockReturnValue(mockTorrent) }
       jest.spyOn(manager, 'ensureClient').mockResolvedValue(mockClient as any)
 
@@ -138,7 +138,7 @@ describe('TorrentLifecycleManager', () => {
     })
 
     it('uses local .torrent file when available', async () => {
-      const mockTorrent = { infoHash: '', on: jest.fn() }
+      const mockTorrent = { infoHash: '', on: jest.fn(), files: [] }
       const mockClient = { add: jest.fn().mockReturnValue(mockTorrent) }
       jest.spyOn(manager, 'ensureClient').mockResolvedValue(mockClient as any)
 
@@ -157,7 +157,7 @@ describe('TorrentLifecycleManager', () => {
     })
 
     it('falls back to magnet URI when .torrent file does not exist', async () => {
-      const mockTorrent = { infoHash: '', on: jest.fn() }
+      const mockTorrent = { infoHash: '', on: jest.fn(), files: [] }
       const mockClient = { add: jest.fn().mockReturnValue(mockTorrent) }
       jest.spyOn(manager, 'ensureClient').mockResolvedValue(mockClient as any)
 

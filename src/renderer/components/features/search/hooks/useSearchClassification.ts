@@ -7,7 +7,7 @@ export interface UseSearchClassificationDeps {
   setAlbums: (albums: MusicBrainzAlbum[]) => void
   selectAlbum: (album: MusicBrainzAlbum) => void
   setError: (error: string) => void
-  addToHistory: (entry: { query: string; status: string }) => void
+  addToHistory: (entry: { query: string; status: 'error' | 'completed' | 'cancelled' }) => void
   searchRuTracker: (album: MusicBrainzAlbum) => Promise<void>
 }
 

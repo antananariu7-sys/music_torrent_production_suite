@@ -78,7 +78,7 @@ describe('TorrentDownloadService', () => {
       expect(settings.torrentsFolder).toContain('Torrents')
       expect(settings.autoOpen).toBe(false)
       expect(settings.keepHistory).toBe(true)
-      expect(settings.preferMagnetLinks).toBe(true)
+      expect(settings.preferMagnetLinks).toBe(false)
     })
 
     it('should merge provided settings with defaults', () => {
@@ -147,7 +147,7 @@ describe('TorrentDownloadService', () => {
       expect(settings.autoOpen).toBe(true)
       // Other settings unchanged
       expect(settings.keepHistory).toBe(true)
-      expect(settings.preferMagnetLinks).toBe(true)
+      expect(settings.preferMagnetLinks).toBe(false)
     })
 
     it('should ensure folder exists when torrentsFolder changes', () => {

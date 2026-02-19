@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
-import { readFileSync, statSync } from 'fs'
+import { readFileSync } from 'fs'
 import { IPC_CHANNELS } from '@shared/constants'
+import { parseAudioMeta } from '../utils/parseAudioMeta'
 
 /**
  * Register audio-related IPC handlers
@@ -47,26 +48,11 @@ export function registerAudioHandlers(): void {
    */
   ipcMain.handle(IPC_CHANNELS.AUDIO_READ_METADATA, async (_event, filePath: string) => {
     try {
-      const mm = await import('music-metadata')
-      const meta = await mm.parseFile(filePath, { duration: true })
-      const fileSize = statSync(filePath).size
-      return {
-        success: true,
-        data: {
-          title: meta.common.title,
-          artist: meta.common.artist,
-          album: meta.common.album,
-          duration: meta.format.duration,
-          format: meta.format.container?.toLowerCase(),
-          bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : undefined,
-          sampleRate: meta.format.sampleRate,
-          channels: meta.format.numberOfChannels,
-          year: meta.common.year,
-          genre: meta.common.genre?.[0],
-          trackNumber: meta.common.track?.no ?? undefined,
-          fileSize,
-        },
+      const meta = await parseAudioMeta(filePath)
+      if (!meta) {
+        return { success: false, error: 'Could not parse audio metadata' }
       }
+      return { success: true, data: meta }
     } catch (error) {
       console.error('[audioHandlers] Failed to read audio metadata:', error)
       return {

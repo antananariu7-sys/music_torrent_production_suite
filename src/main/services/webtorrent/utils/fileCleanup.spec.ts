@@ -97,7 +97,7 @@ describe('fileCleanup', () => {
     it('does nothing when all files are selected', async () => {
       const qt = makeQueuedTorrent({
         files: [
-          { path: 'Album/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 1000, selected: true },
+          { path: 'Album/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 1000, selected: true, progress: 100 },
         ],
       })
       await cleanupDeselectedFiles(qt)
@@ -107,8 +107,8 @@ describe('fileCleanup', () => {
     it('deletes deselected files that exist on disk', async () => {
       const qt = makeQueuedTorrent({
         files: [
-          { path: 'Album/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 0, selected: false },
-          { path: 'Album/track2.mp3', name: 'track2.mp3', size: 2000, downloaded: 2000, selected: true },
+          { path: 'Album/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 0, selected: false, progress: 0 },
+          { path: 'Album/track2.mp3', name: 'track2.mp3', size: 2000, downloaded: 2000, selected: true, progress: 100 },
         ],
       })
       mockExistsSync.mockReturnValue(true)
@@ -126,7 +126,7 @@ describe('fileCleanup', () => {
     it('skips deselected files that do not exist on disk', async () => {
       const qt = makeQueuedTorrent({
         files: [
-          { path: 'Album/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 0, selected: false },
+          { path: 'Album/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 0, selected: false, progress: 0 },
         ],
       })
       mockExistsSync.mockReturnValue(false)
@@ -140,8 +140,8 @@ describe('fileCleanup', () => {
       const qt = makeQueuedTorrent({
         downloadPath: '/downloads',
         files: [
-          { path: 'Album/CD1/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 0, selected: false },
-          { path: 'Album/CD1/track2.mp3', name: 'track2.mp3', size: 2000, downloaded: 2000, selected: true },
+          { path: 'Album/CD1/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 0, selected: false, progress: 0 },
+          { path: 'Album/CD1/track2.mp3', name: 'track2.mp3', size: 2000, downloaded: 2000, selected: true, progress: 100 },
         ],
       })
       mockExistsSync.mockReturnValue(true)
@@ -181,7 +181,7 @@ describe('fileCleanup', () => {
       const qt = makeQueuedTorrent({
         name: 'My Album',
         files: [
-          { path: 'My Album/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 1000, selected: true },
+          { path: 'My Album/track1.mp3', name: 'track1.mp3', size: 1000, downloaded: 1000, selected: true, progress: 100 },
         ],
       })
       // existsSync: root dir not a directory, but individual file exists

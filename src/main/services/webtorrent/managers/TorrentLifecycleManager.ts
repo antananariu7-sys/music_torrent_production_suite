@@ -250,7 +250,8 @@ export class TorrentLifecycleManager {
 
     if (!this.deps.settings.seedAfterDownload) {
       this.deps.activeTorrents.delete(qt.id)
-      torrent.destroy(() => { cleanupDeselectedFiles(qt) })
+      torrent.destroy()
+      cleanupDeselectedFiles(qt)
       this.processQueue()
     }
   }
