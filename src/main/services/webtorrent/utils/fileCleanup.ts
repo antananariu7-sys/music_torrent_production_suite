@@ -10,13 +10,13 @@ import type { QueuedTorrent } from '@shared/types/torrent.types'
  * (e.g. when Windows Defender / Search Indexer holds a handle on the dir).
  */
 function forceDeleteDir(dir: string): boolean {
-  try { rmSync(dir, { recursive: true, force: true }) } catch {}
+  try { rmSync(dir, { recursive: true, force: true }) } catch { /* suppress */ }
   if (!existsSync(dir)) return true
 
   if (process.platform === 'win32') {
     try {
       execSync(`cmd /c rmdir /s /q "${dir}"`, { stdio: 'pipe', timeout: 10000 })
-    } catch {}
+    } catch { /* suppress */ }
     if (!existsSync(dir)) return true
   }
 
@@ -61,7 +61,7 @@ function hasAnyFiles(dir: string): boolean {
       if (item.isFile()) return true
       if (item.isDirectory() && hasAnyFiles(path.join(dir, item.name))) return true
     }
-  } catch {}
+  } catch { /* suppress */ }
   return false
 }
 
@@ -96,7 +96,7 @@ export function deleteDownloadedFiles(qt: QueuedTorrent): void {
     const rootDir = path.join(downloadPath, candidate)
     const exists = existsSync(rootDir)
     let isDir = false
-    try { isDir = exists && statSync(rootDir).isDirectory() } catch {}
+    try { isDir = exists && statSync(rootDir).isDirectory() } catch { /* suppress */ }
     console.log(`[WebTorrentService:delete]   checking candidate "${candidate}" -> "${rootDir}" exists=${exists} isDir=${isDir}`)
     if (exists && isDir) {
       if (forceDeleteDir(rootDir)) {

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import path from 'path'
-import type { TorrentFile, TorrentSettings } from '@shared/types/torrent.types'
+import type { TorrentFile } from '@shared/types/torrent.types'
 
 /**
  * DownloadHistoryManager

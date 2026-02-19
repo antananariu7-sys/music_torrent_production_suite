@@ -11,7 +11,7 @@ export function Checkbox({ checked, children, ...props }: CheckboxProps) {
       <ChakraCheckbox.HiddenInput />
       <ChakraCheckbox.Control />
       <ChakraCheckbox.Indicator />
-      {children && <ChakraCheckbox.Label {...({} as any)}>{children}</ChakraCheckbox.Label>}
+      {children && <ChakraCheckbox.Label>{children}</ChakraCheckbox.Label>}
     </ChakraCheckbox.Root>
   )
 }

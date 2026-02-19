@@ -1,5 +1,7 @@
 import { retryWithBackoff } from '../utils/retryWithBackoff'
 
+interface HttpError extends Error { status?: number }
+
 /**
  * MusicBrainzApiClient
  *
@@ -52,7 +54,7 @@ export class MusicBrainzApiClient {
 
         if (!response.ok) {
           const error = new Error(`MusicBrainz API error: ${response.status} ${response.statusText}`)
-          ;(error as any).status = response.status
+          ;(error as HttpError).status = response.status
           throw error
         }
 
@@ -63,7 +65,7 @@ export class MusicBrainzApiClient {
         baseDelayMs: 1000,
         maxDelayMs: 8000,
         retryOn: (error) => {
-          const status = (error as any).status
+          const status = (error as HttpError).status
           return !status || status === 429 || status >= 500
         },
         onRetry: (attempt, error, delay) => {
