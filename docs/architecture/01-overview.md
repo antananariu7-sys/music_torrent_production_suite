@@ -170,16 +170,18 @@ yarn package      # Build + electron-builder packaging
 **Inputs**: Torrent URLs from Component 1
 **Outputs**: Downloaded audio files available for mixing
 
-### Component 3: Music Mixer *(Architecture TBD)*
+### Component 3: Mix Builder *(v0.2 — In Development)*
 **Responsibilities**:
-- Load downloaded audio files
-- Audio mixing and editing interface
-- Effects and processing
-- Export mixed audio
-- Save mixing session within project
+- Curated tracklist management (add/reorder/remove songs)
+- Play through the mix in order via built-in AudioPlayer
+- Inline song metadata editing (title, artist)
+- Mix metadata management (title, genre, tags)
+- Add audio files from disk or from completed downloads
 
-**Inputs**: Downloaded audio files from Component 2
-**Outputs**: Mixed/edited audio files
+> Architecture detail: `docs/architecture/16-mixer-component.md`
+
+**Inputs**: Downloaded audio files from Component 2 (or external files)
+**Outputs**: Ordered mix/playlist playable in-app
 
 ### Project Structure
 ```typescript

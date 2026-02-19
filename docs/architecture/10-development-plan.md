@@ -32,11 +32,14 @@ This document describes the migration and rollout plan, including Architecture D
 - Build audio library with metadata extraction
 - File organization and storage
 
-**Phase 4: Component 3 - Mixer (Week 7-8)** *(TBD - Details Pending)*
-- Audio playback integration
-- Basic mixing interface
-- Track management
-- Export functionality
+**Phase 4: Component 3 - Mix Builder (v0.2 — In Progress)**
+- ✅ AudioPlayer with playlist support (already built)
+- ✅ Song data model and ProjectService CRUD
+- Song IPC channels (add/remove/update/reorder)
+- MixTracklist component with play/reorder/remove actions
+- AddTrackDialog (from file picker or completed downloads)
+- MixTab redesign
+- See full plan: `docs/architecture/16-mixer-component.md`
 
 **Phase 5: Polish & Testing (Week 9-10)**
 - Write unit and integration tests for all components
