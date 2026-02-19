@@ -6,6 +6,9 @@ import type {
   OpenProjectRequest,
   Project,
   RecentProject,
+  AddSongFromFileRequest,
+  UpdateSongRequest,
+  AudioMetadata,
 } from '@shared/types/project.types'
 import type { LoginCredentials, LoginResult, AuthState } from '@shared/types/auth.types'
 import type {
@@ -295,6 +298,24 @@ const api = {
   audio: {
     readFile: (filePath: string): Promise<{ success: boolean; dataUrl?: string; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUDIO_READ_FILE, filePath),
+
+    readMetadata: (filePath: string): Promise<{ success: boolean; data?: AudioMetadata; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.AUDIO_READ_METADATA, filePath),
+  },
+
+  // Mix / song management
+  mix: {
+    addSong: (request: AddSongFromFileRequest): Promise<{ success: boolean; data?: Project; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECT_ADD_SONG, request),
+
+    removeSong: (projectId: string, songId: string): Promise<{ success: boolean; data?: Project; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECT_REMOVE_SONG, projectId, songId),
+
+    updateSong: (request: UpdateSongRequest): Promise<{ success: boolean; data?: Project; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECT_UPDATE_SONG, request),
+
+    reorderSongs: (projectId: string, orderedSongIds: string[]): Promise<{ success: boolean; data?: Project; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.PROJECT_REORDER_SONGS, projectId, orderedSongIds),
   },
 }
 

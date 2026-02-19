@@ -89,6 +89,13 @@ export const IPC_CHANNELS = {
 
   // Audio playback
   AUDIO_READ_FILE: 'audio:read-file',
+  AUDIO_READ_METADATA: 'audio:read-metadata',
+
+  // Mix / Song management
+  PROJECT_ADD_SONG: 'project:add-song',
+  PROJECT_REMOVE_SONG: 'project:remove-song',
+  PROJECT_UPDATE_SONG: 'project:update-song',
+  PROJECT_REORDER_SONGS: 'project:reorder-songs',
 } as const
 
 // Application settings

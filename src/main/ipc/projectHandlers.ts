@@ -1,9 +1,15 @@
 import { ipcMain, dialog } from 'electron'
+import * as path from 'path'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { ProjectService } from '../services/ProjectService'
 import type { ConfigService } from '../services/ConfigService'
 import type { FileSystemService } from '../services/FileSystemService'
-import type { CreateProjectRequest, OpenProjectRequest } from '@shared/types/project.types'
+import type {
+  CreateProjectRequest,
+  OpenProjectRequest,
+  AddSongFromFileRequest,
+  UpdateSongRequest,
+} from '@shared/types/project.types'
 
 export function registerProjectHandlers(
   projectService: ProjectService,
@@ -91,6 +97,111 @@ export function registerProjectHandlers(
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to delete project from disk',
+        }
+      }
+    }
+  )
+
+  // ── Mix / Song management ──────────────────────────────────────────────────
+
+  ipcMain.handle(IPC_CHANNELS.PROJECT_ADD_SONG, async (_event, request: AddSongFromFileRequest) => {
+    try {
+      const project = projectService.getActiveProject()
+      if (!project || project.id !== request.projectId) {
+        throw new Error(`Project not found: ${request.projectId}`)
+      }
+
+      // 1. Read audio metadata
+      const mm = await import('music-metadata')
+      const meta = await mm.parseFile(request.sourcePath, { duration: true })
+      const { statSync } = await import('fs')
+      const fileSize = statSync(request.sourcePath).size
+
+      const metadata = {
+        title: meta.common.title,
+        artist: meta.common.artist,
+        album: meta.common.album,
+        duration: meta.format.duration,
+        format: meta.format.container?.toLowerCase(),
+        bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : undefined,
+        sampleRate: meta.format.sampleRate,
+        channels: meta.format.numberOfChannels,
+        year: meta.common.year,
+        genre: meta.common.genre?.[0],
+        trackNumber: meta.common.track?.no ?? undefined,
+        fileSize,
+      }
+
+      // 2. Copy file into project assets/audio/
+      const fileName = path.basename(request.sourcePath)
+      const destPath = path.join(project.projectDirectory, 'assets', 'audio', fileName)
+      await fileSystemService.copyFile(request.sourcePath, destPath)
+
+      // 3. Determine title (override > metadata > filename)
+      const title = request.title || meta.common.title || path.basename(fileName, path.extname(fileName))
+
+      // 4. Add song to project (returns updated Project)
+      const updatedProject = await projectService.addSong(request.projectId, {
+        title,
+        localFilePath: destPath,
+        order: request.order,
+        metadata,
+      })
+
+      return { success: true, data: updatedProject }
+    } catch (error) {
+      console.error('[projectHandlers] Failed to add song:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to add song',
+      }
+    }
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_REMOVE_SONG,
+    async (_event, projectId: string, songId: string) => {
+      try {
+        const updatedProject = await projectService.removeSong(projectId, songId)
+        return { success: true, data: updatedProject }
+      } catch (error) {
+        console.error('[projectHandlers] Failed to remove song:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to remove song',
+        }
+      }
+    }
+  )
+
+  ipcMain.handle(IPC_CHANNELS.PROJECT_UPDATE_SONG, async (_event, request: UpdateSongRequest) => {
+    try {
+      const updatedProject = await projectService.updateSong(
+        request.projectId,
+        request.songId,
+        request.updates
+      )
+      return { success: true, data: updatedProject }
+    } catch (error) {
+      console.error('[projectHandlers] Failed to update song:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to update song',
+      }
+    }
+  })
+
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_REORDER_SONGS,
+    async (_event, projectId: string, orderedSongIds: string[]) => {
+      try {
+        const updatedProject = await projectService.reorderSongs(projectId, orderedSongIds)
+        return { success: true, data: updatedProject }
+      } catch (error) {
+        console.error('[projectHandlers] Failed to reorder songs:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to reorder songs',
         }
       }
     }

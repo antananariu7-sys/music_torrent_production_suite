@@ -185,7 +185,7 @@ export class ProjectService {
   async addSong(
     projectId: string,
     request: Omit<AddSongRequest, 'projectId'>
-  ): Promise<Song> {
+  ): Promise<Project> {
     const project = this.getProjectById(projectId)
 
     // Create song object
@@ -201,7 +201,7 @@ export class ProjectService {
       fileSize: request.metadata?.fileSize,
       downloadId: request.downloadId,
       externalFilePath: request.externalFilePath,
-      localFilePath: undefined,
+      localFilePath: request.localFilePath,
       addedAt: new Date(),
       order: request.order,
       metadata: request.metadata,
@@ -216,7 +216,7 @@ export class ProjectService {
     // Update recent projects
     this.updateRecentProject(project)
 
-    return song
+    return project
   }
 
   /**
@@ -224,9 +224,10 @@ export class ProjectService {
    *
    * @param projectId - Project ID
    * @param songId - Song ID to remove
+   * @returns Updated project
    * @throws Error if project or song not found
    */
-  async removeSong(projectId: string, songId: string): Promise<void> {
+  async removeSong(projectId: string, songId: string): Promise<Project> {
     const project = this.getProjectById(projectId)
 
     const songIndex = project.songs.findIndex((s) => s.id === songId)
@@ -242,6 +243,8 @@ export class ProjectService {
 
     // Update recent projects
     this.updateRecentProject(project)
+
+    return project
   }
 
   /**
@@ -250,13 +253,14 @@ export class ProjectService {
    * @param projectId - Project ID
    * @param songId - Song ID to update
    * @param updates - Partial song updates
+   * @returns Updated project
    * @throws Error if project or song not found
    */
   async updateSong(
     projectId: string,
     songId: string,
     updates: Partial<Omit<Song, 'id' | 'addedAt'>>
-  ): Promise<void> {
+  ): Promise<Project> {
     const project = this.getProjectById(projectId)
 
     const song = project.songs.find((s) => s.id === songId)
@@ -272,6 +276,34 @@ export class ProjectService {
 
     // Update recent projects
     this.updateRecentProject(project)
+
+    return project
+  }
+
+  /**
+   * Reorders songs in a project
+   *
+   * @param projectId - Project ID
+   * @param orderedSongIds - Song IDs in the desired order
+   * @returns Updated project
+   * @throws Error if project not found
+   */
+  async reorderSongs(projectId: string, orderedSongIds: string[]): Promise<Project> {
+    const project = this.getProjectById(projectId)
+
+    orderedSongIds.forEach((id, index) => {
+      const song = project.songs.find((s) => s.id === id)
+      if (song) song.order = index
+    })
+    project.songs.sort((a, b) => a.order - b.order)
+
+    // Auto-save
+    await this.saveProject(project)
+
+    // Update recent projects
+    this.updateRecentProject(project)
+
+    return project
   }
 
   /**

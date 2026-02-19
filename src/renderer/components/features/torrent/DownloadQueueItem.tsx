@@ -3,6 +3,7 @@ import { FiChevronDown, FiChevronRight } from 'react-icons/fi'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useDownloadQueueStore } from '@/store/downloadQueueStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
+import { useProjectStore } from '@/store/useProjectStore'
 import { toaster } from '@/components/ui/toaster'
 import { isAudioFile, getFileName } from '@/utils/audioUtils'
 import type { QueuedTorrent, TorrentContentFile } from '@shared/types/torrent.types'
@@ -27,6 +28,8 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   const currentTrack = useAudioPlayerStore((s) => s.currentTrack)
   const isPlaying = useAudioPlayerStore((s) => s.isPlaying)
   const clearPlaylist = useAudioPlayerStore((s) => s.clearPlaylist)
+  const currentProject = useProjectStore((s) => s.currentProject)
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const [isExpanded, setIsExpanded] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
@@ -155,6 +158,27 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
     }
   }, [torrent.files, torrent.id])
 
+  const handleAddToMix = useCallback(async (file: TorrentContentFile) => {
+    if (!currentProject || !torrent.downloadPath) return
+    const sourcePath = `${torrent.downloadPath}/${file.path}`.replace(/\//g, '\\')
+    try {
+      const response = await window.api.mix.addSong({
+        projectId: currentProject.id,
+        sourcePath,
+        order: currentProject.songs.length,
+      })
+      if (response.success && response.data) {
+        setCurrentProject(response.data)
+        toaster.create({ title: 'Added to Mix', description: getFileName(file.path), type: 'success' })
+      } else {
+        toaster.create({ title: 'Failed to add to Mix', description: response.error, type: 'error' })
+      }
+    } catch (err) {
+      console.error('Failed to add to mix:', err)
+      toaster.create({ title: 'Failed to add to Mix', type: 'error' })
+    }
+  }, [currentProject, torrent.downloadPath, setCurrentProject])
+
   return (
     <Box
       p={4}
@@ -251,6 +275,7 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
                 downloadPath={torrent.downloadPath}
                 onPlayFile={handlePlayFile}
                 onDownloadFile={handleDownloadFile}
+                onAddToMix={currentProject ? handleAddToMix : undefined}
               />
             </VStack>
           </Box>

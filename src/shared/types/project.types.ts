@@ -121,8 +121,20 @@ export interface AddSongRequest {
   title: string
   downloadId?: string               // If from Component 2
   externalFilePath?: string         // If external file
+  localFilePath?: string            // Destination path in project assets/
   order: number
   metadata?: Partial<AudioMetadata>
+}
+
+/**
+ * Add song from file request (for IPC project:add-song)
+ * The main process reads metadata, copies the file, then adds the song.
+ */
+export interface AddSongFromFileRequest {
+  projectId: string
+  sourcePath: string                // Full path to source audio file
+  title?: string                    // Optional title override (falls back to metadata/filename)
+  order: number                     // Position in the mix (append: songs.length)
 }
 
 /**

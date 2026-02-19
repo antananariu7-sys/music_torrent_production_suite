@@ -1,5 +1,5 @@
 import { Box, Flex, Text, Icon, IconButton } from '@chakra-ui/react'
-import { FiChevronDown, FiChevronRight, FiFolder, FiFile, FiMusic, FiPlay, FiDownload } from 'react-icons/fi'
+import { FiChevronDown, FiChevronRight, FiFolder, FiFile, FiMusic, FiPlay, FiDownload, FiPlus } from 'react-icons/fi'
 import { isAudioFile } from '@/utils/audioUtils'
 import type { TorrentContentFile } from '@shared/types/torrent.types'
 import type { TreeNode } from '../utils/fileTreeBuilder'
@@ -15,6 +15,7 @@ interface FileTreeNodeProps {
   downloadPath: string
   onPlayFile: (file: TorrentContentFile) => void
   onDownloadFile: (file: TorrentContentFile) => void
+  onAddToMix?: (file: TorrentContentFile) => void
 }
 
 /** Mini progress bar used for both files and folders in the tree. */
@@ -55,6 +56,7 @@ export function FileTreeNode({
   downloadPath,
   onPlayFile,
   onDownloadFile,
+  onAddToMix,
 }: FileTreeNodeProps): JSX.Element {
   if (!node.isFolder && node.files.length === 0) return <></>
 
@@ -96,6 +98,7 @@ export function FileTreeNode({
               isPlaying={isPlaying}
               onPlayFile={onPlayFile}
               onDownloadFile={onDownloadFile}
+              onAddToMix={onAddToMix}
             />
           )}
         </Flex>
@@ -114,6 +117,7 @@ export function FileTreeNode({
           downloadPath={downloadPath}
           onPlayFile={onPlayFile}
           onDownloadFile={onDownloadFile}
+          onAddToMix={onAddToMix}
         />
       ))}
     </>
@@ -156,12 +160,14 @@ function FileRow({
   isPlaying,
   onPlayFile,
   onDownloadFile,
+  onAddToMix,
 }: {
   node: TreeNode
   isCurrentlyPlaying: boolean
   isPlaying: boolean
   onPlayFile: (file: TorrentContentFile) => void
   onDownloadFile: (file: TorrentContentFile) => void
+  onAddToMix?: (file: TorrentContentFile) => void
 }): JSX.Element {
   return (
     <>
@@ -225,22 +231,40 @@ function FileRow({
           </IconButton>
         </>
       )}
-      {/* Play button for completed audio files */}
+      {/* Play + Add-to-Mix buttons for completed audio files */}
       {node.selected && node.progress === 100 && isAudioFile(node.path) && node.files[0] && (
-        <IconButton
-          aria-label="Play"
-          size="xs"
-          variant="ghost"
-          colorPalette="blue"
-          onClick={(e) => {
-            e.stopPropagation()
-            onPlayFile(node.files[0])
-          }}
-          title="Play"
-          flexShrink={0}
-        >
-          <Icon as={FiPlay} boxSize={3} />
-        </IconButton>
+        <>
+          <IconButton
+            aria-label="Play"
+            size="xs"
+            variant="ghost"
+            colorPalette="blue"
+            onClick={(e) => {
+              e.stopPropagation()
+              onPlayFile(node.files[0])
+            }}
+            title="Play"
+            flexShrink={0}
+          >
+            <Icon as={FiPlay} boxSize={3} />
+          </IconButton>
+          {onAddToMix && (
+            <IconButton
+              aria-label="Add to Mix"
+              size="xs"
+              variant="ghost"
+              colorPalette="green"
+              onClick={(e) => {
+                e.stopPropagation()
+                onAddToMix(node.files[0])
+              }}
+              title="Add to Mix"
+              flexShrink={0}
+            >
+              <Icon as={FiPlus} boxSize={3} />
+            </IconButton>
+          )}
+        </>
       )}
     </>
   )
