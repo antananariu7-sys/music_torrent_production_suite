@@ -34,6 +34,7 @@ export interface Song {
   addedAt: Date
   order: number                     // Order in the mix
   metadata?: AudioMetadata          // Extended audio metadata
+  crossfadeDuration?: number        // Seconds into NEXT track. undefined = use default. Range: 0–30.
 }
 
 /**
@@ -47,6 +48,7 @@ export interface MixMetadata {
   genre?: string
   estimatedDuration?: number        // Sum of all song durations
   createdBy?: string                // User who created the mix
+  exportConfig?: import('./mixExport.types').MixExportConfig  // Persistent export preferences
 }
 
 /**
