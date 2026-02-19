@@ -2,7 +2,7 @@ import { BrowserWindow } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { QueuedTorrent, QueuedTorrentProgress, WebTorrentSettings } from '@shared/types/torrent.types'
 import type { Torrent } from 'webtorrent'
-import { mapTorrentFiles } from '../utils/torrentHelpers'
+import { mapTorrentFiles, mapCompletedFiles } from '../utils/torrentHelpers'
 import { cleanupDeselectedFiles } from '../utils/fileCleanup'
 
 export interface ProgressBroadcasterDeps {
@@ -74,6 +74,7 @@ export class ProgressBroadcaster {
             qt.completedAt = new Date().toISOString()
             qt.downloadSpeed = 0
             qt.uploadSpeed = 0
+            qt.files = mapCompletedFiles(torrent, selectedSet!)
             this.deps.activeTorrents.delete(qt.id)
             torrent.destroy()
             this.deps.persistQueue()

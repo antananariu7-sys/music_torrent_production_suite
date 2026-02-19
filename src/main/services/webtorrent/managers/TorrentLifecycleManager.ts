@@ -232,7 +232,11 @@ export class TorrentLifecycleManager {
     qt.status = this.deps.settings.seedAfterDownload ? 'seeding' : 'completed'
     qt.progress = 100
     qt.completedAt = new Date().toISOString()
-    qt.files = mapTorrentFiles(torrent, selectedSet)
+    // Use mapCompletedFiles so all selected files show 100% in the UI.
+    // mapTorrentFiles relies on f.downloaded which can lag behind actual
+    // completion when the done event fires (in-flight writes not yet counted).
+    const completedSet = selectedSet ?? new Set(torrent.files.map((_, i) => i))
+    qt.files = mapCompletedFiles(torrent, completedSet)
     this.deps.persistQueue()
     this.deps.broadcaster.broadcastStatusChange(qt)
 

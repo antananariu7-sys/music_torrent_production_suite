@@ -84,7 +84,12 @@ export function buildFileTree(files: TorrentContentFile[]): TreeNode {
       node.downloaded += child.downloaded
     }
 
-    node.progress = node.size > 0 ? Math.round((node.downloaded / node.size) * 100) : 0
+    // Progress is based on selected files only — deselected files are never downloaded
+    // so including their size in the denominator would prevent the folder from ever reaching 100%.
+    const selectedFiles = node.files.filter(f => f.selected)
+    const selectedSize = selectedFiles.reduce((sum, f) => sum + f.size, 0)
+    const selectedDownloaded = selectedFiles.reduce((sum, f) => sum + f.downloaded, 0)
+    node.progress = selectedSize > 0 ? Math.round((selectedDownloaded / selectedSize) * 100) : 0
     // Folder is selected if at least one child is selected
     node.selected = node.children.some(child => child.selected)
   }
