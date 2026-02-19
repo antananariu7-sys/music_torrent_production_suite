@@ -1,5 +1,5 @@
 import { Box, HStack, VStack, Text, IconButton, Icon } from '@chakra-ui/react'
-import { FiPlay, FiPause, FiSkipBack, FiSkipForward, FiVolume2, FiVolumeX } from 'react-icons/fi'
+import { FiPlay, FiPause, FiSkipBack, FiSkipForward, FiVolume2, FiVolumeX, FiX } from 'react-icons/fi'
 import { useEffect, useRef, useState } from 'react'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import { Slider } from '@/components/ui/slider'
@@ -20,6 +20,7 @@ export function AudioPlayer(): JSX.Element | null {
   const previous = useAudioPlayerStore((s) => s.previous)
   const setCurrentTime = useAudioPlayerStore((s) => s.setCurrentTime)
   const setDuration = useAudioPlayerStore((s) => s.setDuration)
+  const clearPlaylist = useAudioPlayerStore((s) => s.clearPlaylist)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const [isMuted, setIsMuted] = useState(false)
@@ -183,6 +184,18 @@ export function AudioPlayer(): JSX.Element | null {
       p={4}
       zIndex={100}
     >
+      <IconButton
+        aria-label="Close player"
+        size="xs"
+        variant="ghost"
+        position="absolute"
+        top={1}
+        right={1}
+        onClick={clearPlaylist}
+        title="Close player"
+      >
+        <Icon as={FiX} boxSize={3} />
+      </IconButton>
       <VStack gap={2} align="stretch">
         {/* Progress bar */}
         <HStack gap={2} align="center">

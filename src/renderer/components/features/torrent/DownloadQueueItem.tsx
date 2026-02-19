@@ -26,6 +26,7 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
   const playPlaylist = useAudioPlayerStore((s) => s.playPlaylist)
   const currentTrack = useAudioPlayerStore((s) => s.currentTrack)
   const isPlaying = useAudioPlayerStore((s) => s.isPlaying)
+  const clearPlaylist = useAudioPlayerStore((s) => s.clearPlaylist)
   const [isExpanded, setIsExpanded] = useState(false)
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
@@ -96,17 +97,28 @@ export function DownloadQueueItem({ torrent }: DownloadQueueItemProps): JSX.Elem
     await window.api.openPath(torrent.downloadPath)
   }, [torrent.downloadPath, torrent.files])
 
+  const stopPlayerIfNeeded = useCallback(() => {
+    if (!currentTrack || !torrent.downloadPath) return
+    const normalizedTrack = currentTrack.filePath.replace(/\\/g, '/')
+    const normalizedBase = torrent.downloadPath.replace(/\\/g, '/')
+    if (normalizedTrack.startsWith(normalizedBase + '/') || normalizedTrack.startsWith(normalizedBase + '\\')) {
+      clearPlaylist()
+    }
+  }, [currentTrack, torrent.downloadPath, clearPlaylist])
+
   const handleRemoveKeepFiles = useCallback(async () => {
     setShowRemoveDialog(false)
+    stopPlayerIfNeeded()
     await removeTorrent(torrent.id)
     toaster.create({ title: 'Torrent removed', description: 'Files kept on disk', type: 'info' })
-  }, [removeTorrent, torrent.id])
+  }, [removeTorrent, torrent.id, stopPlayerIfNeeded])
 
   const handleRemoveDeleteFiles = useCallback(async () => {
     setShowRemoveDialog(false)
+    stopPlayerIfNeeded()
     await removeTorrent(torrent.id, true)
     toaster.create({ title: 'Torrent removed', description: 'Files deleted from disk', type: 'success' })
-  }, [removeTorrent, torrent.id])
+  }, [removeTorrent, torrent.id, stopPlayerIfNeeded])
 
   const toggleFolder = useCallback((path: string) => {
     setExpandedFolders((prev) => {
