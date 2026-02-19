@@ -1,12 +1,16 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { HStack, VStack, Text, Icon, IconButton } from '@chakra-ui/react'
-import { FiPlay } from 'react-icons/fi'
+import { FiPlay, FiDownload } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
+import { useMixExportStore } from '@/store/mixExportStore'
+import { useMixExportListener } from '@/hooks/useMixExportListener'
 import { toaster } from '@/components/ui/toaster'
 import { MetadataSection } from '../MetadataSection'
 import { MixTracklist } from '@/components/features/mix/MixTracklist'
 import { AddFilesDropZone } from '@/components/features/mix/AddFilesDropZone'
+import { ExportConfigModal } from '@/components/features/mix/ExportConfigModal'
+import { ExportProgressBar } from '@/components/features/mix/ExportProgressBar'
 import { formatDuration, calculateTotalDuration, calculateTotalSize, formatFileSize } from '../../utils'
 import type { Song } from '@shared/types/project.types'
 import type { Track } from '@/store/audioPlayerStore'
@@ -23,6 +27,13 @@ export function MixTab(): JSX.Element {
   const currentProject = useProjectStore((state) => state.currentProject)
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const playPlaylist = useAudioPlayerStore((s) => s.playPlaylist)
+  const isExporting = useMixExportStore((s) => s.isExporting)
+  const progress = useMixExportStore((s) => s.progress)
+  const cancelExport = useMixExportStore((s) => s.cancelExport)
+
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
+
+  useMixExportListener()
 
   // Sync assets/audio/ folder on every tab visit
   useEffect(() => {
@@ -77,18 +88,36 @@ export function MixTab(): JSX.Element {
           )}
         </HStack>
         {songs.length > 0 && (
-          <IconButton
-            aria-label="Play all"
-            size="sm"
-            colorPalette="blue"
-            variant="subtle"
-            onClick={handlePlayAll}
-            title="Play all tracks"
-          >
-            <Icon as={FiPlay} boxSize={4} />
-          </IconButton>
+          <HStack gap={2}>
+            <IconButton
+              aria-label="Export mix"
+              size="sm"
+              colorPalette="green"
+              variant="subtle"
+              onClick={() => setIsExportModalOpen(true)}
+              title="Export mix to file"
+              disabled={isExporting}
+            >
+              <Icon as={FiDownload} boxSize={4} />
+            </IconButton>
+            <IconButton
+              aria-label="Play all"
+              size="sm"
+              colorPalette="blue"
+              variant="subtle"
+              onClick={handlePlayAll}
+              title="Play all tracks"
+            >
+              <Icon as={FiPlay} boxSize={4} />
+            </IconButton>
+          </HStack>
         )}
       </HStack>
+
+      {/* Export Progress — visible during export AND after completion/error */}
+      {progress && (
+        <ExportProgressBar progress={progress} onCancel={cancelExport} />
+      )}
 
       {/* Tracklist */}
       <MixTracklist />
@@ -101,6 +130,16 @@ export function MixTab(): JSX.Element {
         genre={currentProject.mixMetadata?.genre}
         tags={currentProject.mixMetadata?.tags || []}
         directory={currentProject.projectDirectory}
+      />
+
+      {/* Export Config Modal */}
+      <ExportConfigModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        projectId={currentProject.id}
+        songs={songs}
+        defaultCrossfade={currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5}
+        exportConfig={currentProject.mixMetadata?.exportConfig}
       />
     </VStack>
   )
