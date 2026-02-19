@@ -41,6 +41,16 @@ This document describes the migration and rollout plan, including Architecture D
 - MixTab redesign
 - See full plan: `docs/architecture/16-mixer-component.md`
 
+**Phase 4b: Component 3b - Audio Mix Export (Planned)**
+- Add `ffmpeg-static` dependency, configure esbuild externals
+- `AudioExportService`: validate → analyze loudness → render → cue sheet
+- IPC channels: `mix-export:start`, `mix-export:progress`, `mix-export:cancel`
+- Crossfade controls between tracklist rows
+- Export dialog (format, quality, output path, normalization toggles)
+- Background rendering with progress bar and cancel
+- Cue sheet generation with accurate timestamps
+- See full plan: `docs/architecture/17-audio-mix-export.md`
+
 **Phase 5: Polish & Testing (Week 9-10)**
 - Write unit and integration tests for all components
 - E2E test critical workflows (search → download → mix)

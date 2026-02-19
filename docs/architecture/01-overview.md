@@ -183,6 +183,20 @@ yarn package      # Build + electron-builder packaging
 **Inputs**: Downloaded audio files from Component 2 (or external files)
 **Outputs**: Ordered mix/playlist playable in-app
 
+### Component 3b: Audio Mix Export *(Planned)*
+**Responsibilities**:
+- Export ordered tracklist as a single continuous audio file
+- Per-track crossfade controls (0–30s)
+- EBU R128 loudness normalization
+- WAV / FLAC / MP3 output with .cue sheet
+- Background rendering with progress reporting
+
+> Architecture detail: `docs/architecture/17-audio-mix-export.md`
+> Feature spec: `docs/features/audio-mix-export.md`
+
+**Inputs**: Ordered mix from Component 3
+**Outputs**: Single audio file + optional .cue sheet
+
 ### Project Structure
 ```typescript
 Project {
