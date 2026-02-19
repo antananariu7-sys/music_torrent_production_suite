@@ -7,8 +7,8 @@ import type {
 import type WebTorrentClient from 'webtorrent'
 import type { Torrent } from 'webtorrent'
 
-import { mapTorrentFiles } from '../utils/torrentHelpers'
-import { cleanupDeselectedFiles } from '../utils/fileCleanup'
+import { mapCompletedFiles, mapTorrentFiles } from '../utils/torrentHelpers'
+import { cleanupDeselectedFiles, clearPreCreatedDirs } from '../utils/fileCleanup'
 import type { ProgressBroadcaster } from './ProgressBroadcaster'
 
 export interface TorrentLifecycleDeps {
@@ -153,6 +153,7 @@ export class TorrentLifecycleManager {
   private handleTorrentMetadata(qt: QueuedTorrent, torrent: Torrent): void {
     qt.infoHash = torrent.infoHash
     qt.name = torrent.name || qt.name
+    if (torrent.name) qt.torrentRootFolder = torrent.name
     qt.totalSize = torrent.length
 
     // If files were pre-selected, apply the selection immediately
@@ -177,7 +178,7 @@ export class TorrentLifecycleManager {
           qt.status = 'completed'
           qt.progress = 100
           qt.completedAt = new Date().toISOString()
-          qt.files = mapTorrentFiles(torrent, selectedSet)
+          qt.files = mapCompletedFiles(torrent, selectedSet)
           this.deps.activeTorrents.delete(qt.id)
           torrent.destroy()
           this.deps.persistQueue()
@@ -188,12 +189,13 @@ export class TorrentLifecycleManager {
         }
       }
 
+      // Deselect all first, clear pre-created dirs, then select only chosen files.
+      // Clearing while everything is deselected ensures dirs are empty so
+      // random-access-file only recreates dirs for selected files via mkdirp.
+      torrent.files.forEach(file => file.deselect())
+      clearPreCreatedDirs(qt.downloadPath, torrent.name)
       torrent.files.forEach((file, index) => {
-        if (selectedSet.has(index)) {
-          file.select()
-        } else {
-          file.deselect()
-        }
+        if (selectedSet.has(index)) file.select()
       })
       qt.files = mapTorrentFiles(torrent, selectedSet)
       qt.status = 'downloading'
@@ -215,6 +217,11 @@ export class TorrentLifecycleManager {
     this.deps.broadcaster.broadcastFileSelectionNeeded(qt)
 
     console.log(`[WebTorrentService] Metadata received, awaiting file selection: ${qt.name} (${qt.totalSize} bytes, ${torrent.files.length} files)`)
+
+    // Delete the empty dir tree WebTorrent just created — all files are deselected
+    // so no data has been written yet and Windows hasn't locked any handles.
+    // random-access-file recreates only selected file dirs via mkdirp when download starts.
+    clearPreCreatedDirs(qt.downloadPath, torrent.name)
   }
 
   /**
@@ -233,7 +240,7 @@ export class TorrentLifecycleManager {
 
     if (!this.deps.settings.seedAfterDownload) {
       this.deps.activeTorrents.delete(qt.id)
-      torrent.destroy()
+      torrent.destroy(() => { cleanupDeselectedFiles(qt) })
       this.processQueue()
     }
   }

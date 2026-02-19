@@ -200,6 +200,8 @@ export interface QueuedTorrent {
   torrentFilePath?: string
   /** Pre-selected file indices (skip file selection dialog) */
   selectedFileIndices?: number[]
+  /** Actual root folder name created by WebTorrent on disk (set from torrent.name on metadata) */
+  torrentRootFolder?: string
 }
 
 /** Progress event pushed from main to renderer for active torrents */

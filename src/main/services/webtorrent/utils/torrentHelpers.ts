@@ -4,6 +4,7 @@ import type { TorrentContentFile } from '@shared/types/torrent.types'
 
 /**
  * Map WebTorrent files to our TorrentContentFile type.
+ * Uses live download progress from the WebTorrent file object.
  */
 export function mapTorrentFiles(torrent: Torrent, selectedIndices?: Set<number>): TorrentContentFile[] {
   return torrent.files.map((f, index) => {
@@ -15,6 +16,25 @@ export function mapTorrentFiles(torrent: Torrent, selectedIndices?: Set<number>)
       downloaded,
       progress: f.length > 0 ? Math.round((downloaded / f.length) * 100) : 0,
       selected: selectedIndices ? selectedIndices.has(index) : true,
+    }
+  })
+}
+
+/**
+ * Map WebTorrent files as fully completed.
+ * Used when all selected files already exist on disk (WebTorrent never downloaded them,
+ * so f.downloaded would be 0 even though the files are complete).
+ */
+export function mapCompletedFiles(torrent: Torrent, selectedIndices: Set<number>): TorrentContentFile[] {
+  return torrent.files.map((f, index) => {
+    const isSelected = selectedIndices.has(index)
+    return {
+      path: f.path,
+      name: f.name,
+      size: f.length,
+      downloaded: isSelected ? f.length : 0,
+      progress: isSelected ? 100 : 0,
+      selected: isSelected,
     }
   })
 }

@@ -2,7 +2,8 @@ import path from 'path'
 import { statSync } from 'fs'
 import type { QueuedTorrent } from '@shared/types/torrent.types'
 import type { Torrent } from 'webtorrent'
-import { mapTorrentFiles } from '../utils/torrentHelpers'
+import { mapCompletedFiles, mapTorrentFiles } from '../utils/torrentHelpers'
+import { clearPreCreatedDirs } from '../utils/fileCleanup'
 
 export interface FileSelectionDeps {
   queue: Map<string, QueuedTorrent>
@@ -73,11 +74,15 @@ export class FileSelectionHandler {
       }
     }
 
-    // If all files already exist, mark as completed
+    // If all files already exist, mark as completed with correct file sizes
     if (filesToDownload.length === 0 && selectedFileIndices.length > 0) {
       console.log(`[WebTorrentService] All selected files already exist, marking as completed`)
+      const selectedSet = new Set(selectedFileIndices)
+      qt.selectedFileIndices = selectedFileIndices
+      qt.files = mapCompletedFiles(torrent, selectedSet)
       qt.status = 'completed'
       qt.progress = 100
+      qt.completedAt = new Date().toISOString()
       this.deps.torrentsAwaitingSelection.delete(id)
       this.deps.persistQueue()
       this.deps.broadcastStatusChange(qt)
@@ -89,6 +94,10 @@ export class FileSelectionHandler {
 
     // Deselect all files first
     torrent.files.forEach(file => file.deselect())
+
+    // Clear the pre-created dir tree while everything is deselected and dirs are still empty.
+    // random-access-file will recreate only selected files' parent dirs via mkdirp as data arrives.
+    clearPreCreatedDirs(qt.downloadPath, qt.torrentRootFolder || qt.name)
 
     // Select only files that need to be downloaded
     filesToDownload.forEach(index => {

@@ -123,13 +123,14 @@ export function useCollectedItemDownload(
           torrentFilePath = checkResult.filePath
           addLog(`[${label}] Found local .torrent file: ${checkResult.filePath}`, 'success')
         } else {
-          addLog(`[${label}] No local .torrent file found, will use magnet link`, 'info')
+          addLog(`[${label}] No local .torrent file found`, 'info')
         }
       }
 
-      // Step 2: If no .torrent file AND no magnet link, download via Puppeteer
-      if (!torrentFilePath && !magnetUri) {
-        addLog(`[${label}] No local file or magnet link, downloading from RuTracker...`, 'info')
+      // Step 2: If no .torrent file, always try to download from RuTracker first.
+      // Magnet link (if any) is kept only as a fallback when download fails.
+      if (!torrentFilePath) {
+        addLog(`[${label}] Downloading .torrent from RuTracker...`, 'info')
 
         const extractResponse = await window.api.torrent.download({
           torrentId: torrent.torrentId,
@@ -138,25 +139,25 @@ export function useCollectedItemDownload(
           projectDirectory: currentProject?.projectDirectory,
         })
 
-        if (!extractResponse.success || !extractResponse.torrent) {
-          const err = extractResponse.error || 'Could not download torrent'
-          addLog(`[${label}] Download failed: ${err}`, 'error')
-          throw new Error(err)
+        if (extractResponse.success && extractResponse.torrent) {
+          if (extractResponse.torrent.filePath) {
+            torrentFilePath = extractResponse.torrent.filePath
+            addLog(`[${label}] .torrent file saved: ${torrentFilePath}`, 'success')
+          }
+
+          if (extractResponse.torrent.magnetLink) {
+            magnetUri = extractResponse.torrent.magnetLink
+            onMagnetLinkObtained(torrent.id, magnetUri)
+            addLog(`[${label}] Magnet link obtained from RuTracker`, 'info')
+          }
+        } else {
+          addLog(`[${label}] .torrent download failed: ${extractResponse.error || 'unknown error'}`, 'warning')
         }
 
-        if (extractResponse.torrent.filePath) {
-          torrentFilePath = extractResponse.torrent.filePath
-          addLog(`[${label}] .torrent file saved: ${torrentFilePath}`, 'success')
-        }
-
-        if (extractResponse.torrent.magnetLink) {
-          magnetUri = extractResponse.torrent.magnetLink
-          onMagnetLinkObtained(torrent.id, magnetUri)
-          addLog(`[${label}] Magnet link saved to collection`, 'info')
-        }
-
-        if (!torrentFilePath && !magnetUri) {
-          throw new Error('Could not obtain .torrent file or magnet link')
+        if (!torrentFilePath && magnetUri) {
+          addLog(`[${label}] Falling back to magnet link`, 'warning')
+        } else if (!torrentFilePath && !magnetUri) {
+          throw new Error('Could not obtain .torrent file or magnet link from RuTracker')
         }
       }
 
