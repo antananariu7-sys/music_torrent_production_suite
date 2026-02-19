@@ -77,4 +77,4 @@ API documentation and quick references:
 
 ---
 
-**Maintained by**: Project contributors using [electron-architecture skill](../.claude/skills/electron-architecture/)
+**Maintained by**: Project contributors using [architect skill](../.claude/skills/architect/)

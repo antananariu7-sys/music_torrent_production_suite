@@ -241,4 +241,4 @@ For coding standards, commit message format, and development best practices, see
 
 ---
 
-**Architecture by**: Claude Sonnet 4.5 using [electron-architecture skill](.claude/skills/electron-architecture/)
+**Architecture by**: Claude Sonnet 4.5 using [architect skill](.claude/skills/architect/)

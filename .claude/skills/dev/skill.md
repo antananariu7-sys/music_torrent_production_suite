@@ -1,5 +1,5 @@
 ---
-name: architecture-dev
+name: dev
 description: "Provides comprehensive guidance for implementing features in an Electron + React application following established architecture patterns, best practices, and TDD methodology. Use when developers need to: (1) Create new features following the project architecture, (2) Implement services, IPC handlers, or React components, (3) Follow Test-Driven Development workflow, (4) Apply Electron security best practices, (5) Set up type-safe IPC communication, (6) Create Zustand stores, (7) Generate boilerplate code from templates, (8) Understand the project's directory structure and data models."
 ---
 
@@ -53,8 +53,8 @@ As new code guidelines, patterns, and best practices emerge during development, 
    - Keep the skill synchronized with `.architecture/` documentation
 
 **How to Update the Skill**:
-- Directly edit files in `.agents/skills/architecture-dev/`
-- After updates, repackage using: `python .agents/skills/skill-creator/scripts/package_skill.py .agents/skills/architecture-dev`
+- Directly edit files in `.claude/skills/dev/`
+- After updates, repackage using: `python .claude/skills/skill-creator/scripts/package_skill.py .claude/skills/dev`
 - Move updated package to `_packed_skills/`
 
 This ensures the skill remains an accurate, valuable guide that grows alongside the project.

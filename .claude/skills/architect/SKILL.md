@@ -1,5 +1,5 @@
 ---
-name: electron-architecture
+name: architect
 description: Comprehensive guide for planning and reviewing Electron application architecture with focus on code quality, maintainability, and best practices. Use this skill when working with Electron applications for (1) Planning architecture for new Electron apps, (2) Reviewing existing Electron app architecture, (3) Creating architecture documentation and plans, (4) Organizing code structure for main/renderer/preload processes, (5) Designing IPC communication patterns, or (6) Ensuring security and performance best practices in Electron apps.
 ---
 

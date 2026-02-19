@@ -1,5 +1,5 @@
 ---
-name: qa-automation
+name: qa
 description: Comprehensive Playwright-based e2e testing for Electron applications. Use when setting up test infrastructure, writing e2e tests for authentication, file operations, navigation, or forms, debugging failing tests, or when the user explicitly requests testing assistance. Specialized for Electron desktop applications with best practices for reliable, maintainable test automation.
 ---
 
@@ -13,7 +13,7 @@ Guide for creating and maintaining e2e tests for Electron applications using Pla
 - Writing new e2e tests for user flows (authentication, file operations, navigation, forms)
 - Debugging flaky or failing tests
 - Refactoring or improving existing test suites
-- User explicitly requests "qa-automation" or testing help
+- User explicitly requests "qa" or testing help
 
 ## Quick Start
 

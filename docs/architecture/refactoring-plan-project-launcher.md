@@ -475,7 +475,7 @@ const handleSelectLocation = async () => {
 
 ### Implementation Workflow (Per Component)
 
-Follow TDD approach from `architecture-dev` skill:
+Follow TDD approach from `dev` skill:
 
 ```
 1. RED: Write component test first

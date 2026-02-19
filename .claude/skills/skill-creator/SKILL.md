@@ -359,10 +359,10 @@ Add an entry to the "Skill Triggers" section following this format:
 **Examples:**
 
 ```markdown
-- **"Hello qa"** → Activates `qa-automation` skill
+- **"Hello qa"** → Activates `qa` skill
   - Use for e2e testing with Playwright, writing tests, debugging test failures
 
-- **"Hello architect"** → Activates `electron-architecture` skill
+- **"Hello architect"** → Activates `architect` skill
   - Use for Electron application architecture guidance and best practices
 ```
 

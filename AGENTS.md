@@ -36,20 +36,20 @@ This project uses custom skill triggers for specialized AI capabilities. Use the
 
 ### Skill Triggers
 
-- **"Hello architect"** → Activates `electron-architecture` skill
+- **"Hello architect"** → Activates `architect` skill
   - Use for Electron application architecture guidance and best practices
 
-- **"Hello dev"** → Activates `architecture-dev` skill
+- **"Hello dev"** → Activates `dev` skill
   - Use for architecture development and implementation assistance
 
 - **"Hello skill-creator"** → Activates `skill-creator` skill
   - Use for creating or updating agent skills
 
-- **"Hello qa"** → Activates `qa-automation` skill
+- **"Hello qa"** → Activates `qa` skill
   - Use for e2e testing with Playwright, writing tests, debugging test failures
 
-- **"Hello designer"** → Activates `frontend-design` skill
-  - Use designing user interface
+- **"Hello designer"** → Activates `designer` skill
+  - Use for designing user interface
 
 - **"Hello ba"** → Activates `business-analyst` skill
   - Use for feature discovery, requirements analysis, and writing feature specs

@@ -812,7 +812,7 @@ toaster.create({
 - **Chakra UI Docs**: https://www.chakra-ui.com/
 - **Theme Configuration**: [src/renderer/theme/index.ts](../../src/renderer/theme/index.ts)
 - **UI Architecture Docs**: [docs/architecture/08-ui-architecture.md](../architecture/08-ui-architecture.md)
-- **Best Practices**: [.claude/skills/architecture-dev/references/best-practices.md](../../.claude/skills/architecture-dev/references/best-practices.md)
+- **Best Practices**: [.claude/skills/dev/references/best-practices.md](../../.claude/skills/dev/references/best-practices.md)
 
 ---
 
