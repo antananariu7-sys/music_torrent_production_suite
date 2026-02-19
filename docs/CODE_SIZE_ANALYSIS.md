@@ -9,14 +9,16 @@
 
 | Category | Files Analyzed | Critical (>500) | Warning (400-500) | Good (<400) |
 |----------|----------------|-----------------|-------------------|-------------|
-| Renderer Components | 33 | 0 | 0 | 33 |
-| Main Services | 13 | 0 | 0 | 13 |
-| Pages | 23 | 0 | 0 | 23 |
+| Renderer Components | 55 | 0 | 0 | 55 |
+| Main Services | 50 | 0 | 0 | 50 |
+| Pages | 29 | 0 | 0 | 29 |
 | Stores | 11 | 0 | 1 | 10 |
 | IPC Handlers | 10 | 0 | 0 | 10 |
 
 **Total Critical Files**: 0 (all resolved!)
 **Total Warning Files**: 1 file (smartSearchStore.ts — monitor only)
+
+> Note: Higher file counts vs previous snapshot reflect all sub-modules created during refactoring (services split into subdirectories, components split into sub-components).
 
 > **Update 2026-02-19 (Phase 3)**: All 4 warning files (400-500 lines) from Phase 3 have been split. All files in codebase are now under 400 lines except smartSearchStore.ts (434 lines, stable, only split if grows past 500).
 >
@@ -223,11 +225,11 @@ src/main/services/discography/
 
 | File | Lines | Notes |
 |------|-------|-------|
-| `smartSearchStore.ts` | 434 | Stable — split only if exceeds 500 |
-| `TorrentDownloadService.ts` | 359 | In torrent/ — stable |
-| `ProjectService.ts` | 396 | Approaching 400-line warning threshold |
+| `smartSearchStore.ts` | 433 | Stable — split only if exceeds 500 |
+| `TorrentDownloadService.ts` | 358 | In torrent/ — stable |
+| `ProjectService.ts` | 395 | Approaching 400-line warning threshold |
 | `RuTrackerSearchService.ts` | 364 | Stable post-refactor |
-| `RuTrackerAuthCard.tsx` | 352 | Settings subcomponent, monitor |
+| `RuTrackerAuthCard.tsx` | 351 | Settings subcomponent, monitor |
 
 ---
 

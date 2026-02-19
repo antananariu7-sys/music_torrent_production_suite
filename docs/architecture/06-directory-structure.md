@@ -37,7 +37,7 @@ music_production_suite/
 │   │   │   ├── DiscographySearchService.ts (+ DiscographySearchService.spec.ts)
 │   │   │   ├── FileSystemService.ts      (+ FileSystemService.spec.ts)
 │   │   │   ├── LockService.ts            (+ LockService.spec.ts)
-│   │   │   ├── MusicBrainzService.ts     (+ MusicBrainzService.test.ts)
+│   │   │   ├── MusicBrainzService.ts     (+ MusicBrainzService.spec.ts)
 │   │   │   ├── ProjectService.ts         (+ ProjectService.spec.ts)
 │   │   │   ├── RuTrackerSearchService.ts (+ RuTrackerSearchService.spec.ts)
 │   │   │   ├── SearchHistoryService.ts   (+ SearchHistoryService.spec.ts)
@@ -89,7 +89,7 @@ music_production_suite/
 │   │   │   ├── ProjectOverview/          # Main project dashboard (tabbed)
 │   │   │   │   ├── index.tsx
 │   │   │   │   ├── ProjectOverview.styles.tsx
-│   │   │   │   ├── utils.ts              (+ utils.test.ts)
+│   │   │   │   ├── utils.ts              (+ utils.spec.ts)
 │   │   │   │   └── components/
 │   │   │   │       ├── MetadataSection.tsx
 │   │   │   │       ├── ProjectHeader.tsx
@@ -246,6 +246,6 @@ music_production_suite/
 - Feature-based grouping within renderer components (`features/search/`, `features/torrent/`)
 - Page components use co-located subcomponents and styles (`pages/ProjectLauncher/components/`)
 - PascalCase naming for all main process services
-- Service layer pattern for business logic with colocated unit tests (`.spec.ts` / `.test.ts`)
+- Service layer pattern for business logic with colocated unit tests (`.spec.ts` convention — never `.test.ts`)
 - Shared types, schemas, and utilities across processes via `src/shared/`
 - Chakra UI primitive wrappers in `components/ui/`

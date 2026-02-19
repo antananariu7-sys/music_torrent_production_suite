@@ -437,45 +437,45 @@ src/
 │   ├── components/
 │   │   ├── common/
 │   │   │   ├── Button.tsx
-│   │   │   ├── Button.test.tsx           # ✅ Test next to component
+│   │   │   ├── Button.spec.tsx           # ✅ Test next to component
 │   │   │   ├── Input.tsx
-│   │   │   └── Input.test.tsx
+│   │   │   └── Input.spec.tsx
 │   │   └── features/
 │   │       └── ProjectManager/
 │   │           ├── ProjectCard.tsx
-│   │           ├── ProjectCard.test.tsx  # ✅ Test next to component
+│   │           ├── ProjectCard.spec.tsx  # ✅ Test next to component
 │   │           ├── ProjectList.tsx
-│   │           └── ProjectList.test.tsx
+│   │           └── ProjectList.spec.tsx
 │   ├── store/
 │   │   ├── useThemeStore.ts
-│   │   ├── useThemeStore.test.ts         # ✅ Test next to store
+│   │   ├── useThemeStore.spec.ts         # ✅ Test next to store
 │   │   ├── useProjectStore.ts
-│   │   └── useProjectStore.test.ts
+│   │   └── useProjectStore.spec.ts
 │   ├── hooks/
 │   │   ├── useSearch.ts
-│   │   ├── useSearch.test.ts             # ✅ Test next to hook
+│   │   ├── useSearch.spec.ts             # ✅ Test next to hook
 │   │   ├── useAuth.ts
-│   │   └── useAuth.test.ts
+│   │   └── useAuth.spec.ts
 │   └── pages/
 │       ├── Welcome/
 │       │   ├── index.tsx
-│       │   └── Welcome.test.tsx          # ✅ Test next to page
+│       │   └── Welcome.spec.tsx          # ✅ Test next to page
 │       └── Settings/
 │           ├── index.tsx
-│           └── Settings.test.tsx
+│           └── Settings.spec.tsx
 ├── main/
 │   ├── services/
-│   │   ├── project.service.ts
-│   │   ├── project.service.test.ts       # ✅ Test next to service
-│   │   ├── auth.service.ts
-│   │   └── auth.service.test.ts
+│   │   ├── ProjectService.ts
+│   │   ├── ProjectService.spec.ts        # ✅ Test next to service
+│   │   ├── AuthService.ts
+│   │   └── AuthService.spec.ts
 │   └── utils/
 │       ├── validators.ts
-│       └── validators.test.ts            # ✅ Test next to utility
+│       └── validators.spec.ts            # ✅ Test next to utility
 └── shared/
     └── utils/
         ├── formatters.ts
-        └── formatters.test.ts            # ✅ Test next to utility
+        └── formatters.spec.ts            # ✅ Test next to utility
 ```
 
 **Integration & E2E Tests**: Centralized test directories
@@ -501,8 +501,8 @@ tests/
 ```
 
 ### File Naming Convention
-- **Unit tests**: `serviceName.test.ts` or `serviceName.spec.ts` (colocated with business logic)
-- **Integration tests**: `feature-name.integration.test.ts` (in `tests/integration/` - only when necessary)
+- **Unit tests**: `serviceName.spec.ts` (colocated with business logic — **always `.spec.ts`, never `.test.ts`**)
+- **Integration tests**: `feature-name.integration.spec.ts` (in `tests/integration/` - only when necessary)
 - **E2E tests**: `workflow-name.spec.ts` (in `tests/e2e/` - rare)
 
 ### Test File Organization
@@ -784,5 +784,5 @@ await waitFor(() => {
 
 ---
 
-**Last Updated**: 2026-02-01
+**Last Updated**: 2026-02-19
 **Related**: [10-development-plan.md](../architecture/10-development-plan.md), [AGENTS.md](../../AGENTS.md)
