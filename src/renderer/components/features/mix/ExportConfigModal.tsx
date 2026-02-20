@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Box, Button, Heading, HStack, Input, Text, VStack, Switch } from '@chakra-ui/react'
 import { FiFolder } from 'react-icons/fi'
 import { useMixExportStore } from '@/store/mixExportStore'
@@ -66,6 +66,15 @@ export function ExportConfigModal({
   const [outputDirectory, setOutputDirectory] = useState('')
   const [filename, setFilename] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleKeyDown(e: KeyboardEvent): void {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
 
   if (!isOpen) return null
 

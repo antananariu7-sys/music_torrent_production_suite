@@ -39,18 +39,12 @@ export function ExportProgressBar({ progress, onCancel }: ExportProgressBarProps
   const toastedRef = useRef(false)
   const playPlaylist = useAudioPlayerStore((s) => s.playPlaylist)
 
-  // On completion: show toast and auto-open output directory
+  // On completion: show toast
   useEffect(() => {
     if (toastedRef.current) return
 
     if (progress.phase === 'complete') {
       toastedRef.current = true
-
-      // Auto-open the output directory
-      if (progress.outputPath) {
-        window.api.openPath(getOutputDirectory(progress.outputPath))
-      }
-
       toaster.create({
         title: 'Mix exported successfully',
         type: 'success',
