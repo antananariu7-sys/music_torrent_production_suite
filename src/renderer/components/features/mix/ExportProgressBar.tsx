@@ -39,29 +39,29 @@ export function ExportProgressBar({ progress, onCancel }: ExportProgressBarProps
   const toastedRef = useRef(false)
   const playPlaylist = useAudioPlayerStore((s) => s.playPlaylist)
 
-  // On completion: show toast
+  // On completion: show toast (deferred to microtask to avoid flushSync warning)
   useEffect(() => {
     if (toastedRef.current) return
 
     if (progress.phase === 'complete') {
       toastedRef.current = true
-      toaster.create({
+      queueMicrotask(() => toaster.create({
         title: 'Mix exported successfully',
         type: 'success',
-      })
+      }))
     } else if (progress.phase === 'error') {
       toastedRef.current = true
-      toaster.create({
+      queueMicrotask(() => toaster.create({
         title: 'Export failed',
         description: progress.error ?? 'Unknown error',
         type: 'error',
-      })
+      }))
     } else if (progress.phase === 'cancelled') {
       toastedRef.current = true
-      toaster.create({
+      queueMicrotask(() => toaster.create({
         title: 'Export cancelled',
         type: 'info',
-      })
+      }))
     }
   }, [progress.phase, progress.outputPath, progress.error])
 
