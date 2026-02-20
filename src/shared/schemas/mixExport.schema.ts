@@ -14,4 +14,12 @@ export const MixExportRequestSchema = z.object({
   normalization: z.boolean(),
   generateCueSheet: z.boolean(),
   defaultCrossfadeDuration: z.number().min(0).max(30),
+  metadata: z.object({
+    title: z.string().optional(),
+    artist: z.string().optional(),
+    album: z.string().optional(),
+    genre: z.string().optional(),
+    year: z.string().optional(),
+    comment: z.string().optional(),
+  }).optional(),
 })

@@ -115,4 +115,33 @@ describe('generateCueSheet', () => {
     expect(cue).toContain('TITLE "Mix \\"2024\\""')
     expect(cue).toContain('TITLE "He said \\"hello\\""')
   })
+
+  it('uses metadata.artist for PERFORMER and adds REM fields', () => {
+    const tracks: CueTrackInfo[] = [
+      { title: 'Track 1', duration: 200, crossfadeDuration: 0 },
+    ]
+
+    const cue = generateCueSheet(tracks, 'My Mix', 'out.flac', {
+      artist: 'DJ Test',
+      genre: 'Electronic',
+      comment: 'Live set recording',
+    })
+
+    expect(cue).toContain('PERFORMER "DJ Test"')
+    expect(cue).toContain('TITLE "My Mix"')
+    expect(cue).toContain('REM GENRE "Electronic"')
+    expect(cue).toContain('REM COMMENT "Live set recording"')
+  })
+
+  it('falls back to title for PERFORMER when metadata.artist is absent', () => {
+    const tracks: CueTrackInfo[] = [
+      { title: 'Track 1', duration: 200, crossfadeDuration: 0 },
+    ]
+
+    const cue = generateCueSheet(tracks, 'My Mix', 'out.flac', { genre: 'Jazz' })
+
+    expect(cue).toContain('PERFORMER "My Mix"')
+    expect(cue).toContain('REM GENRE "Jazz"')
+    expect(cue).not.toContain('REM COMMENT')
+  })
 })

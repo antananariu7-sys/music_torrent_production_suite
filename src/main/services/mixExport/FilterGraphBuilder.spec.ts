@@ -144,4 +144,43 @@ describe('buildRenderArgs', () => {
     const args = buildRenderArgs(['a.wav'], 'graph', '/out/mix.mp3', 'mp3')
     expect(args).toContain('320k')
   })
+
+  it('includes all metadata flags when metadata is provided', () => {
+    const args = buildRenderArgs(['a.wav'], 'graph', '/out/mix.flac', 'flac', undefined, {
+      title: 'My Mix',
+      artist: 'DJ Test',
+      album: 'Best Of',
+      genre: 'Electronic',
+      year: '2026',
+      comment: 'A great mix',
+    })
+
+    expect(args).toContain('-metadata')
+    expect(args).toContain('title=My Mix')
+    expect(args).toContain('artist=DJ Test')
+    expect(args).toContain('album=Best Of')
+    expect(args).toContain('genre=Electronic')
+    expect(args).toContain('date=2026')
+    expect(args).toContain('comment=A great mix')
+  })
+
+  it('includes only populated metadata fields', () => {
+    const args = buildRenderArgs(['a.wav'], 'graph', '/out/mix.flac', 'flac', undefined, {
+      title: 'My Mix',
+      artist: 'DJ Test',
+    })
+
+    expect(args).toContain('title=My Mix')
+    expect(args).toContain('artist=DJ Test')
+    expect(args).not.toContain('album=')
+    expect(args).not.toContain('genre=')
+    expect(args).not.toContain('date=')
+    expect(args).not.toContain('comment=')
+  })
+
+  it('omits metadata flags when metadata is undefined', () => {
+    const args = buildRenderArgs(['a.wav'], 'graph', '/out/mix.flac', 'flac')
+    const metadataIndices = args.reduce<number[]>((acc, a, i) => a === '-metadata' ? [...acc, i] : acc, [])
+    expect(metadataIndices).toHaveLength(0)
+  })
 })

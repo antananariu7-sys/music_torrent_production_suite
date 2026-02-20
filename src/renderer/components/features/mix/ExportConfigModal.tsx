@@ -3,7 +3,7 @@ import { Box, Button, Heading, HStack, Input, Text, VStack, Switch } from '@chak
 import { FiFolder } from 'react-icons/fi'
 import { useMixExportStore } from '@/store/mixExportStore'
 import { formatFileSize } from '@/pages/ProjectOverview/utils'
-import type { Song } from '@shared/types/project.types'
+import type { Song, MixMetadata } from '@shared/types/project.types'
 import type { MixExportConfig, OutputFormat, Mp3Bitrate, MixExportRequest } from '@shared/types/mixExport.types'
 
 interface ExportConfigModalProps {
@@ -13,6 +13,8 @@ interface ExportConfigModalProps {
   songs: Song[]
   defaultCrossfade: number
   exportConfig?: MixExportConfig
+  projectName: string
+  mixMetadata?: MixMetadata
 }
 
 const FORMAT_OPTIONS: { value: OutputFormat; label: string }[] = [
@@ -56,6 +58,8 @@ export function ExportConfigModal({
   songs,
   defaultCrossfade,
   exportConfig,
+  projectName,
+  mixMetadata,
 }: ExportConfigModalProps): JSX.Element | null {
   const startExport = useMixExportStore((s) => s.startExport)
 
@@ -66,6 +70,14 @@ export function ExportConfigModal({
   const [outputDirectory, setOutputDirectory] = useState('')
   const [filename, setFilename] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Metadata fields — prefilled from project/mix data
+  const [metaTitle, setMetaTitle] = useState(mixMetadata?.title ?? projectName)
+  const [metaArtist, setMetaArtist] = useState(mixMetadata?.createdBy ?? '')
+  const [metaGenre, setMetaGenre] = useState(mixMetadata?.genre ?? '')
+  const [metaYear, setMetaYear] = useState(String(new Date().getFullYear()))
+  const [metaComment, setMetaComment] = useState(mixMetadata?.description ?? '')
+  const [metaAlbum, setMetaAlbum] = useState('')
 
   useEffect(() => {
     if (!isOpen) return
@@ -90,6 +102,17 @@ export function ExportConfigModal({
     if (!canExport) return
     setIsSubmitting(true)
 
+    // Build metadata — only include non-empty fields
+    const metadata = {
+      title: metaTitle.trim() || undefined,
+      artist: metaArtist.trim() || undefined,
+      album: metaAlbum.trim() || undefined,
+      genre: metaGenre.trim() || undefined,
+      year: metaYear.trim() || undefined,
+      comment: metaComment.trim() || undefined,
+    }
+    const hasMetadata = Object.values(metadata).some(Boolean)
+
     const request: MixExportRequest = {
       projectId,
       outputDirectory,
@@ -99,6 +122,7 @@ export function ExportConfigModal({
       normalization,
       generateCueSheet,
       defaultCrossfadeDuration: defaultCrossfade,
+      metadata: hasMetadata ? metadata : undefined,
     }
 
     await startExport(request)
@@ -222,6 +246,28 @@ export function ExportConfigModal({
                 <Switch.Control />
               </Switch.Root>
             </HStack>
+
+            {/* Metadata */}
+            <VStack align="stretch" gap={2}>
+              <Text fontSize="sm" fontWeight="semibold" color="text.primary">
+                Metadata
+              </Text>
+              <Text fontSize="xs" color="text.muted">
+                Optional — embedded in the output file and CUE sheet
+              </Text>
+              <HStack gap={2}>
+                <Input size="sm" placeholder="Title" value={metaTitle} onChange={(e) => setMetaTitle(e.target.value)} flex={1} />
+                <Input size="sm" placeholder="Artist" value={metaArtist} onChange={(e) => setMetaArtist(e.target.value)} flex={1} />
+              </HStack>
+              <HStack gap={2}>
+                <Input size="sm" placeholder="Genre" value={metaGenre} onChange={(e) => setMetaGenre(e.target.value)} flex={1} />
+                <Input size="sm" placeholder="Year" value={metaYear} onChange={(e) => setMetaYear(e.target.value)} flex={1} />
+              </HStack>
+              <HStack gap={2}>
+                <Input size="sm" placeholder="Album" value={metaAlbum} onChange={(e) => setMetaAlbum(e.target.value)} flex={1} />
+                <Input size="sm" placeholder="Comment" value={metaComment} onChange={(e) => setMetaComment(e.target.value)} flex={1} />
+              </HStack>
+            </VStack>
 
             {/* Output Directory */}
             <VStack align="stretch" gap={2}>

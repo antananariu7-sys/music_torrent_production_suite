@@ -186,6 +186,7 @@ export class MixExportService {
       outputPath,
       request.format,
       request.mp3Bitrate,
+      request.metadata,
     )
 
     // Compute total mix duration for progress
@@ -235,11 +236,12 @@ export class MixExportService {
         crossfadeDuration: crossfades[i],
       }))
 
-      const mixTitle = project.mixMetadata?.title || project.name || 'Mix'
+      const mixTitle = request.metadata?.title || project.mixMetadata?.title || project.name || 'Mix'
       const cueContent = generateCueSheet(
         cueTrackInfos,
         mixTitle,
         path.basename(outputPath),
+        request.metadata,
       )
 
       const cuePath = path.join(request.outputDirectory, `${request.outputFilename}.cue`)

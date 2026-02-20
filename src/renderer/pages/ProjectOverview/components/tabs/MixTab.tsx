@@ -140,6 +140,8 @@ export function MixTab(): JSX.Element {
         songs={songs}
         defaultCrossfade={currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5}
         exportConfig={currentProject.mixMetadata?.exportConfig}
+        projectName={currentProject.name}
+        mixMetadata={currentProject.mixMetadata}
       />
     </VStack>
   )

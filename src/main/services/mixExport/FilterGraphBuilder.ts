@@ -1,4 +1,4 @@
-import type { LoudnormAnalysis } from '@shared/types/mixExport.types'
+import type { LoudnormAnalysis, MixExportMetadata } from '@shared/types/mixExport.types'
 
 export interface TrackInfo {
   index: number
@@ -87,6 +87,7 @@ export function buildRenderArgs(
   outputPath: string,
   format: 'wav' | 'flac' | 'mp3',
   mp3Bitrate?: number,
+  metadata?: MixExportMetadata,
 ): string[] {
   const args: string[] = []
 
@@ -112,6 +113,16 @@ export function buildRenderArgs(
     case 'mp3':
       args.push('-c:a', 'libmp3lame', '-b:a', `${mp3Bitrate ?? 320}k`)
       break
+  }
+
+  // Embed metadata
+  if (metadata) {
+    if (metadata.title) args.push('-metadata', `title=${metadata.title}`)
+    if (metadata.artist) args.push('-metadata', `artist=${metadata.artist}`)
+    if (metadata.album) args.push('-metadata', `album=${metadata.album}`)
+    if (metadata.genre) args.push('-metadata', `genre=${metadata.genre}`)
+    if (metadata.year) args.push('-metadata', `date=${metadata.year}`)
+    if (metadata.comment) args.push('-metadata', `comment=${metadata.comment}`)
   }
 
   // Overwrite output

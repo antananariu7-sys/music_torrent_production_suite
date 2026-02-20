@@ -15,6 +15,19 @@ export interface MixExportConfig {
 }
 
 /**
+ * Optional metadata embedded in the exported audio file and CUE sheet.
+ * All fields are optional — empty strings are not sent.
+ */
+export interface MixExportMetadata {
+  title?: string
+  artist?: string
+  album?: string
+  genre?: string
+  year?: string
+  comment?: string
+}
+
+/**
  * Per-export request payload sent from renderer to main.
  */
 export interface MixExportRequest {
@@ -26,6 +39,7 @@ export interface MixExportRequest {
   normalization: boolean
   generateCueSheet: boolean
   defaultCrossfadeDuration: number
+  metadata?: MixExportMetadata
 }
 
 /**

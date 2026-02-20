@@ -43,12 +43,15 @@ export function generateCueSheet(
   tracks: CueTrackInfo[],
   title: string,
   filename: string,
+  metadata?: { artist?: string; genre?: string; comment?: string },
 ): string {
   const startTimes = computeStartTimes(tracks)
   const lines: string[] = []
 
-  lines.push(`PERFORMER "${escapeQuotes(title)}"`)
+  lines.push(`PERFORMER "${escapeQuotes(metadata?.artist ?? title)}"`)
   lines.push(`TITLE "${escapeQuotes(title)}"`)
+  if (metadata?.genre) lines.push(`REM GENRE "${escapeQuotes(metadata.genre)}"`)
+  if (metadata?.comment) lines.push(`REM COMMENT "${escapeQuotes(metadata.comment)}"`)
   lines.push(`FILE "${escapeQuotes(filename)}" WAVE`)
 
   for (let i = 0; i < tracks.length; i++) {
