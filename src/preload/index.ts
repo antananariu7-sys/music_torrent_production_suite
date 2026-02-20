@@ -66,6 +66,10 @@ import type {
   WaveformGenerateRequest,
   WaveformBatchRequest,
   WaveformProgressEvent,
+  BpmData,
+  BpmDetectRequest,
+  BpmBatchRequest,
+  BpmProgressEvent,
 } from '@shared/types/waveform.types'
 
 // API response wrapper
@@ -350,6 +354,25 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.WAVEFORM_PROGRESS, handler)
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.WAVEFORM_PROGRESS, handler)
+      }
+    },
+  },
+
+  // BPM detection
+  bpm: {
+    detect: (request: BpmDetectRequest): Promise<{ success: boolean; data?: BpmData; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.BPM_DETECT, request),
+
+    detectBatch: (request: BpmBatchRequest): Promise<{ success: boolean; data?: BpmData[]; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.BPM_DETECT_BATCH, request),
+
+    onProgress: (callback: (progress: BpmProgressEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: BpmProgressEvent) => {
+        callback(progress)
+      }
+      ipcRenderer.on(IPC_CHANNELS.BPM_PROGRESS, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.BPM_PROGRESS, handler)
       }
     },
   },
