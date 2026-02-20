@@ -11,7 +11,7 @@ export interface CueTrackInfo {
 export function secondsToCueTime(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = Math.floor(totalSeconds % 60)
-  const frames = Math.round((totalSeconds % 1) * 75)
+  const frames = Math.min(74, Math.round((totalSeconds % 1) * 75))
 
   return (
     String(minutes).padStart(2, '0') + ':' +

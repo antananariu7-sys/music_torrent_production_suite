@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { Box, Flex, Text, Input, Icon } from '@chakra-ui/react'
 import { FiRepeat } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
@@ -12,6 +12,12 @@ interface CrossfadeControlProps {
 export function CrossfadeControl({ songId, projectId, value }: CrossfadeControlProps): JSX.Element {
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [])
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const raw = parseFloat(e.target.value)

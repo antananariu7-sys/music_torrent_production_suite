@@ -113,4 +113,14 @@ describe('clampCrossfade', () => {
     const result = clampCrossfade(0, 200, 180)
     expect(result).toEqual({ value: 0, clamped: false })
   })
+
+  it('clamps crossfade to 0 when currentDuration is 0', () => {
+    const result = clampCrossfade(5, 0, 180)
+    expect(result).toEqual({ value: 0, clamped: true })
+  })
+
+  it('clamps crossfade to 0 when nextDuration is 0', () => {
+    const result = clampCrossfade(5, 200, 0)
+    expect(result).toEqual({ value: 0, clamped: true })
+  })
 })

@@ -28,6 +28,13 @@ describe('secondsToCueTime', () => {
     // 1/75 = 0.01333... → 1 frame
     expect(secondsToCueTime(0.01333)).toBe('00:00:01')
   })
+
+  it('clamps frames to 74 when rounding would produce 75', () => {
+    // 0.9967 * 75 = 74.7525 → Math.round = 75 → must clamp to 74
+    expect(secondsToCueTime(0.9967)).toBe('00:00:74')
+    // Also at an offset: 61.9967s = 1:01:74
+    expect(secondsToCueTime(61.9967)).toBe('01:01:74')
+  })
 })
 
 describe('computeStartTimes', () => {

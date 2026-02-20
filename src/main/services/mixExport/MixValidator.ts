@@ -42,7 +42,7 @@ export function clampCrossfade(
   currentDuration: number | undefined,
   nextDuration: number | undefined,
 ): { value: number; clamped: boolean } {
-  if (!currentDuration || !nextDuration) {
+  if (currentDuration == null || nextDuration == null) {
     return { value: crossfade, clamped: false }
   }
 
