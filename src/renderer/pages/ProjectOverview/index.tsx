@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { VStack, HStack, Box, Icon, Text, Button } from '@chakra-ui/react'
-import { FiSearch, FiDownload, FiMusic } from 'react-icons/fi'
+import { FiSearch, FiDownload, FiMusic, FiActivity } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useCollectionCount } from '@/store/torrentCollectionStore'
 import type { AppInfo } from '@shared/types/app.types'
@@ -9,14 +9,14 @@ import { PageLayout } from '@/components/common'
 import { projectOverviewStyles } from './ProjectOverview.styles'
 import { ProjectHeader } from './components/ProjectHeader'
 import { StatsGrid } from './components/StatsGrid'
-import { SearchTab, TorrentTab, MixTab } from './components/tabs'
+import { SearchTab, TorrentTab, MixTab, TimelineTab } from './components/tabs'
 import {
   calculateTotalDuration,
   calculateTotalSize,
   getUniqueFormats,
 } from './utils'
 
-type TabValue = 'search' | 'torrent' | 'mix'
+type TabValue = 'search' | 'torrent' | 'mix' | 'timeline'
 
 interface ProjectOverviewProps {
   appInfo: AppInfo | null
@@ -49,6 +49,7 @@ export default function ProjectOverview({ appInfo }: ProjectOverviewProps): JSX.
     { value: 'search', label: 'Search', icon: FiSearch },
     { value: 'torrent', label: 'Torrent', icon: FiDownload, badge: collectionCount },
     { value: 'mix', label: 'Mix', icon: FiMusic },
+    { value: 'timeline', label: 'Timeline', icon: FiActivity },
   ]
 
   return (
@@ -119,6 +120,7 @@ export default function ProjectOverview({ appInfo }: ProjectOverviewProps): JSX.
           {activeTab === 'search' && <SearchTab />}
           {activeTab === 'torrent' && <TorrentTab />}
           {activeTab === 'mix' && <MixTab />}
+          {activeTab === 'timeline' && <TimelineTab />}
         </Box>
       </VStack>
     </PageLayout>
