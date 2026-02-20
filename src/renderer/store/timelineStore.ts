@@ -1,5 +1,10 @@
 import { create } from 'zustand'
-import type { WaveformData } from '@shared/types/waveform.types'
+import type { WaveformData, CuePoint } from '@shared/types/waveform.types'
+
+interface PopoverPosition {
+  x: number
+  y: number
+}
 
 interface TimelineState {
   // Waveform data cache
@@ -13,6 +18,15 @@ interface TimelineState {
   scrollPosition: number
   viewportWidth: number
 
+  // Editing popovers
+  activeCrossfadePopover: { songId: string; position: PopoverPosition } | null
+  activeCuePointPopover: {
+    songId: string
+    timestamp: number
+    cuePoint?: CuePoint
+    position: PopoverPosition
+  } | null
+
   // Actions
   setWaveform: (songId: string, data: WaveformData) => void
   setWaveforms: (data: WaveformData[]) => void
@@ -24,6 +38,10 @@ interface TimelineState {
   setViewportWidth: (width: number) => void
   zoomIn: () => void
   zoomOut: () => void
+  openCrossfadePopover: (songId: string, position: PopoverPosition) => void
+  closeCrossfadePopover: () => void
+  openCuePointPopover: (songId: string, timestamp: number, position: PopoverPosition, cuePoint?: CuePoint) => void
+  closeCuePointPopover: () => void
   clearCache: () => void
 }
 
@@ -35,6 +53,8 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   zoomLevel: 1,
   scrollPosition: 0,
   viewportWidth: 0,
+  activeCrossfadePopover: null,
+  activeCuePointPopover: null,
 
   setWaveform: (songId, data) =>
     set((state) => ({
@@ -62,6 +82,13 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   setViewportWidth: (width) => set({ viewportWidth: width }),
   zoomIn: () => set((s) => ({ zoomLevel: Math.min(50, s.zoomLevel * 1.3) })),
   zoomOut: () => set((s) => ({ zoomLevel: Math.max(1, s.zoomLevel / 1.3) })),
+
+  openCrossfadePopover: (songId, position) =>
+    set({ activeCrossfadePopover: { songId, position }, activeCuePointPopover: null }),
+  closeCrossfadePopover: () => set({ activeCrossfadePopover: null }),
+  openCuePointPopover: (songId, timestamp, position, cuePoint) =>
+    set({ activeCuePointPopover: { songId, timestamp, cuePoint, position }, activeCrossfadePopover: null }),
+  closeCuePointPopover: () => set({ activeCuePointPopover: null }),
 
   clearCache: () =>
     set({
