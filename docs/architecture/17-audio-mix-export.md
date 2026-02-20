@@ -420,19 +420,19 @@ Compatible with foobar2000, VLC, and CD burning tools.
 
 ---
 
-## 12. Deferred: Waveform Timeline (v2)
+## 12. Waveform Timeline (Phase 2)
 
-The feature spec includes a waveform timeline. Deferred because:
+The waveform timeline is now fully designed and ready for implementation as Phase 2 of the mix export feature.
 
-1. **Standalone complexity**: Requires FFmpeg peak extraction, downsampling, caching, canvas/SVG rendering, horizontal scrolling, zoom, and crossfade zone overlays
-2. **Performance concern**: Extracting peaks for 20+ tracks on project open would block UX
-3. **Separate value**: Waveform visualization is useful independently of export
+> **Architecture**: [`docs/architecture/18-waveform-timeline.md`](18-waveform-timeline.md)
+> **Feature spec**: [`docs/features/waveform-timeline.md`](../features/waveform-timeline.md)
+> **Implementation plan**: [`docs/features/waveform-timeline-plan.md`](../features/waveform-timeline-plan.md)
 
-When implemented:
-- Extract peaks via FFmpeg → downsample to ~1000 peaks per track
-- Cache in `{projectDir}/assets/waveforms/{songId}.json`
-- Render via `<canvas>` for performance
-- New IPC channels: `waveform:generate`, `waveform:data`
+Key integration points with this module:
+- **FilterGraphBuilder**: Adds `atrim` filter for trim boundaries (Stage 9)
+- **CueSheetGenerator**: Emits cue point INDEX entries in .cue sheet (Stage 9)
+- **MixValidator**: `clampCrossfade` uses effective (trimmed) duration (Stage 9)
+- **MixExportService**: Passes trim fields and adjusted duration estimates (Stage 9)
 
 ---
 

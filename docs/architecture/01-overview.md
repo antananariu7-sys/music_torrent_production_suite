@@ -183,7 +183,7 @@ yarn package      # Build + electron-builder packaging
 **Inputs**: Downloaded audio files from Component 2 (or external files)
 **Outputs**: Ordered mix/playlist playable in-app
 
-### Component 3b: Audio Mix Export *(Planned)*
+### Component 3b: Audio Mix Export *(Phase 1 Complete)*
 **Responsibilities**:
 - Export ordered tracklist as a single continuous audio file
 - Per-track crossfade controls (0–30s)
@@ -196,6 +196,22 @@ yarn package      # Build + electron-builder packaging
 
 **Inputs**: Ordered mix from Component 3
 **Outputs**: Single audio file + optional .cue sheet
+
+### Component 3c: Waveform Timeline *(Planned)*
+**Responsibilities**:
+- Interactive waveform timeline with real audio peak visualization
+- BPM detection with beat grid overlay and snap-to-beat
+- Cue point placement with trim boundary editing
+- Visual crossfade zone editing
+- Click-to-play playback integration with moving playhead
+- Export pipeline integration (atrim filter, cue point INDEX entries)
+
+> Architecture detail: `docs/architecture/18-waveform-timeline.md`
+> Feature spec: `docs/features/waveform-timeline.md`
+> Implementation plan: `docs/features/waveform-timeline-plan.md`
+
+**Inputs**: Ordered mix from Component 3, audio files on disk
+**Outputs**: Visual timeline with waveforms; trim/cue point data fed into export pipeline
 
 ### Project Structure
 ```typescript

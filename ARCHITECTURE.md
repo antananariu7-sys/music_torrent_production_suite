@@ -39,6 +39,9 @@ Core architecture and system design documents:
 | [**10-development-plan.md**](docs/architecture/10-development-plan.md) | 6-phase development roadmap, ADRs |
 | [**11-risks-and-success.md**](docs/architecture/11-risks-and-success.md) | Technical risks, success criteria |
 | [**15-project-system.md**](docs/architecture/15-project-system.md) | Project-based workflow architecture |
+| [**16-mixer-component.md**](docs/architecture/16-mixer-component.md) | Mix Builder component architecture |
+| [**17-audio-mix-export.md**](docs/architecture/17-audio-mix-export.md) | Audio mix export pipeline architecture |
+| [**18-waveform-timeline.md**](docs/architecture/18-waveform-timeline.md) | Waveform timeline editor architecture |
 | [**refactoring-plan-project-launcher.md**](docs/architecture/refactoring-plan-project-launcher.md) | Project launcher refactoring plan |
 | [**transform-welcome-to-project.md**](docs/architecture/transform-welcome-to-project.md) | Welcome screen transformation plan |
 
