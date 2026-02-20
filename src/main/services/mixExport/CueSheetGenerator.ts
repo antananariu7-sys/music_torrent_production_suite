@@ -1,8 +1,13 @@
+import type { CuePoint } from '@shared/types/waveform.types'
+
 export interface CueTrackInfo {
   title: string
   artist?: string
-  duration: number    // seconds
+  duration: number    // seconds (raw, before trim)
   crossfadeDuration: number  // seconds into next track (0 for last)
+  trimStart?: number  // seconds — effective start of track
+  trimEnd?: number    // seconds — effective end of track
+  cuePoints?: CuePoint[]
 }
 
 /**
@@ -20,17 +25,23 @@ export function secondsToCueTime(totalSeconds: number): string {
   )
 }
 
+/** Get the effective (trimmed) duration of a track. */
+export function effectiveDuration(track: CueTrackInfo): number {
+  return (track.trimEnd ?? track.duration) - (track.trimStart ?? 0)
+}
+
 /**
  * Compute start times for each track accounting for crossfade overlaps.
+ * Uses effective (trimmed) durations.
  * startTime[0] = 0
- * startTime[i] = startTime[i-1] + duration[i-1] - crossfade[i-1]
+ * startTime[i] = startTime[i-1] + effectiveDuration[i-1] - crossfade[i-1]
  */
 export function computeStartTimes(tracks: CueTrackInfo[]): number[] {
   const startTimes: number[] = [0]
 
   for (let i = 1; i < tracks.length; i++) {
     const prev = tracks[i - 1]
-    startTimes.push(startTimes[i - 1] + prev.duration - prev.crossfadeDuration)
+    startTimes.push(startTimes[i - 1] + effectiveDuration(prev) - prev.crossfadeDuration)
   }
 
   return startTimes
@@ -64,6 +75,19 @@ export function generateCueSheet(
       lines.push(`    PERFORMER "${escapeQuotes(track.artist)}"`)
     }
     lines.push(`    INDEX 01 ${secondsToCueTime(startTimes[i])}`)
+
+    // Emit marker cue points as additional INDEX entries
+    const markers = (track.cuePoints ?? [])
+      .filter((cp) => cp.type === 'marker')
+      .sort((a, b) => a.timestamp - b.timestamp)
+
+    for (let j = 0; j < markers.length; j++) {
+      const cp = markers[j]
+      // Cue point timestamp is relative to track start; convert to mix time
+      const cpMixTime = startTimes[i] + (cp.timestamp - (track.trimStart ?? 0))
+      lines.push(`    REM CUE "${escapeQuotes(cp.label)}"`)
+      lines.push(`    INDEX ${String(j + 2).padStart(2, '0')} ${secondsToCueTime(cpMixTime)}`)
+    }
   }
 
   return lines.join('\n') + '\n'

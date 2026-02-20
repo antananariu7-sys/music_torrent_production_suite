@@ -91,6 +91,64 @@ describe('buildFilterGraph', () => {
     expect(() => buildFilterGraph([], true)).toThrow('zero tracks')
   })
 
+  it('inserts atrim with trimStart only', () => {
+    const tracks: TrackInfo[] = [
+      { index: 0, loudnorm: mockLoudnorm, crossfadeDuration: 5, trimStart: 30 },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).toContain('[0:a]atrim=start=30,asetpts=PTS-STARTPTS,loudnorm=')
+    expect(graph).toContain('[1:a]loudnorm=')
+  })
+
+  it('inserts atrim with trimEnd only', () => {
+    const tracks: TrackInfo[] = [
+      { index: 0, loudnorm: mockLoudnorm, crossfadeDuration: 5, trimEnd: 420 },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).toContain('[0:a]atrim=end=420,asetpts=PTS-STARTPTS,loudnorm=')
+  })
+
+  it('inserts atrim with both trimStart and trimEnd', () => {
+    const tracks: TrackInfo[] = [
+      { index: 0, loudnorm: mockLoudnorm, crossfadeDuration: 5, trimStart: 30, trimEnd: 420 },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).toContain('[0:a]atrim=start=30:end=420,asetpts=PTS-STARTPTS,loudnorm=')
+  })
+
+  it('inserts atrim before acopy when normalization is off', () => {
+    const tracks: TrackInfo[] = [
+      { index: 0, crossfadeDuration: 0, trimStart: 10, trimEnd: 200 },
+    ]
+
+    const graph = buildFilterGraph(tracks, false)
+
+    expect(graph).toContain('[0:a]atrim=start=10:end=200,asetpts=PTS-STARTPTS,acopy[out]')
+  })
+
+  it('handles trim on some tracks but not others', () => {
+    const tracks: TrackInfo[] = [
+      { index: 0, loudnorm: mockLoudnorm, crossfadeDuration: 5, trimStart: 15 },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 3 },
+      { index: 2, loudnorm: mockLoudnorm, crossfadeDuration: 0, trimEnd: 300 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).toContain('[0:a]atrim=start=15,asetpts=PTS-STARTPTS,loudnorm=')
+    expect(graph).toContain('[1:a]loudnorm=')
+    expect(graph).toContain('[2:a]atrim=end=300,asetpts=PTS-STARTPTS,loudnorm=')
+  })
+
   it('handles 5 tracks correctly', () => {
     const tracks: TrackInfo[] = Array.from({ length: 5 }, (_, i) => ({
       index: i,

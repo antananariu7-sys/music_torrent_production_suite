@@ -13,6 +13,8 @@ export function AudioPlayer(): JSX.Element | null {
   const playlist = useAudioPlayerStore((s) => s.playlist)
   const currentIndex = useAudioPlayerStore((s) => s.currentIndex)
 
+  const pendingSeekTime = useAudioPlayerStore((s) => s.pendingSeekTime)
+
   const togglePlayPause = useAudioPlayerStore((s) => s.togglePlayPause)
   const seek = useAudioPlayerStore((s) => s.seek)
   const setVolume = useAudioPlayerStore((s) => s.setVolume)
@@ -20,9 +22,11 @@ export function AudioPlayer(): JSX.Element | null {
   const previous = useAudioPlayerStore((s) => s.previous)
   const setCurrentTime = useAudioPlayerStore((s) => s.setCurrentTime)
   const setDuration = useAudioPlayerStore((s) => s.setDuration)
+  const clearPendingSeek = useAudioPlayerStore((s) => s.clearPendingSeek)
   const clearPlaylist = useAudioPlayerStore((s) => s.clearPlaylist)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const loadedFilePathRef = useRef<string>('')
   const [isMuted, setIsMuted] = useState(false)
   const [previousVolume, setPreviousVolume] = useState(volume)
   const isLoadingRef = useRef(false)
@@ -34,6 +38,9 @@ export function AudioPlayer(): JSX.Element | null {
 
     // Event listeners
     const handleTimeUpdate = () => {
+      // Suppress time updates while loading a new track to prevent
+      // the playhead from flashing to 0 when audio source changes
+      if (isLoadingRef.current) return
       setCurrentTime(audio.currentTime)
     }
 
@@ -69,10 +76,29 @@ export function AudioPlayer(): JSX.Element | null {
   useEffect(() => {
     if (!audioRef.current || !currentTrack) return
 
-    const loadAudio = async () => {
-      if (!audioRef.current || !currentTrack || isLoadingRef.current) return
+    // Same file already loaded — just seek without reloading
+    if (currentTrack.filePath === loadedFilePathRef.current) {
+      const state = useAudioPlayerStore.getState()
+      if (state.pendingSeekTime != null) {
+        audioRef.current.currentTime = state.pendingSeekTime
+        state.clearPendingSeek()
+      }
+      if (state.isPlaying && audioRef.current.paused) {
+        audioRef.current.play().catch((err) => {
+          console.error('Failed to play audio:', err)
+        })
+      }
+      return
+    }
 
-      isLoadingRef.current = true
+    // Mark as loading SYNCHRONOUSLY before async work starts,
+    // so the isPlaying effect won't try to play the old audio
+    isLoadingRef.current = true
+    loadedFilePathRef.current = currentTrack.filePath
+    audioRef.current.pause()
+
+    const loadAudio = async () => {
+      if (!audioRef.current || !currentTrack) return
 
       try {
         // Read audio file through IPC
@@ -81,6 +107,7 @@ export function AudioPlayer(): JSX.Element | null {
         if (!response.success || !response.dataUrl) {
           console.error('Failed to load audio file:', response.error)
           isLoadingRef.current = false
+          loadedFilePathRef.current = ''
           return
         }
 
@@ -94,8 +121,13 @@ export function AudioPlayer(): JSX.Element | null {
 
         // Wait for audio to be ready before playing
         audioRef.current.oncanplay = () => {
-          const shouldPlay = useAudioPlayerStore.getState().isPlaying
-          if (audioRef.current && shouldPlay) {
+          const state = useAudioPlayerStore.getState()
+          // Apply pending seek if present
+          if (audioRef.current && state.pendingSeekTime != null) {
+            audioRef.current.currentTime = state.pendingSeekTime
+            state.clearPendingSeek()
+          }
+          if (audioRef.current && state.isPlaying) {
             audioRef.current.play().catch((err) => {
               console.error('Failed to play audio:', err)
             })
@@ -108,11 +140,27 @@ export function AudioPlayer(): JSX.Element | null {
       } catch (error) {
         console.error('Error loading audio:', error)
         isLoadingRef.current = false
+        loadedFilePathRef.current = ''
       }
     }
 
     loadAudio()
   }, [currentTrack])
+
+  // Handle pending seek from external callers (e.g., Timeline click)
+  useEffect(() => {
+    if (!audioRef.current || pendingSeekTime == null || isLoadingRef.current) return
+    audioRef.current.currentTime = pendingSeekTime
+    clearPendingSeek()
+  }, [pendingSeekTime, clearPendingSeek])
+
+  // Handle trimEnd auto-advance
+  useEffect(() => {
+    if (!currentTrack?.trimEnd || !isPlaying) return
+    if (currentTime >= currentTrack.trimEnd) {
+      useAudioPlayerStore.getState().next()
+    }
+  }, [currentTime, currentTrack, isPlaying])
 
   // Handle play/pause state changes (only when NOT loading a new track)
   useEffect(() => {

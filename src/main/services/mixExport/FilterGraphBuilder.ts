@@ -4,6 +4,8 @@ export interface TrackInfo {
   index: number
   loudnorm?: LoudnormAnalysis
   crossfadeDuration: number  // seconds into next track (0 for last track)
+  trimStart?: number         // seconds — trim beginning of track
+  trimEnd?: number           // seconds — trim end of track
 }
 
 /**
@@ -28,19 +30,33 @@ export function buildFilterGraph(tracks: TrackInfo[], normalization: boolean): s
     const inputLabel = `[${track.index}:a]`
     const outputLabel = `[a${track.index}]`
 
-    if (normalization && track.loudnorm) {
-      const ln = track.loudnorm
-      filters.push(
-        `${inputLabel}loudnorm=I=-14:TP=-1:LRA=11` +
-        `:measured_I=${ln.input_i}:measured_TP=${ln.input_tp}` +
-        `:measured_LRA=${ln.input_lra}:measured_thresh=${ln.input_thresh}` +
-        `:linear=true${outputLabel}`
-      )
-    } else {
-      // Passthrough — just relabel
-      filters.push(`${inputLabel}acopy${outputLabel}`)
+    // Build per-track filter chain: atrim (optional) → loudnorm or acopy
+    const chainParts: string[] = []
+
+    // Trim filter (before normalization)
+    if (track.trimStart != null || track.trimEnd != null) {
+      let atrim = 'atrim='
+      const parts: string[] = []
+      if (track.trimStart != null) parts.push(`start=${track.trimStart}`)
+      if (track.trimEnd != null) parts.push(`end=${track.trimEnd}`)
+      atrim += parts.join(':')
+      chainParts.push(atrim, 'asetpts=PTS-STARTPTS')
     }
 
+    // Normalization or passthrough
+    if (normalization && track.loudnorm) {
+      const ln = track.loudnorm
+      chainParts.push(
+        `loudnorm=I=-14:TP=-1:LRA=11` +
+        `:measured_I=${ln.input_i}:measured_TP=${ln.input_tp}` +
+        `:measured_LRA=${ln.input_lra}:measured_thresh=${ln.input_thresh}` +
+        `:linear=true`
+      )
+    } else {
+      chainParts.push('acopy')
+    }
+
+    filters.push(`${inputLabel}${chainParts.join(',')}${outputLabel}`)
     trackLabels.push(outputLabel)
   }
 

@@ -1,9 +1,11 @@
 import {
   secondsToCueTime,
   computeStartTimes,
+  effectiveDuration,
   generateCueSheet,
   type CueTrackInfo,
 } from './CueSheetGenerator'
+import type { CuePoint } from '@shared/types/waveform.types'
 
 describe('secondsToCueTime', () => {
   it('converts 0 seconds', () => {
@@ -63,6 +65,43 @@ describe('computeStartTimes', () => {
     // Track B starts at 200 - 5 = 195
     // Track C starts at 195 + 180 - 3 = 372
     expect(computeStartTimes(tracks)).toEqual([0, 195, 372])
+  })
+
+  it('uses effective duration when trim is set', () => {
+    const tracks: CueTrackInfo[] = [
+      { title: 'A', duration: 300, crossfadeDuration: 5, trimStart: 30, trimEnd: 270 },
+      { title: 'B', duration: 200, crossfadeDuration: 0 },
+    ]
+    // effective duration of A = 270 - 30 = 240
+    // B starts at 240 - 5 = 235
+    expect(computeStartTimes(tracks)).toEqual([0, 235])
+  })
+
+  it('uses trimEnd only for effective duration', () => {
+    const tracks: CueTrackInfo[] = [
+      { title: 'A', duration: 300, crossfadeDuration: 0, trimEnd: 200 },
+      { title: 'B', duration: 180, crossfadeDuration: 0 },
+    ]
+    // effective duration of A = 200 - 0 = 200
+    expect(computeStartTimes(tracks)).toEqual([0, 200])
+  })
+})
+
+describe('effectiveDuration', () => {
+  it('returns raw duration when no trim', () => {
+    expect(effectiveDuration({ title: 'A', duration: 300, crossfadeDuration: 0 })).toBe(300)
+  })
+
+  it('subtracts trimStart', () => {
+    expect(effectiveDuration({ title: 'A', duration: 300, crossfadeDuration: 0, trimStart: 30 })).toBe(270)
+  })
+
+  it('uses trimEnd instead of duration', () => {
+    expect(effectiveDuration({ title: 'A', duration: 300, crossfadeDuration: 0, trimEnd: 250 })).toBe(250)
+  })
+
+  it('uses both trimStart and trimEnd', () => {
+    expect(effectiveDuration({ title: 'A', duration: 300, crossfadeDuration: 0, trimStart: 30, trimEnd: 250 })).toBe(220)
   })
 })
 
@@ -143,5 +182,79 @@ describe('generateCueSheet', () => {
     expect(cue).toContain('PERFORMER "My Mix"')
     expect(cue).toContain('REM GENRE "Jazz"')
     expect(cue).not.toContain('REM COMMENT')
+  })
+
+  it('emits marker cue points as INDEX entries', () => {
+    const cuePoints: CuePoint[] = [
+      { id: '1', timestamp: 60, label: 'drop', type: 'marker' },
+      { id: '2', timestamp: 120, label: 'breakdown', type: 'marker' },
+      { id: '3', timestamp: 30, label: 'trim start', type: 'trim-start' },
+    ]
+    const tracks: CueTrackInfo[] = [
+      { title: 'Song A', duration: 300, crossfadeDuration: 5, cuePoints },
+      { title: 'Song B', duration: 200, crossfadeDuration: 0 },
+    ]
+
+    const cue = generateCueSheet(tracks, 'Mix', 'out.flac')
+
+    // Only marker cue points should be emitted (not trim-start)
+    expect(cue).toContain('REM CUE "drop"')
+    expect(cue).toContain('INDEX 02 01:00:00')  // 60s in mix
+    expect(cue).toContain('REM CUE "breakdown"')
+    expect(cue).toContain('INDEX 03 02:00:00')  // 120s in mix
+    expect(cue).not.toContain('REM CUE "trim start"')
+  })
+
+  it('computes cue point mix times relative to track start with trim offset', () => {
+    const cuePoints: CuePoint[] = [
+      { id: '1', timestamp: 50, label: 'intro end', type: 'marker' },
+    ]
+    const tracks: CueTrackInfo[] = [
+      { title: 'Song A', duration: 300, crossfadeDuration: 5, trimStart: 20 },
+      {
+        title: 'Song B', duration: 200, crossfadeDuration: 0,
+        trimStart: 10, cuePoints,
+      },
+    ]
+
+    const cue = generateCueSheet(tracks, 'Mix', 'out.flac')
+
+    // Track A effective = 300 - 20 = 280, start at 0
+    // Track B starts at 280 - 5 = 275
+    // Cue at timestamp=50, trimStart=10: mix time = 275 + (50 - 10) = 315 = 5:15:00
+    expect(cue).toContain('REM CUE "intro end"')
+    expect(cue).toContain('INDEX 02 05:15:00')
+  })
+
+  it('uses effective durations for start time calculation', () => {
+    const tracks: CueTrackInfo[] = [
+      { title: 'Song A', duration: 300, crossfadeDuration: 5, trimStart: 30, trimEnd: 270 },
+      { title: 'Song B', duration: 200, crossfadeDuration: 0 },
+    ]
+
+    const cue = generateCueSheet(tracks, 'Mix', 'out.flac')
+
+    // Track A effective = 270 - 30 = 240, minus crossfade 5 = 235
+    // Track B INDEX 01 at 235s = 3:55:00
+    expect(cue).toContain('INDEX 01 03:55:00')
+  })
+
+  it('sorts cue points by timestamp', () => {
+    const cuePoints: CuePoint[] = [
+      { id: '2', timestamp: 120, label: 'second', type: 'marker' },
+      { id: '1', timestamp: 60, label: 'first', type: 'marker' },
+    ]
+    const tracks: CueTrackInfo[] = [
+      { title: 'Song A', duration: 300, crossfadeDuration: 0, cuePoints },
+    ]
+
+    const cue = generateCueSheet(tracks, 'Mix', 'out.flac')
+
+    const lines = cue.split('\n')
+    const idx02 = lines.findIndex((l) => l.includes('INDEX 02'))
+    const idx03 = lines.findIndex((l) => l.includes('INDEX 03'))
+    expect(idx02).toBeLessThan(idx03)
+    expect(lines[idx02 - 1]).toContain('first')
+    expect(lines[idx03 - 1]).toContain('second')
   })
 })

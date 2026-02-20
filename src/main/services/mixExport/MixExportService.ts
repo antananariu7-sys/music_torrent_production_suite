@@ -122,11 +122,14 @@ export class MixExportService {
     }
     if (this.activeJob?.cancelled) return
 
-    // Resolve crossfade durations with clamping
+    // Resolve crossfade durations with clamping (using effective durations)
     const crossfades = valid.map((song, i) => {
       if (i === valid.length - 1) return 0
       const raw = song.crossfadeDuration ?? request.defaultCrossfadeDuration
-      const { value } = clampCrossfade(raw, song.duration, valid[i + 1]?.duration)
+      const effectiveCurrent = (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+      const next = valid[i + 1]
+      const effectiveNext = (next.trimEnd ?? next.duration ?? 0) - (next.trimStart ?? 0)
+      const { value } = clampCrossfade(raw, effectiveCurrent, effectiveNext)
       return value
     })
 
@@ -169,11 +172,13 @@ export class MixExportService {
       percentage: 20,
     })
 
-    // Build filter graph
+    // Build filter graph (include trim boundaries)
     const trackInfos: TrackInfo[] = valid.map((song, i) => ({
       index: i,
       loudnorm: loudnormResults[i],
       crossfadeDuration: crossfades[i],
+      trimStart: song.trimStart,
+      trimEnd: song.trimEnd,
     }))
 
     const filterGraph = buildFilterGraph(trackInfos, request.normalization)
@@ -234,6 +239,9 @@ export class MixExportService {
         artist: song.artist,
         duration: song.duration ?? 0,
         crossfadeDuration: crossfades[i],
+        trimStart: song.trimStart,
+        trimEnd: song.trimEnd,
+        cuePoints: song.cuePoints,
       }))
 
       const mixTitle = request.metadata?.title || project.mixMetadata?.title || project.name || 'Mix'
@@ -281,7 +289,9 @@ export class MixExportService {
   private computeTotalDuration(songs: Song[], crossfades: number[]): number {
     let total = 0
     for (let i = 0; i < songs.length; i++) {
-      total += songs[i].duration ?? 0
+      const song = songs[i]
+      const effective = (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+      total += effective
       if (i < crossfades.length) {
         total -= crossfades[i]
       }

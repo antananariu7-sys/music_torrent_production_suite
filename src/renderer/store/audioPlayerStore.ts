@@ -4,6 +4,7 @@ export interface Track {
   filePath: string
   name: string
   duration?: number
+  trimEnd?: number
 }
 
 interface AudioPlayerState {
@@ -16,13 +17,16 @@ interface AudioPlayerState {
   duration: number
   volume: number
 
+  // Seek
+  pendingSeekTime: number | null
+
   // Playlist
   playlist: Track[]
   currentIndex: number
 
   // Actions
   playTrack: (track: Track) => void
-  playPlaylist: (tracks: Track[], startIndex?: number) => void
+  playPlaylist: (tracks: Track[], startIndex?: number, seekTime?: number) => void
   play: () => void
   pause: () => void
   togglePlayPause: () => void
@@ -32,6 +36,7 @@ interface AudioPlayerState {
   previous: () => void
   setCurrentTime: (time: number) => void
   setDuration: (duration: number) => void
+  clearPendingSeek: () => void
   clearPlaylist: () => void
 }
 
@@ -41,6 +46,7 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
   currentTime: 0,
   duration: 0,
   volume: 0.7,
+  pendingSeekTime: null,
   playlist: [],
   currentIndex: -1,
 
@@ -54,7 +60,7 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
     })
   },
 
-  playPlaylist: (tracks: Track[], startIndex = 0) => {
+  playPlaylist: (tracks: Track[], startIndex = 0, seekTime?: number) => {
     if (tracks.length === 0) return
 
     set({
@@ -62,7 +68,8 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
       currentIndex: startIndex,
       currentTrack: tracks[startIndex],
       isPlaying: true,
-      currentTime: 0,
+      currentTime: seekTime ?? 0,
+      pendingSeekTime: seekTime ?? null,
     })
   },
 
@@ -143,6 +150,10 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
     set({ duration })
   },
 
+  clearPendingSeek: () => {
+    set({ pendingSeekTime: null })
+  },
+
   clearPlaylist: () => {
     set({
       currentTrack: null,
@@ -151,6 +162,7 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
       isPlaying: false,
       currentTime: 0,
       duration: 0,
+      pendingSeekTime: null,
     })
   },
 }))

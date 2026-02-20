@@ -2,12 +2,14 @@ import { useRef, useEffect, useCallback } from 'react'
 import { Box, Text, VStack } from '@chakra-ui/react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useProjectStore } from '@/store/useProjectStore'
+import { useAudioPlayerStore, type Track } from '@/store/audioPlayerStore'
 import { WaveformCanvas } from './WaveformCanvas'
 import { TrackInfoOverlay } from './TrackInfoOverlay'
 import { TimeRuler } from './TimeRuler'
 import { CuePointMarker } from './CuePointMarker'
 import { TrimOverlay } from './TrimOverlay'
 import { BeatGrid } from './BeatGrid'
+import { Playhead } from './Playhead'
 import { CrossfadePopover } from './CrossfadePopover'
 import { CuePointPopover } from './CuePointPopover'
 import type { Song } from '@shared/types/project.types'
@@ -59,6 +61,7 @@ export function TimelineLayout({
 }: TimelineLayoutProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const isScrollSyncing = useRef(false)
+  const userScrolledRef = useRef(false)
 
   const currentProject = useProjectStore((s) => s.currentProject)
 
@@ -110,12 +113,57 @@ export function TimelineLayout({
     }
   }, [scrollPosition])
 
-  // Sync DOM scroll → store
+  // Sync DOM scroll → store (also detect manual scroll during playback)
   const handleScroll = useCallback(() => {
     const el = containerRef.current
     if (!el || isScrollSyncing.current) return
     setScrollPosition(el.scrollLeft)
+    // If user manually scrolls during playback, disable auto-scroll
+    if (useAudioPlayerStore.getState().isPlaying) {
+      userScrolledRef.current = true
+    }
   }, [setScrollPosition])
+
+  // Auto-scroll to follow playhead during playback
+  useEffect(() => {
+    const unsub = useAudioPlayerStore.subscribe((state, prev) => {
+      if (!state.isPlaying || !state.currentTrack) return
+      // Reset user-scrolled flag when a new track starts playing
+      if (state.currentTrack !== prev.currentTrack) {
+        userScrolledRef.current = false
+      }
+      if (userScrolledRef.current) return
+
+      const el = containerRef.current
+      if (!el) return
+
+      // Compute playhead pixel position
+      const trackIndex = songs.findIndex(
+        (s) => (s.localFilePath ?? s.externalFilePath) === state.currentTrack!.filePath
+      )
+      if (trackIndex === -1) return
+
+      const pos = positions[trackIndex]
+      const song = songs[trackIndex]
+      const playheadX = pos.left + (state.currentTime - (song.trimStart ?? 0)) * pixelsPerSecond
+
+      const viewportLeft = el.scrollLeft
+      const viewportRight = el.scrollLeft + el.clientWidth
+
+      // Scroll when playhead exits the visible viewport (with some margin)
+      const margin = el.clientWidth * 0.15
+      if (playheadX < viewportLeft + margin || playheadX > viewportRight - margin) {
+        isScrollSyncing.current = true
+        const newScroll = Math.max(0, playheadX - el.clientWidth * 0.3)
+        el.scrollLeft = newScroll
+        setScrollPosition(newScroll)
+        requestAnimationFrame(() => {
+          isScrollSyncing.current = false
+        })
+      }
+    })
+    return unsub
+  }, [songs, positions, pixelsPerSecond, setScrollPosition])
 
   // Ctrl+scroll zoom with stable cursor point
   const handleWheel = useCallback(
@@ -173,6 +221,29 @@ export function TimelineLayout({
     [openCrossfadePopover]
   )
 
+  // Convert Song to AudioPlayer Track
+  const songToTrack = useCallback((song: Song): Track => ({
+    filePath: song.localFilePath ?? song.externalFilePath ?? '',
+    name: song.title,
+    duration: song.duration,
+    trimEnd: song.trimEnd,
+  }), [])
+
+  // Single-click on track waveform → start playback at clicked position
+  const handleTrackClick = useCallback(
+    (e: React.MouseEvent, song: Song, trackLeft: number, clickedIndex: number) => {
+      setSelectedTrack(song.id)
+
+      const clickX = e.clientX - containerRef.current!.getBoundingClientRect().left
+        + containerRef.current!.scrollLeft - trackLeft
+      const seekTime = clickX / pixelsPerSecond + (song.trimStart ?? 0)
+
+      const tracks = songs.map(songToTrack)
+      useAudioPlayerStore.getState().playPlaylist(tracks, clickedIndex, seekTime)
+    },
+    [pixelsPerSecond, songs, songToTrack, setSelectedTrack]
+  )
+
   // Get data for active popovers
   const crossfadeSong = activeCrossfadePopover
     ? songs.find((s) => s.id === activeCrossfadePopover.songId)
@@ -213,7 +284,7 @@ export function TimelineLayout({
                 left={`${pos.left}px`}
                 top={0}
                 w={`${pos.width}px`}
-                onClick={() => setSelectedTrack(song.id)}
+                onClick={(e) => handleTrackClick(e, song, pos.left, index)}
                 onDoubleClick={(e) => handleTrackDoubleClick(e, song, pos.left)}
               >
                 {/* Track label */}
@@ -320,6 +391,14 @@ export function TimelineLayout({
               />
             )
           })}
+
+          {/* Playhead */}
+          <Playhead
+            positions={positions}
+            songs={songs}
+            pixelsPerSecond={pixelsPerSecond}
+            trackHeight={TRACK_HEIGHT}
+          />
         </Box>
       </Box>
 
