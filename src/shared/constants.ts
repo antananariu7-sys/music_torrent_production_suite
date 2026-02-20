@@ -104,6 +104,16 @@ export const IPC_CHANNELS = {
   PROJECT_UPDATE_SONG: 'project:update-song',
   PROJECT_REORDER_SONGS: 'project:reorder-songs',
   PROJECT_SYNC_AUDIO_FOLDER: 'project:sync-audio-folder',
+
+  // Waveform extraction
+  WAVEFORM_GENERATE: 'waveform:generate',
+  WAVEFORM_GENERATE_BATCH: 'waveform:generate-batch',
+  WAVEFORM_PROGRESS: 'waveform:progress',
+
+  // BPM detection
+  BPM_DETECT: 'bpm:detect',
+  BPM_DETECT_BATCH: 'bpm:detect-batch',
+  BPM_PROGRESS: 'bpm:progress',
 } as const
 
 // Application settings

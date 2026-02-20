@@ -1,4 +1,5 @@
 // Project-related types
+import type { CuePoint } from './waveform.types'
 
 /**
  * Main project data structure
@@ -35,6 +36,11 @@ export interface Song {
   order: number                     // Order in the mix
   metadata?: AudioMetadata          // Extended audio metadata
   crossfadeDuration?: number        // Seconds into NEXT track. undefined = use default. Range: 0–30.
+  cuePoints?: CuePoint[]            // User-placed markers on the track timeline
+  bpm?: number                      // Detected BPM, cached after first detection
+  firstBeatOffset?: number          // Seconds from track start to first detected downbeat
+  trimStart?: number                // Effective start time (derived from trim-start cue point)
+  trimEnd?: number                  // Effective end time (derived from trim-end cue point)
 }
 
 /**

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CuePointSchema } from './waveform.schema'
 
 /**
  * Audio metadata schema
@@ -38,6 +39,12 @@ export const SongSchema = z.object({
   addedAt: z.date(),
   order: z.number().int().nonnegative(),
   metadata: AudioMetadataSchema.optional(),
+  crossfadeDuration: z.number().min(0).max(30).optional(),
+  cuePoints: z.array(CuePointSchema).optional(),
+  bpm: z.number().positive().optional(),
+  firstBeatOffset: z.number().nonnegative().optional(),
+  trimStart: z.number().nonnegative().optional(),
+  trimEnd: z.number().nonnegative().optional(),
 })
 
 /**
