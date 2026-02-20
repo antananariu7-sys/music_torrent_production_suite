@@ -258,6 +258,21 @@ export class MixExportService {
       outputPath,
     })
 
+    // Persist last-used export settings (non-fatal)
+    try {
+      await this.projectService.updateMixMetadata(request.projectId, {
+        exportConfig: {
+          defaultCrossfadeDuration: request.defaultCrossfadeDuration,
+          normalization: request.normalization,
+          outputFormat: request.format,
+          mp3Bitrate: request.mp3Bitrate ?? 320,
+          generateCueSheet: request.generateCueSheet,
+        },
+      })
+    } catch (err) {
+      console.warn('[MixExport] Failed to persist export config:', err)
+    }
+
     this.activeJob = null
   }
 
