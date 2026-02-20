@@ -8,7 +8,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=25.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "dev": "yarn build:main && yarn build:preload && concurrently \"yarn dev:renderer\" \"yarn start:dev\"",
@@ -24,6 +24,7 @@
     "package": "yarn build && electron-builder",
     "package:win": "yarn build && electron-builder --win",
     "package:mac": "yarn build && electron-builder --mac",
+    "package:linux": "yarn build && electron-builder --linux",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -97,15 +98,19 @@
     "win": {
       "target": [
         "nsis"
-      ],
-      "icon": "resources/icons/icon.ico"
+      ]
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "resources/icons/icon.icns",
       "category": "public.app-category.music"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Audio"
     }
   }
 }
