@@ -11,6 +11,7 @@ interface TimelineState {
   selectedTrackId: string | null
   zoomLevel: number
   scrollPosition: number
+  viewportWidth: number
 
   // Actions
   setWaveform: (songId: string, data: WaveformData) => void
@@ -20,6 +21,9 @@ interface TimelineState {
   setSelectedTrack: (songId: string | null) => void
   setZoomLevel: (level: number) => void
   setScrollPosition: (pos: number) => void
+  setViewportWidth: (width: number) => void
+  zoomIn: () => void
+  zoomOut: () => void
   clearCache: () => void
 }
 
@@ -30,6 +34,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   selectedTrackId: null,
   zoomLevel: 1,
   scrollPosition: 0,
+  viewportWidth: 0,
 
   setWaveform: (songId, data) =>
     set((state) => ({
@@ -54,6 +59,9 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   setSelectedTrack: (songId) => set({ selectedTrackId: songId }),
   setZoomLevel: (level) => set({ zoomLevel: Math.max(1, Math.min(50, level)) }),
   setScrollPosition: (pos) => set({ scrollPosition: pos }),
+  setViewportWidth: (width) => set({ viewportWidth: width }),
+  zoomIn: () => set((s) => ({ zoomLevel: Math.min(50, s.zoomLevel * 1.3) })),
+  zoomOut: () => set((s) => ({ zoomLevel: Math.max(1, s.zoomLevel / 1.3) })),
 
   clearCache: () =>
     set({

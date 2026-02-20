@@ -1,7 +1,9 @@
+import { useRef, useEffect, useCallback } from 'react'
 import { Box, Text, VStack } from '@chakra-ui/react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { WaveformCanvas } from './WaveformCanvas'
 import { TrackInfoOverlay } from './TrackInfoOverlay'
+import { TimeRuler } from './TimeRuler'
 import type { Song } from '@shared/types/project.types'
 import type { WaveformData } from '@shared/types/waveform.types'
 
@@ -11,22 +13,22 @@ interface TimelineLayoutProps {
   defaultCrossfade?: number
 }
 
-/** Base pixels per second at zoom 1× */
-const PX_PER_SEC = 10
+/** Base pixels per second at zoom 1x */
+export const PX_PER_SEC = 10
 
 /** Track height in pixels */
 const TRACK_HEIGHT = 80
 
 /** Alternating track colors for visual distinction */
-const TRACK_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4']
+export const TRACK_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4']
 
-interface TrackPosition {
+export interface TrackPosition {
   songId: string
   left: number
   width: number
 }
 
-function computeTrackPositions(
+export function computeTrackPositions(
   songs: Song[],
   pixelsPerSecond: number,
   defaultCrossfade: number
@@ -49,9 +51,16 @@ export function TimelineLayout({
   waveforms,
   defaultCrossfade = 5,
 }: TimelineLayoutProps): JSX.Element {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const isScrollSyncing = useRef(false)
+
   const zoomLevel = useTimelineStore((s) => s.zoomLevel)
+  const scrollPosition = useTimelineStore((s) => s.scrollPosition)
   const selectedTrackId = useTimelineStore((s) => s.selectedTrackId)
   const setSelectedTrack = useTimelineStore((s) => s.setSelectedTrack)
+  const setScrollPosition = useTimelineStore((s) => s.setScrollPosition)
+  const setViewportWidth = useTimelineStore((s) => s.setViewportWidth)
+  const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
 
   const pixelsPerSecond = PX_PER_SEC * zoomLevel
   const positions = computeTrackPositions(songs, pixelsPerSecond, defaultCrossfade)
@@ -59,15 +68,97 @@ export function TimelineLayout({
     ? Math.max(...positions.map((p) => p.left + p.width))
     : 0
 
+  // Measure container width and track viewport size
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry) {
+        setViewportWidth(entry.contentRect.width)
+      }
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [setViewportWidth])
+
+  // Sync store scroll position → DOM scroll
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    // Avoid feedback loop: don't set DOM scroll if it was the source
+    if (Math.abs(el.scrollLeft - scrollPosition) > 1) {
+      isScrollSyncing.current = true
+      el.scrollLeft = scrollPosition
+      // Reset flag after browser applies the scroll
+      requestAnimationFrame(() => {
+        isScrollSyncing.current = false
+      })
+    }
+  }, [scrollPosition])
+
+  // Sync DOM scroll → store
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current
+    if (!el || isScrollSyncing.current) return
+    setScrollPosition(el.scrollLeft)
+  }, [setScrollPosition])
+
+  // Ctrl+scroll zoom with stable cursor point
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (!e.ctrlKey) return
+      e.preventDefault()
+
+      const el = containerRef.current
+      if (!el) return
+
+      const rect = el.getBoundingClientRect()
+      const cursorXInViewport = e.clientX - rect.left
+      const cursorXInTimeline = cursorXInViewport + el.scrollLeft
+
+      // Compute zoom factor
+      const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+      const newZoom = Math.max(1, Math.min(50, zoomLevel * zoomFactor))
+
+      // Recompute where cursor should be after zoom
+      const cursorFraction = totalWidth > 0 ? cursorXInTimeline / totalWidth : 0
+      const newTotalWidth = totalWidth * (newZoom / zoomLevel)
+      const newScrollLeft = cursorFraction * newTotalWidth - cursorXInViewport
+
+      setZoomLevel(newZoom)
+
+      // Apply scroll immediately (before next render)
+      requestAnimationFrame(() => {
+        if (el) {
+          isScrollSyncing.current = true
+          el.scrollLeft = Math.max(0, newScrollLeft)
+          setScrollPosition(Math.max(0, newScrollLeft))
+          requestAnimationFrame(() => {
+            isScrollSyncing.current = false
+          })
+        }
+      })
+    },
+    [zoomLevel, totalWidth, setZoomLevel, setScrollPosition]
+  )
+
   return (
     <Box
+      ref={containerRef}
       overflowX="auto"
       bg="bg.surface"
       borderWidth="1px"
       borderColor="border.base"
       borderRadius="md"
       p={3}
+      onScroll={handleScroll}
+      onWheel={handleWheel}
     >
+      {/* Time ruler */}
+      <TimeRuler totalWidth={totalWidth} pixelsPerSecond={pixelsPerSecond} />
+
+      {/* Track area */}
       <Box position="relative" h={`${TRACK_HEIGHT + 24}px`} minW={`${totalWidth}px`}>
         {songs.map((song, index) => {
           const pos = positions[index]

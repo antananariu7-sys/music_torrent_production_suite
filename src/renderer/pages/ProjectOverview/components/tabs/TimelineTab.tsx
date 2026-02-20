@@ -2,9 +2,16 @@ import { HStack, VStack, Text, Box } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useWaveformData } from '@/hooks/useWaveformData'
-import { TimelineLayout } from '@/components/features/timeline/TimelineLayout'
+import {
+  TimelineLayout,
+  computeTrackPositions,
+  PX_PER_SEC,
+  TRACK_COLORS,
+} from '@/components/features/timeline/TimelineLayout'
 import { TrackDetailPanel } from '@/components/features/timeline/TrackDetailPanel'
-import { formatDuration, calculateTotalDuration } from '../../utils'
+import { ZoomControls } from '@/components/features/timeline/ZoomControls'
+import { Minimap } from '@/components/features/timeline/Minimap'
+import { calculateTotalDuration } from '../../utils'
 
 export function TimelineTab(): JSX.Element {
   const currentProject = useProjectStore((state) => state.currentProject)
@@ -22,9 +29,18 @@ export function TimelineTab(): JSX.Element {
 
   const songs = [...currentProject.songs].sort((a, b) => a.order - b.order)
   const totalDuration = calculateTotalDuration(songs)
+  const defaultCrossfade = currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5
   const selectedSong = selectedTrackId
     ? songs.find((s) => s.id === selectedTrackId)
     : undefined
+
+  // Compute positions for Minimap (shared with TimelineLayout)
+  const zoomLevel = useTimelineStore((s) => s.zoomLevel)
+  const pixelsPerSecond = PX_PER_SEC * zoomLevel
+  const positions = computeTrackPositions(songs, pixelsPerSecond, defaultCrossfade)
+  const totalWidth = positions.length > 0
+    ? Math.max(...positions.map((p) => p.left + p.width))
+    : 0
 
   return (
     <VStack align="stretch" gap={4}>
@@ -37,11 +53,6 @@ export function TimelineTab(): JSX.Element {
           <Text fontSize="sm" color="text.muted">
             {songs.length} {songs.length === 1 ? 'track' : 'tracks'}
           </Text>
-          {totalDuration > 0 && (
-            <Text fontSize="sm" color="text.muted">
-              {formatDuration(totalDuration)}
-            </Text>
-          )}
         </HStack>
       </HStack>
 
@@ -79,13 +90,24 @@ export function TimelineTab(): JSX.Element {
         </Box>
       )}
 
-      {/* Timeline */}
+      {/* Zoom controls + Minimap + Timeline */}
       {songs.length > 0 && (
-        <TimelineLayout
-          songs={songs}
-          waveforms={waveformCache}
-          defaultCrossfade={currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5}
-        />
+        <>
+          <ZoomControls totalDuration={totalDuration} />
+
+          <Minimap
+            waveforms={waveformCache}
+            positions={positions}
+            totalWidth={totalWidth}
+            trackColors={TRACK_COLORS}
+          />
+
+          <TimelineLayout
+            songs={songs}
+            waveforms={waveformCache}
+            defaultCrossfade={defaultCrossfade}
+          />
+        </>
       )}
 
       {/* Selected track detail panel */}

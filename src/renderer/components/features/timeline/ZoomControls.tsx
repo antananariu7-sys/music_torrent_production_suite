@@ -1,0 +1,71 @@
+import { HStack, Text, IconButton } from '@chakra-ui/react'
+import { FiZoomIn, FiZoomOut, FiMaximize2 } from 'react-icons/fi'
+import { useTimelineStore } from '@/store/timelineStore'
+
+interface ZoomControlsProps {
+  totalDuration: number
+}
+
+function formatDuration(seconds: number): string {
+  const min = Math.floor(seconds / 60)
+  const sec = Math.floor(seconds % 60)
+  return `${min}:${sec.toString().padStart(2, '0')}`
+}
+
+export function ZoomControls({ totalDuration }: ZoomControlsProps): JSX.Element {
+  const zoomLevel = useTimelineStore((s) => s.zoomLevel)
+  const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
+  const zoomIn = useTimelineStore((s) => s.zoomIn)
+  const zoomOut = useTimelineStore((s) => s.zoomOut)
+
+  return (
+    <HStack gap={3} align="center">
+      <IconButton
+        aria-label="Zoom out"
+        size="xs"
+        variant="ghost"
+        onClick={zoomOut}
+      >
+        <FiZoomOut />
+      </IconButton>
+
+      <input
+        type="range"
+        min={1}
+        max={50}
+        step={0.1}
+        value={zoomLevel}
+        onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+        style={{ width: '120px', cursor: 'pointer' }}
+      />
+
+      <IconButton
+        aria-label="Zoom in"
+        size="xs"
+        variant="ghost"
+        onClick={zoomIn}
+      >
+        <FiZoomIn />
+      </IconButton>
+
+      <IconButton
+        aria-label="Fit to view"
+        size="xs"
+        variant="ghost"
+        onClick={() => setZoomLevel(1)}
+      >
+        <FiMaximize2 />
+      </IconButton>
+
+      <Text fontSize="xs" color="text.muted" ml={2}>
+        {zoomLevel.toFixed(1)}x
+      </Text>
+
+      {totalDuration > 0 && (
+        <Text fontSize="xs" color="text.muted" ml="auto">
+          Total: {formatDuration(totalDuration)}
+        </Text>
+      )}
+    </HStack>
+  )
+}
