@@ -96,7 +96,6 @@ export const IPC_CHANNELS = {
   MIX_EXPORT_START: 'mix-export:start',
   MIX_EXPORT_CANCEL: 'mix-export:cancel',
   MIX_EXPORT_PROGRESS: 'mix-export:progress',
-  MIX_EXPORT_ESTIMATE: 'mix-export:estimate',
   MIX_EXPORT_FFMPEG_CHECK: 'mix-export:ffmpeg-check',
 
   // Mix / Song management

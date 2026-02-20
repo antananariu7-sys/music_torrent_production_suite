@@ -1,14 +1,15 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
-import type { MixExportRequest } from '@shared/types/mixExport.types'
+import { MixExportRequestSchema } from '@shared/schemas/mixExport.schema'
 import type { MixExportService } from '../services/mixExport/MixExportService'
 
 export function registerMixExportHandlers(
   mixExportService: MixExportService
 ): void {
-  ipcMain.handle(IPC_CHANNELS.MIX_EXPORT_START, async (_event, request: MixExportRequest) => {
+  ipcMain.handle(IPC_CHANNELS.MIX_EXPORT_START, async (_event, request: unknown) => {
     try {
-      const result = await mixExportService.startExport(request)
+      const parsed = MixExportRequestSchema.parse(request)
+      const result = await mixExportService.startExport(parsed)
       return { success: true, data: result }
     } catch (error) {
       console.error('[mixExportHandlers] Failed to start export:', error)
