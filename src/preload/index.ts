@@ -61,6 +61,12 @@ import type {
   TorrentMetadataResponse,
 } from '@shared/types/torrentMetadata.types'
 import type { FfmpegCheckResult, MixExportRequest, MixExportProgress } from '@shared/types/mixExport.types'
+import type {
+  WaveformData,
+  WaveformGenerateRequest,
+  WaveformBatchRequest,
+  WaveformProgressEvent,
+} from '@shared/types/waveform.types'
 
 // API response wrapper
 interface ApiResponse<T> {
@@ -327,6 +333,25 @@ const api = {
 
     readMetadata: (filePath: string): Promise<{ success: boolean; data?: AudioMetadata; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUDIO_READ_METADATA, filePath),
+  },
+
+  // Waveform extraction
+  waveform: {
+    generate: (request: WaveformGenerateRequest): Promise<{ success: boolean; data?: WaveformData; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WAVEFORM_GENERATE, request),
+
+    generateBatch: (request: WaveformBatchRequest): Promise<{ success: boolean; data?: WaveformData[]; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WAVEFORM_GENERATE_BATCH, request),
+
+    onProgress: (callback: (progress: WaveformProgressEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, progress: WaveformProgressEvent) => {
+        callback(progress)
+      }
+      ipcRenderer.on(IPC_CHANNELS.WAVEFORM_PROGRESS, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.WAVEFORM_PROGRESS, handler)
+      }
+    },
   },
 
   // Mix / song management

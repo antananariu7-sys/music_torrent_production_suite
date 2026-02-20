@@ -1,0 +1,1 @@
+export { WaveformExtractor } from './WaveformExtractor'
