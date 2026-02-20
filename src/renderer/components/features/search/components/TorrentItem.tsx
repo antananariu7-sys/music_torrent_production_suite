@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Box, VStack, Text, Button, HStack, Icon } from '@chakra-ui/react'
-import { FiDownload, FiChevronUp, FiList } from 'react-icons/fi'
+import { FiDownload, FiChevronUp, FiList, FiHardDrive } from 'react-icons/fi'
 import type { SearchResult } from '@shared/types/search.types'
 import type { TorrentPageMetadata } from '@shared/types/torrentMetadata.types'
 import type { PageContentScanResult } from '@shared/types/discography.types'
@@ -26,6 +26,13 @@ export const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isD
     const mb = bytes / (1024 * 1024)
     return gb >= 1 ? `${gb.toFixed(2)} GB` : `${mb.toFixed(0)} MB`
   }
+
+  const displaySize = (() => {
+    if (torrent.sizeBytes) return formatSize(torrent.sizeBytes)
+    const parsed = Number(torrent.size)
+    if (!isNaN(parsed) && parsed > 0) return formatSize(parsed)
+    return torrent.size
+  })()
 
   const handlePreviewClick = useCallback(async () => {
     if (previewState === 'loaded') {
@@ -87,9 +94,12 @@ export const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isD
                 </Text>
               )}
               {torrent.size && (
-                <Text fontSize="xs" color="text.muted">
-                  {torrent.sizeBytes ? formatSize(torrent.sizeBytes) : torrent.size}
-                </Text>
+                <HStack gap={1} bg="bg.surface" px={2} py={0.5} borderRadius="sm">
+                  <Icon as={FiHardDrive} boxSize={3} color="text.secondary" />
+                  <Text fontSize="xs" fontWeight="medium" color="text.secondary">
+                    {displaySize}
+                  </Text>
+                </HStack>
               )}
               {torrent.seeders !== undefined && (
                 <Text fontSize="xs" color="green.500">
