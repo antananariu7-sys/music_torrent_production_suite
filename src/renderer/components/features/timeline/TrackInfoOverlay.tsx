@@ -40,21 +40,36 @@ function buildTooltipText(song: Song): string {
 export function TrackInfoOverlay({ song }: TrackInfoOverlayProps): JSX.Element {
   const label = formatBitrate(song)
 
-  if (!label) return <></>
+  const hasBpm = song.bpm != null && song.bpm > 0
+
+  if (!label && !hasBpm) return <></>
 
   return (
-    <Box position="absolute" top={1} left={1} zIndex={1}>
-      <Badge
-        fontSize="2xs"
-        fontWeight="bold"
-        textTransform="uppercase"
-        colorPalette="blue"
-        variant="subtle"
-        cursor="default"
-        title={buildTooltipText(song)}
-      >
-        {label}
-      </Badge>
+    <Box position="absolute" top={1} left={1} zIndex={1} display="flex" gap="4px">
+      {label && (
+        <Badge
+          fontSize="2xs"
+          fontWeight="bold"
+          textTransform="uppercase"
+          colorPalette="blue"
+          variant="subtle"
+          cursor="default"
+          title={buildTooltipText(song)}
+        >
+          {label}
+        </Badge>
+      )}
+      {hasBpm && (
+        <Badge
+          fontSize="2xs"
+          fontWeight="bold"
+          colorPalette="purple"
+          variant="subtle"
+          cursor="default"
+        >
+          {Math.round(song.bpm!)} BPM
+        </Badge>
+      )}
     </Box>
   )
 }

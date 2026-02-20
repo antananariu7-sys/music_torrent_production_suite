@@ -39,3 +39,11 @@ export const BpmDetectRequestSchema = z.object({
 export const BpmBatchRequestSchema = z.object({
   projectId: z.string().uuid(),
 })
+
+/**
+ * Detect BPM for a single song within a project (resolves path internally)
+ */
+export const BpmDetectSongRequestSchema = z.object({
+  projectId: z.string().uuid(),
+  songId: z.string().min(1),
+})

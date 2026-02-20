@@ -62,6 +62,43 @@ export class BpmDetector {
   }
 
   /**
+   * Detect BPM for a single song within a project, persist to song record, and return data.
+   * Forces re-detection by clearing the cache first.
+   */
+  async detectSong(projectId: string, songId: string): Promise<BpmData> {
+    const project = this.projectService.getActiveProject()
+    console.log(`[BpmDetector] detectSong called: projectId=${projectId}, songId=${songId}`)
+    console.log(`[BpmDetector] Active project: ${project?.id ?? 'none'}`)
+    if (!project || project.id !== projectId) {
+      throw new Error(`Project ${projectId} is not active`)
+    }
+
+    const song = project.songs.find((s) => s.id === songId)
+    if (!song) throw new Error(`Song ${songId} not found`)
+
+    const filePath = this.resolveSongPath(song, project.projectDirectory)
+    console.log(`[BpmDetector] Resolved file path: ${filePath}`)
+    console.log(`[BpmDetector] Song fields: localFilePath=${song.localFilePath}, externalFilePath=${song.externalFilePath}`)
+    if (!filePath) throw new Error(`No file path for song ${songId}`)
+
+    // Clear cache to force re-detection
+    const cachePath = this.getCachePath(songId)
+    await fs.remove(cachePath)
+
+    const data = await this.detect(songId, filePath)
+
+    // Persist to song record
+    if (data.bpm > 0) {
+      await this.projectService.updateSong(projectId, songId, {
+        bpm: data.bpm,
+        firstBeatOffset: data.firstBeatOffset,
+      })
+    }
+
+    return data
+  }
+
+  /**
    * Detect BPM for all songs in the active project.
    * Emits BPM_PROGRESS per track for UI feedback.
    */
@@ -87,6 +124,14 @@ export class BpmDetector {
       try {
         const data = await this.detect(song.id, filePath)
         results.push(data)
+
+        // Persist BPM to song record in project
+        if (data.bpm > 0) {
+          await this.projectService.updateSong(projectId, song.id, {
+            bpm: data.bpm,
+            firstBeatOffset: data.firstBeatOffset,
+          })
+        }
       } catch (error) {
         console.error(`[BpmDetector] Failed to detect BPM for ${song.id}:`, error)
       }
@@ -99,28 +144,42 @@ export class BpmDetector {
    * Full BPM analysis pipeline: extract PCM → onset strength → autocorrelation → first beat.
    */
   async analyzeBpm(songId: string, filePath: string, fileHash: string): Promise<BpmData> {
+    console.log(`[BpmDetector] analyzeBpm start: songId=${songId}, filePath=${filePath}`)
+
     const pcmBuffer = await this.extractPcm(filePath)
+    console.log(`[BpmDetector] PCM extracted: ${pcmBuffer.byteLength} bytes (${(pcmBuffer.byteLength / 4)} samples)`)
+
     const samples = new Float32Array(pcmBuffer.buffer, pcmBuffer.byteOffset, pcmBuffer.byteLength / 4)
 
     // Short track guard
     if (samples.length < ANALYSIS_SAMPLE_RATE * 5) {
-      console.warn(`[BpmDetector] Track too short for reliable BPM detection: ${songId}`)
+      console.warn(`[BpmDetector] Track too short: ${samples.length} samples < ${ANALYSIS_SAMPLE_RATE * 5} minimum (songId=${songId})`)
       return { songId, bpm: 0, firstBeatOffset: 0, confidence: 0, fileHash }
     }
 
+    const durationSec = samples.length / ANALYSIS_SAMPLE_RATE
+    console.log(`[BpmDetector] Track duration: ${durationSec.toFixed(1)}s, ${samples.length} samples`)
+
     const onsets = this.computeOnsetStrength(samples)
+    console.log(`[BpmDetector] Onset strength computed: ${onsets.length} frames`)
+
     const { bpm, confidence } = this.autocorrelate(onsets)
+    console.log(`[BpmDetector] Autocorrelation result: bpm=${bpm}, confidence=${confidence.toFixed(4)} (threshold=${MIN_CONFIDENCE})`)
+
     const firstBeatOffset = confidence >= MIN_CONFIDENCE
       ? this.findFirstBeat(onsets, bpm)
       : 0
 
-    return {
+    const result: BpmData = {
       songId,
       bpm: confidence >= MIN_CONFIDENCE ? bpm : 0,
       firstBeatOffset,
       confidence,
       fileHash,
     }
+
+    console.log(`[BpmDetector] Final result: bpm=${result.bpm}, firstBeatOffset=${result.firstBeatOffset.toFixed(3)}, confidence=${confidence.toFixed(4)}`)
+    return result
   }
 
   /**
@@ -137,25 +196,37 @@ export class BpmDetector {
         'pipe:1',
       ]
 
+      console.log(`[BpmDetector] FFmpeg command: ${ffmpegPath} ${args.join(' ')}`)
+
       const proc = spawn(ffmpegPath, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
       })
 
       const chunks: Buffer[] = []
+      const stderrChunks: Buffer[] = []
 
       proc.stdout!.on('data', (chunk: Buffer) => {
         chunks.push(chunk)
       })
 
+      proc.stderr!.on('data', (chunk: Buffer) => {
+        stderrChunks.push(chunk)
+      })
+
       proc.on('error', (err) => {
+        console.error(`[BpmDetector] FFmpeg spawn error:`, err.message)
         reject(new Error(`FFmpeg spawn error: ${err.message}`))
       })
 
       proc.on('close', (code) => {
+        const stderr = Buffer.concat(stderrChunks).toString().slice(-500)
         if (code !== 0) {
-          reject(new Error(`FFmpeg exited with code ${code}`))
+          console.error(`[BpmDetector] FFmpeg exited with code ${code}, stderr: ${stderr}`)
+          reject(new Error(`FFmpeg exited with code ${code}: ${stderr}`))
           return
         }
+        const totalBytes = chunks.reduce((sum, c) => sum + c.byteLength, 0)
+        console.log(`[BpmDetector] FFmpeg success: ${totalBytes} bytes PCM output`)
         resolve(Buffer.concat(chunks))
       })
     })
@@ -295,13 +366,20 @@ export class BpmDetector {
     await fs.writeJson(cachePath, data)
   }
 
-  private resolveSongPath(song: { localFilePath?: string; externalFilePath?: string }, projectDir: string): string | null {
+  private resolveSongPath(song: { id?: string; localFilePath?: string; externalFilePath?: string }, projectDir: string): string | null {
     if (song.localFilePath) {
-      return path.isAbsolute(song.localFilePath)
+      const resolved = path.isAbsolute(song.localFilePath)
         ? song.localFilePath
         : path.join(projectDir, song.localFilePath)
+      console.log(`[BpmDetector] resolveSongPath(${song.id}): localFilePath → ${resolved}`)
+      return resolved
     }
-    return song.externalFilePath ?? null
+    if (song.externalFilePath) {
+      console.log(`[BpmDetector] resolveSongPath(${song.id}): externalFilePath → ${song.externalFilePath}`)
+      return song.externalFilePath
+    }
+    console.warn(`[BpmDetector] resolveSongPath(${song.id}): no path found (localFilePath=${song.localFilePath}, externalFilePath=${song.externalFilePath})`)
+    return null
   }
 
   private broadcastProgress(progress: BpmProgressEvent): void {

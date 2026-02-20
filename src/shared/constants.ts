@@ -113,6 +113,7 @@ export const IPC_CHANNELS = {
   // BPM detection
   BPM_DETECT: 'bpm:detect',
   BPM_DETECT_BATCH: 'bpm:detect-batch',
+  BPM_DETECT_SONG: 'bpm:detect-song',
   BPM_PROGRESS: 'bpm:progress',
 } as const
 

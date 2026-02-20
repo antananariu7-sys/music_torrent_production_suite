@@ -7,6 +7,7 @@ import { TrackInfoOverlay } from './TrackInfoOverlay'
 import { TimeRuler } from './TimeRuler'
 import { CuePointMarker } from './CuePointMarker'
 import { TrimOverlay } from './TrimOverlay'
+import { BeatGrid } from './BeatGrid'
 import { CrossfadePopover } from './CrossfadePopover'
 import { CuePointPopover } from './CuePointPopover'
 import type { Song } from '@shared/types/project.types'
@@ -22,7 +23,7 @@ interface TimelineLayoutProps {
 export const PX_PER_SEC = 10
 
 /** Track height in pixels */
-const TRACK_HEIGHT = 80
+const TRACK_HEIGHT = 120
 
 /** Alternating track colors for visual distinction */
 export const TRACK_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4']
@@ -197,7 +198,7 @@ export function TimelineLayout({
         <TimeRuler totalWidth={totalWidth} pixelsPerSecond={pixelsPerSecond} />
 
         {/* Track area */}
-        <Box position="relative" h={`${TRACK_HEIGHT + 40}px`} minW={`${totalWidth}px`}>
+        <Box position="relative" h={`${TRACK_HEIGHT + 30}px`} minW={`${totalWidth}px`}>
           {songs.map((song, index) => {
             const pos = positions[index]
             const waveform = waveforms[song.id]
@@ -241,6 +242,18 @@ export function TimelineLayout({
                     />
                   ) : (
                     <WaveformPlaceholder width={pos.width} height={TRACK_HEIGHT} />
+                  )}
+
+                  {/* Beat grid overlay */}
+                  {song.bpm != null && song.bpm > 0 && (
+                    <BeatGrid
+                      bpm={song.bpm}
+                      firstBeatOffset={song.firstBeatOffset ?? 0}
+                      trackWidth={pos.width}
+                      trackHeight={TRACK_HEIGHT}
+                      pixelsPerSecond={pixelsPerSecond}
+                      trimStart={song.trimStart ?? 0}
+                    />
                   )}
 
                   {/* Trim overlay */}
@@ -330,6 +343,8 @@ export function TimelineLayout({
           cuePoint={activeCuePointPopover.cuePoint}
           timestamp={activeCuePointPopover.timestamp}
           position={activeCuePointPopover.position}
+          bpm={cuePointSong.bpm}
+          firstBeatOffset={cuePointSong.firstBeatOffset}
           onClose={closeCuePointPopover}
         />
       )}

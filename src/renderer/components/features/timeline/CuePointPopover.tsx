@@ -2,7 +2,14 @@ import { useState, useRef, useEffect } from 'react'
 import { Box, VStack, HStack, Text, Input, Button } from '@chakra-ui/react'
 import { nanoid } from 'nanoid'
 import { useProjectStore } from '@/store/useProjectStore'
+import { useTimelineStore } from '@/store/timelineStore'
 import type { CuePoint } from '@shared/types/waveform.types'
+
+function snapToNearestBeat(timestamp: number, bpm: number, firstBeatOffset: number): number {
+  const beatInterval = 60 / bpm
+  const beatIndex = Math.round((timestamp - firstBeatOffset) / beatInterval)
+  return firstBeatOffset + beatIndex * beatInterval
+}
 
 interface CuePointPopoverProps {
   songId: string
@@ -11,6 +18,8 @@ interface CuePointPopoverProps {
   cuePoint?: CuePoint
   timestamp: number
   position: { x: number; y: number }
+  bpm?: number
+  firstBeatOffset?: number
   onClose: () => void
 }
 
@@ -27,11 +36,20 @@ export function CuePointPopover({
   projectId,
   existingCuePoints,
   cuePoint,
-  timestamp,
+  timestamp: rawTimestamp,
   position,
+  bpm,
+  firstBeatOffset,
   onClose,
 }: CuePointPopoverProps): JSX.Element {
   const isEditing = cuePoint != null
+  const snapMode = useTimelineStore((s) => s.snapMode)
+
+  // Apply snap-to-beat if enabled and BPM available
+  const timestamp = (!isEditing && snapMode === 'beat' && bpm && bpm > 0 && firstBeatOffset != null)
+    ? snapToNearestBeat(rawTimestamp, bpm, firstBeatOffset)
+    : rawTimestamp
+
   const [label, setLabel] = useState(cuePoint?.label ?? `Cue ${existingCuePoints.length + 1}`)
   const [type, setType] = useState<CueType>(cuePoint?.type ?? 'marker')
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)

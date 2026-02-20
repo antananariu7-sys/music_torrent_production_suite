@@ -18,6 +18,9 @@ interface TimelineState {
   scrollPosition: number
   viewportWidth: number
 
+  // Snap mode
+  snapMode: 'off' | 'beat'
+
   // Editing popovers
   activeCrossfadePopover: { songId: string; position: PopoverPosition } | null
   activeCuePointPopover: {
@@ -42,6 +45,7 @@ interface TimelineState {
   closeCrossfadePopover: () => void
   openCuePointPopover: (songId: string, timestamp: number, position: PopoverPosition, cuePoint?: CuePoint) => void
   closeCuePointPopover: () => void
+  toggleSnapMode: () => void
   clearCache: () => void
 }
 
@@ -53,6 +57,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   zoomLevel: 1,
   scrollPosition: 0,
   viewportWidth: 0,
+  snapMode: 'off',
   activeCrossfadePopover: null,
   activeCuePointPopover: null,
 
@@ -89,6 +94,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   openCuePointPopover: (songId, timestamp, position, cuePoint) =>
     set({ activeCuePointPopover: { songId, timestamp, cuePoint, position }, activeCrossfadePopover: null }),
   closeCuePointPopover: () => set({ activeCuePointPopover: null }),
+  toggleSnapMode: () => set((s) => ({ snapMode: s.snapMode === 'off' ? 'beat' : 'off' })),
 
   clearCache: () =>
     set({

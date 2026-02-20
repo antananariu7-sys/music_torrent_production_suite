@@ -56,6 +56,11 @@ export interface BpmBatchRequest {
   projectId: string
 }
 
+export interface BpmDetectSongRequest {
+  projectId: string
+  songId: string
+}
+
 // --- IPC progress event types ---
 
 export interface WaveformProgressEvent {

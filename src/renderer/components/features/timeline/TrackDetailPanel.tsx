@@ -1,6 +1,8 @@
-import { Box, HStack, VStack, Text, IconButton } from '@chakra-ui/react'
-import { FiTrash2 } from 'react-icons/fi'
+import { useState } from 'react'
+import { Box, HStack, VStack, Text, IconButton, Button } from '@chakra-ui/react'
+import { FiTrash2, FiMusic } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
+import { toaster } from '@/components/ui/toaster'
 import type { Song } from '@shared/types/project.types'
 import type { CuePoint } from '@shared/types/waveform.types'
 
@@ -32,6 +34,7 @@ const CUE_COLORS: Record<CuePoint['type'], string> = {
 export function TrackDetailPanel({ song }: TrackDetailPanelProps): JSX.Element {
   const currentProject = useProjectStore((s) => s.currentProject)
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
+  const [detectingBpm, setDetectingBpm] = useState(false)
   const cuePoints = [...(song.cuePoints ?? [])].sort((a, b) => a.timestamp - b.timestamp)
 
   async function handleDeleteCuePoint(cuePointId: string): Promise<void> {
@@ -52,6 +55,38 @@ export function TrackDetailPanel({ song }: TrackDetailPanelProps): JSX.Element {
     })
     if (response.success && response.data) {
       setCurrentProject(response.data)
+    }
+  }
+
+  async function handleDetectBpm(): Promise<void> {
+    if (!currentProject) return
+    setDetectingBpm(true)
+    try {
+      const response = await window.api.bpm.detectSong({
+        projectId: currentProject.id,
+        songId: song.id,
+      })
+      if (response.success && response.data) {
+        // detectSong already persisted BPM via updateSong on main side.
+        // Re-fetch the updated project by re-opening it.
+        const projectResponse = await window.api.openProject({
+          filePath: currentProject.projectDirectory,
+        })
+        if (projectResponse.success && projectResponse.data) {
+          setCurrentProject(projectResponse.data)
+        }
+        if (response.data.bpm > 0) {
+          toaster.create({ title: `BPM detected: ${response.data.bpm}`, type: 'success' })
+        } else {
+          toaster.create({ title: 'Could not detect BPM for this track', type: 'warning' })
+        }
+      } else {
+        toaster.create({ title: response.error ?? 'BPM detection failed', type: 'error' })
+      }
+    } catch {
+      toaster.create({ title: 'BPM detection failed', type: 'error' })
+    } finally {
+      setDetectingBpm(false)
     }
   }
 
@@ -82,8 +117,28 @@ export function TrackDetailPanel({ song }: TrackDetailPanelProps): JSX.Element {
           {song.bitrate != null && (
             <DetailItem label="Bitrate" value={`${song.bitrate} kbps`} />
           )}
-          {song.bpm != null && song.bpm > 0 && (
-            <DetailItem label="BPM" value={String(song.bpm)} />
+          {song.bpm != null && song.bpm > 0 ? (
+            <HStack gap={2} align="end">
+              <DetailItem label="BPM" value={String(song.bpm)} />
+              <Button
+                size="2xs"
+                variant="ghost"
+                onClick={handleDetectBpm}
+                loading={detectingBpm}
+              >
+                Re-detect
+              </Button>
+            </HStack>
+          ) : (
+            <Button
+              size="xs"
+              variant="outline"
+              onClick={handleDetectBpm}
+              loading={detectingBpm}
+            >
+              <FiMusic />
+              Detect BPM
+            </Button>
           )}
           {song.sampleRate != null && (
             <DetailItem label="Sample Rate" value={`${song.sampleRate} Hz`} />

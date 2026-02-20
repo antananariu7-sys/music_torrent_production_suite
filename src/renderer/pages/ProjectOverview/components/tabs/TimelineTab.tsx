@@ -2,6 +2,7 @@ import { HStack, VStack, Text, Box } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useWaveformData } from '@/hooks/useWaveformData'
+import { useBpmData } from '@/hooks/useBpmData'
 import {
   TimelineLayout,
   computeTrackPositions,
@@ -20,8 +21,9 @@ export function TimelineTab(): JSX.Element {
   const loadingProgress = useTimelineStore((s) => s.loadingProgress)
   const selectedTrackId = useTimelineStore((s) => s.selectedTrackId)
 
-  // Trigger batch waveform loading
+  // Trigger batch waveform loading and BPM detection
   useWaveformData(currentProject?.id)
+  useBpmData(currentProject?.id)
 
   if (!currentProject) {
     return <></>

@@ -1,5 +1,5 @@
-import { HStack, Text, IconButton } from '@chakra-ui/react'
-import { FiZoomIn, FiZoomOut, FiMaximize2 } from 'react-icons/fi'
+import { HStack, Text, IconButton, Box } from '@chakra-ui/react'
+import { FiZoomIn, FiZoomOut, FiMaximize2, FiGrid } from 'react-icons/fi'
 import { useTimelineStore } from '@/store/timelineStore'
 
 interface ZoomControlsProps {
@@ -17,6 +17,8 @@ export function ZoomControls({ totalDuration }: ZoomControlsProps): JSX.Element 
   const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
   const zoomIn = useTimelineStore((s) => s.zoomIn)
   const zoomOut = useTimelineStore((s) => s.zoomOut)
+  const snapMode = useTimelineStore((s) => s.snapMode)
+  const toggleSnapMode = useTimelineStore((s) => s.toggleSnapMode)
 
   return (
     <HStack gap={3} align="center">
@@ -59,6 +61,21 @@ export function ZoomControls({ totalDuration }: ZoomControlsProps): JSX.Element 
 
       <Text fontSize="xs" color="text.muted" ml={2}>
         {zoomLevel.toFixed(1)}x
+      </Text>
+
+      <Box w="1px" h="16px" bg="border.base" mx={1} />
+
+      <IconButton
+        aria-label="Toggle snap to beat"
+        size="xs"
+        variant={snapMode === 'beat' ? 'solid' : 'ghost'}
+        colorPalette={snapMode === 'beat' ? 'purple' : 'gray'}
+        onClick={toggleSnapMode}
+      >
+        <FiGrid />
+      </IconButton>
+      <Text fontSize="xs" color={snapMode === 'beat' ? 'text.primary' : 'text.muted'}>
+        Snap
       </Text>
 
       {totalDuration > 0 && (
