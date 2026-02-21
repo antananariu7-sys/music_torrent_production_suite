@@ -20,6 +20,7 @@ export function createWindow(): BrowserWindow {
     height: APP_CONFIG.DEFAULT_WINDOW_HEIGHT,
     minWidth: APP_CONFIG.MIN_WINDOW_WIDTH,
     minHeight: APP_CONFIG.MIN_WINDOW_HEIGHT,
+    icon: join(__dirname, '../../build/icon.ico'),
     webPreferences: {
       // Security: Enable context isolation
       contextIsolation: true,
