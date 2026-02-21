@@ -19,8 +19,9 @@ Full spec: `docs/features/windows-installer.md`
 **Goal:** Switch from one-click to assisted wizard installer with directory selection and shortcut options.
 
 ### Modify
-| File | Change |
-|------|--------|
+
+| File           | Change                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------------- |
 | `package.json` | Add `build.nsis` configuration block inside the existing `build` section (after line 91, the `win` block) |
 
 ### Configuration to add
@@ -40,6 +41,7 @@ Full spec: `docs/features/windows-installer.md`
 ```
 
 ### Key details
+
 - `oneClick: false` enables the multi-page wizard (Welcome → Directory → Options → Install → Finish)
 - `perMachine: true` installs to `C:\Program Files\` by default (requires UAC elevation)
 - `allowToChangeInstallationDirectory: true` adds Browse button to choose install path
@@ -47,6 +49,7 @@ Full spec: `docs/features/windows-installer.md`
 - `include` references the custom NSIS script for uninstall behavior
 
 ### Verify
+
 - `yarn build` passes
 - Run the generated installer (`release/` directory) — wizard pages appear
 - Install directory is selectable
@@ -59,8 +62,9 @@ Full spec: `docs/features/windows-installer.md`
 **Goal:** Add a prompt during uninstall asking whether to remove user settings and app data.
 
 ### New files
-| File | Purpose |
-|------|---------|
+
+| File                  | Purpose                                                           |
+| --------------------- | ----------------------------------------------------------------- |
 | `build/installer.nsh` | Custom NSIS script with uninstall macro for optional data cleanup |
 
 ### Content
@@ -75,6 +79,7 @@ Full spec: `docs/features/windows-installer.md`
 ```
 
 ### Key details
+
 - The `customUnInstall` macro is called by electron-builder's NSIS template during uninstall
 - `$APPDATA\music-production-suite` is the electron-store config directory
 - User project directories (which live in user-chosen locations) are never touched
@@ -82,6 +87,7 @@ Full spec: `docs/features/windows-installer.md`
 - If user declines, `%APPDATA%` directory is left intact for potential reinstall
 
 ### Verify
+
 - Uninstall from Add/Remove Programs → prompt appears
 - Click "No" → settings preserved in `%APPDATA%`
 - Click "Yes" → `%APPDATA%/music-production-suite/` removed
@@ -94,8 +100,9 @@ Full spec: `docs/features/windows-installer.md`
 **Goal:** Add GitHub publish config so electron-updater can be wired up in a future feature.
 
 ### Modify
-| File | Change |
-|------|--------|
+
+| File           | Change                                                       |
+| -------------- | ------------------------------------------------------------ |
 | `package.json` | Add `build.publish` configuration inside the `build` section |
 
 ### Configuration to add
@@ -109,12 +116,14 @@ Full spec: `docs/features/windows-installer.md`
 ```
 
 ### Key details
+
 - This only adds the config — no auto-update code is implemented
 - The `owner` field needs the actual GitHub username/org
 - This enables `electron-updater` to be wired up later without touching the build config again
 - Release artifacts will include update metadata files (`.yml`) when built with `--publish`
 
 ### Verify
+
 - `yarn build` still passes
 - No runtime behavior changes
 - Build output includes `latest.yml` in release directory

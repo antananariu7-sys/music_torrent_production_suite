@@ -1,12 +1,15 @@
 # Feature: Windows Installer Upgrade
 
 ## Overview
+
 Replace the default one-click NSIS installer with a full wizard-style installer that lets users choose the install directory, opt into a desktop shortcut, and cleanly uninstall the app — including an option to remove user data.
 
 ## User Problem
+
 The current installer silently drops the app into `%LOCALAPPDATA%` with no directory choice, no shortcut options, and a bare-bones uninstaller. This feels unfinished and gives users no control over where the app lives on their system.
 
 ## User Stories
+
 - As a user, I want to choose where Music Production Suite is installed so I can manage disk space across drives
 - As a user, I want a desktop shortcut created during install so I can launch the app quickly
 - As a user, I want a Start Menu entry so I can find the app through Windows search
@@ -127,35 +130,38 @@ Add `publish` config so electron-updater can be wired up later:
 
 ### Install Directory Change
 
-| Aspect | Before | After |
-|--------|--------|-------|
-| Default location | `%LOCALAPPDATA%\Programs\` | `C:\Program Files\Music Production Suite` |
-| Admin required | No | Yes (UAC prompt) |
-| User can change dir | No | Yes (browse dialog) |
-| Shortcut: Desktop | No | Yes (opt-in, default checked) |
-| Shortcut: Start Menu | No | Yes (always created) |
+| Aspect               | Before                     | After                                     |
+| -------------------- | -------------------------- | ----------------------------------------- |
+| Default location     | `%LOCALAPPDATA%\Programs\` | `C:\Program Files\Music Production Suite` |
+| Admin required       | No                         | Yes (UAC prompt)                          |
+| User can change dir  | No                         | Yes (browse dialog)                       |
+| Shortcut: Desktop    | No                         | Yes (opt-in, default checked)             |
+| Shortcut: Start Menu | No                         | Yes (always created)                      |
 
 ### App Icons (TODO)
 
 The installer and app need a proper `.ico` file at `resources/icons/icon.ico`. Until provided:
+
 - electron-builder will use its default Electron icon
 - This is a cosmetic blocker for a polished release but not a functional one
 
 ## Files to Change
 
-| File | Change |
-|------|--------|
-| `package.json` | Add `build.nsis` config, add `build.publish` config |
-| `build/installer.nsh` | **New file** — custom NSIS uninstall macro |
-| `resources/icons/icon.ico` | **TODO** — app icon for installer and exe |
+| File                       | Change                                              |
+| -------------------------- | --------------------------------------------------- |
+| `package.json`             | Add `build.nsis` config, add `build.publish` config |
+| `build/installer.nsh`      | **New file** — custom NSIS uninstall macro          |
+| `resources/icons/icon.ico` | **TODO** — app icon for installer and exe           |
 
 ## Edge Cases & Error States
+
 - **No admin rights:** UAC prompt will appear. If user declines, install aborts with a clear message (NSIS default behavior)
 - **Custom install path with spaces:** NSIS handles this natively, no special handling needed
 - **Upgrade over existing install:** NSIS detects existing installation and upgrades in-place (electron-builder default)
 - **Uninstall data removal:** Only removes `%APPDATA%/music-production-suite/` (electron-store). Never touches project directories which live in user-chosen locations
 
 ## Acceptance Criteria
+
 - [ ] Running the installer shows a multi-page wizard (Welcome → Directory → Options → Install → Finish)
 - [ ] User can browse and change the install directory
 - [ ] Default install path is `C:\Program Files\Music Production Suite`
@@ -169,6 +175,7 @@ The installer and app need a proper `.ico` file at `resources/icons/icon.ico`. U
 - [ ] Upgrading over an existing installation works without data loss
 
 ## Out of Scope
+
 - License/EULA screen
 - Custom installer branding (sidebar image, banner graphic)
 - macOS DMG customization
@@ -177,6 +184,7 @@ The installer and app need a proper `.ico` file at `resources/icons/icon.ico`. U
 - App icon creation (noted as TODO dependency)
 
 ## Dependencies
+
 - `electron-builder` NSIS support (already available)
 - App icon `.ico` file (TODO — cosmetic, not blocking)
 - GitHub repo owner/name for publish config

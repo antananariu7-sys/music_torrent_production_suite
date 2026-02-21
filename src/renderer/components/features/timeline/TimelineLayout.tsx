@@ -43,12 +43,16 @@ export function computeTrackPositions(
 ): TrackPosition[] {
   let currentOffset = 0
   return songs.map((song, i) => {
-    const effectiveDuration = (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+    const effectiveDuration =
+      (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
     const width = effectiveDuration * pixelsPerSecond
-    const position: TrackPosition = { songId: song.id, left: currentOffset, width }
-    const crossfade = i < songs.length - 1
-      ? (song.crossfadeDuration ?? defaultCrossfade)
-      : 0
+    const position: TrackPosition = {
+      songId: song.id,
+      left: currentOffset,
+      width,
+    }
+    const crossfade =
+      i < songs.length - 1 ? (song.crossfadeDuration ?? defaultCrossfade) : 0
     currentOffset += (effectiveDuration - crossfade) * pixelsPerSecond
     return position
   })
@@ -73,7 +77,9 @@ export function TimelineLayout({
   const setViewportWidth = useTimelineStore((s) => s.setViewportWidth)
   const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
 
-  const activeCrossfadePopover = useTimelineStore((s) => s.activeCrossfadePopover)
+  const activeCrossfadePopover = useTimelineStore(
+    (s) => s.activeCrossfadePopover
+  )
   const activeCuePointPopover = useTimelineStore((s) => s.activeCuePointPopover)
   const openCrossfadePopover = useTimelineStore((s) => s.openCrossfadePopover)
   const closeCrossfadePopover = useTimelineStore((s) => s.closeCrossfadePopover)
@@ -81,10 +87,15 @@ export function TimelineLayout({
   const closeCuePointPopover = useTimelineStore((s) => s.closeCuePointPopover)
 
   const pixelsPerSecond = PX_PER_SEC * zoomLevel
-  const positions = computeTrackPositions(songs, pixelsPerSecond, defaultCrossfade)
-  const totalWidth = positions.length > 0
-    ? Math.max(...positions.map((p) => p.left + p.width))
-    : 0
+  const positions = computeTrackPositions(
+    songs,
+    pixelsPerSecond,
+    defaultCrossfade
+  )
+  const totalWidth =
+    positions.length > 0
+      ? Math.max(...positions.map((p) => p.left + p.width))
+      : 0
 
   // Measure container width and track viewport size
   useEffect(() => {
@@ -139,20 +150,26 @@ export function TimelineLayout({
 
       // Compute playhead pixel position
       const trackIndex = songs.findIndex(
-        (s) => (s.localFilePath ?? s.externalFilePath) === state.currentTrack!.filePath
+        (s) =>
+          (s.localFilePath ?? s.externalFilePath) ===
+          state.currentTrack!.filePath
       )
       if (trackIndex === -1) return
 
       const pos = positions[trackIndex]
       const song = songs[trackIndex]
-      const playheadX = pos.left + (state.currentTime - (song.trimStart ?? 0)) * pixelsPerSecond
+      const playheadX =
+        pos.left + (state.currentTime - (song.trimStart ?? 0)) * pixelsPerSecond
 
       const viewportLeft = el.scrollLeft
       const viewportRight = el.scrollLeft + el.clientWidth
 
       // Scroll when playhead exits the visible viewport (with some margin)
       const margin = el.clientWidth * 0.15
-      if (playheadX < viewportLeft + margin || playheadX > viewportRight - margin) {
+      if (
+        playheadX < viewportLeft + margin ||
+        playheadX > viewportRight - margin
+      ) {
         isScrollSyncing.current = true
         const newScroll = Math.max(0, playheadX - el.clientWidth * 0.3)
         el.scrollLeft = newScroll
@@ -205,7 +222,11 @@ export function TimelineLayout({
   const handleTrackDoubleClick = useCallback(
     (e: React.MouseEvent, song: Song, trackLeft: number) => {
       e.stopPropagation()
-      const clickX = e.clientX - containerRef.current!.getBoundingClientRect().left + containerRef.current!.scrollLeft - trackLeft
+      const clickX =
+        e.clientX -
+        containerRef.current!.getBoundingClientRect().left +
+        containerRef.current!.scrollLeft -
+        trackLeft
       const timestamp = clickX / pixelsPerSecond + (song.trimStart ?? 0)
       openCuePointPopover(song.id, timestamp, { x: e.clientX, y: e.clientY })
     },
@@ -222,24 +243,37 @@ export function TimelineLayout({
   )
 
   // Convert Song to AudioPlayer Track
-  const songToTrack = useCallback((song: Song): Track => ({
-    filePath: song.localFilePath ?? song.externalFilePath ?? '',
-    name: song.title,
-    duration: song.duration,
-    trimEnd: song.trimEnd,
-  }), [])
+  const songToTrack = useCallback(
+    (song: Song): Track => ({
+      filePath: song.localFilePath ?? song.externalFilePath ?? '',
+      name: song.title,
+      duration: song.duration,
+      trimEnd: song.trimEnd,
+    }),
+    []
+  )
 
   // Single-click on track waveform → start playback at clicked position
   const handleTrackClick = useCallback(
-    (e: React.MouseEvent, song: Song, trackLeft: number, clickedIndex: number) => {
+    (
+      e: React.MouseEvent,
+      song: Song,
+      trackLeft: number,
+      clickedIndex: number
+    ) => {
       setSelectedTrack(song.id)
 
-      const clickX = e.clientX - containerRef.current!.getBoundingClientRect().left
-        + containerRef.current!.scrollLeft - trackLeft
+      const clickX =
+        e.clientX -
+        containerRef.current!.getBoundingClientRect().left +
+        containerRef.current!.scrollLeft -
+        trackLeft
       const seekTime = clickX / pixelsPerSecond + (song.trimStart ?? 0)
 
       const tracks = songs.map(songToTrack)
-      useAudioPlayerStore.getState().playPlaylist(tracks, clickedIndex, seekTime)
+      useAudioPlayerStore
+        .getState()
+        .playPlaylist(tracks, clickedIndex, seekTime)
     },
     [pixelsPerSecond, songs, songToTrack, setSelectedTrack]
   )
@@ -269,7 +303,11 @@ export function TimelineLayout({
         <TimeRuler totalWidth={totalWidth} pixelsPerSecond={pixelsPerSecond} />
 
         {/* Track area */}
-        <Box position="relative" h={`${TRACK_HEIGHT + 30}px`} minW={`${totalWidth}px`}>
+        <Box
+          position="relative"
+          h={`${TRACK_HEIGHT + 30}px`}
+          minW={`${totalWidth}px`}
+        >
           {songs.map((song, index) => {
             const pos = positions[index]
             const waveform = waveforms[song.id]
@@ -292,7 +330,7 @@ export function TimelineLayout({
                   fontSize="2xs"
                   color="text.muted"
                   mb={0.5}
-                  isTruncated
+                  truncate
                   maxW={`${pos.width}px`}
                   title={song.title}
                 >
@@ -312,7 +350,10 @@ export function TimelineLayout({
                       isSelected={isSelected}
                     />
                   ) : (
-                    <WaveformPlaceholder width={pos.width} height={TRACK_HEIGHT} />
+                    <WaveformPlaceholder
+                      width={pos.width}
+                      height={TRACK_HEIGHT}
+                    />
                   )}
 
                   {/* Beat grid overlay */}
@@ -341,7 +382,8 @@ export function TimelineLayout({
 
                   {/* Cue point markers */}
                   {cuePoints.map((cp) => {
-                    const cpX = (cp.timestamp - (song.trimStart ?? 0)) * pixelsPerSecond
+                    const cpX =
+                      (cp.timestamp - (song.trimStart ?? 0)) * pixelsPerSecond
                     if (cpX < 0 || cpX > pos.width) return null
                     return (
                       <CuePointMarker
@@ -366,31 +408,32 @@ export function TimelineLayout({
           })}
 
           {/* Crossfade overlap zones */}
-          {songs.length > 1 && songs.map((song, index) => {
-            if (index >= songs.length - 1) return null
-            const thisPos = positions[index]
-            const nextPos = positions[index + 1]
-            const overlapStart = nextPos.left
-            const overlapEnd = thisPos.left + thisPos.width
-            const overlapWidth = overlapEnd - overlapStart
-            if (overlapWidth <= 0) return null
+          {songs.length > 1 &&
+            songs.map((song, index) => {
+              if (index >= songs.length - 1) return null
+              const thisPos = positions[index]
+              const nextPos = positions[index + 1]
+              const overlapStart = nextPos.left
+              const overlapEnd = thisPos.left + thisPos.width
+              const overlapWidth = overlapEnd - overlapStart
+              if (overlapWidth <= 0) return null
 
-            return (
-              <Box
-                key={`xfade-${song.id}`}
-                position="absolute"
-                left={`${overlapStart}px`}
-                top="14px"
-                w={`${overlapWidth}px`}
-                h={`${TRACK_HEIGHT}px`}
-                bg="whiteAlpha.100"
-                borderRadius="sm"
-                cursor="pointer"
-                onClick={(e) => handleCrossfadeClick(e, song.id)}
-                title="Click to edit crossfade"
-              />
-            )
-          })}
+              return (
+                <Box
+                  key={`xfade-${song.id}`}
+                  position="absolute"
+                  left={`${overlapStart}px`}
+                  top="14px"
+                  w={`${overlapWidth}px`}
+                  h={`${TRACK_HEIGHT}px`}
+                  bg="whiteAlpha.100"
+                  borderRadius="sm"
+                  cursor="pointer"
+                  onClick={(e) => handleCrossfadeClick(e, song.id)}
+                  title="Click to edit crossfade"
+                />
+              )
+            })}
 
           {/* Playhead */}
           <Playhead
@@ -431,7 +474,13 @@ export function TimelineLayout({
   )
 }
 
-function WaveformPlaceholder({ width, height }: { width: number; height: number }): JSX.Element {
+function WaveformPlaceholder({
+  width,
+  height,
+}: {
+  width: number
+  height: number
+}): JSX.Element {
   return (
     <Box
       w={`${width}px`}
@@ -442,7 +491,9 @@ function WaveformPlaceholder({ width, height }: { width: number; height: number 
       borderColor="border.base"
     >
       <VStack h="100%" justify="center">
-        <Text fontSize="xs" color="text.muted">Loading...</Text>
+        <Text fontSize="xs" color="text.muted">
+          Loading...
+        </Text>
       </VStack>
     </Box>
   )

@@ -3,14 +3,22 @@ import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { IPC_CHANNELS } from '@shared/constants'
-import type { MixExportRequest, MixExportProgress, LoudnormAnalysis } from '@shared/types/mixExport.types'
+import type {
+  MixExportRequest,
+  MixExportProgress,
+  LoudnormAnalysis,
+} from '@shared/types/mixExport.types'
 import type { Song } from '@shared/types/project.types'
 import type { ProjectService } from '../ProjectService'
 import type { ChildProcess } from 'child_process'
 import { spawnFfmpeg } from '../../utils/ffmpegRunner'
 import { validateSongs, resolveSongPath, clampCrossfade } from './MixValidator'
 import { analyzeLoudness } from './LoudnormAnalyzer'
-import { buildFilterGraph, buildRenderArgs, type TrackInfo } from './FilterGraphBuilder'
+import {
+  buildFilterGraph,
+  buildRenderArgs,
+  type TrackInfo,
+} from './FilterGraphBuilder'
 import { generateCueSheet, type CueTrackInfo } from './CueSheetGenerator'
 
 interface ActiveJob {
@@ -31,11 +39,21 @@ export class MixExportService {
     }
 
     const jobId = uuidv4()
-    const ext = request.format === 'mp3' ? 'mp3' : request.format === 'wav' ? 'wav' : 'flac'
-    const outputPath = path.join(request.outputDirectory, `${request.outputFilename}.${ext}`)
+    const ext =
+      request.format === 'mp3'
+        ? 'mp3'
+        : request.format === 'wav'
+          ? 'wav'
+          : 'flac'
+    const outputPath = path.join(
+      request.outputDirectory,
+      `${request.outputFilename}.${ext}`
+    )
 
     console.log(`[MixExport] Starting export job ${jobId}`)
-    console.log(`[MixExport] Format: ${request.format}, Normalization: ${request.normalization}, CUE: ${request.generateCueSheet}`)
+    console.log(
+      `[MixExport] Format: ${request.format}, Normalization: ${request.normalization}, CUE: ${request.generateCueSheet}`
+    )
     console.log(`[MixExport] Output: ${outputPath}`)
 
     this.activeJob = { jobId, process: null, cancelled: false, outputPath }
@@ -70,7 +88,11 @@ export class MixExportService {
 
     // Clean up partial output
     if (existsSync(this.activeJob.outputPath)) {
-      try { unlinkSync(this.activeJob.outputPath) } catch { /* best effort */ }
+      try {
+        unlinkSync(this.activeJob.outputPath)
+      } catch {
+        /* best effort */
+      }
     }
 
     this.broadcastProgress({
@@ -92,8 +114,8 @@ export class MixExportService {
 
   private async runPipeline(
     request: MixExportRequest,
-    jobId: string,
-    outputPath: string,
+    _jobId: string,
+    outputPath: string
   ): Promise<void> {
     const project = this.projectService.getActiveProject()
     if (!project) throw new Error('No active project')
@@ -113,9 +135,14 @@ export class MixExportService {
     })
 
     const { valid, missing } = validateSongs(songs)
-    console.log(`[MixExport] Validation: ${valid.length} valid, ${missing.length} missing`)
+    console.log(
+      `[MixExport] Validation: ${valid.length} valid, ${missing.length} missing`
+    )
     if (missing.length > 0) {
-      console.error(`[MixExport] Missing files:`, missing.map((m) => m.title))
+      console.error(
+        `[MixExport] Missing files:`,
+        missing.map((m) => m.title)
+      )
       throw new Error(
         `Missing audio files: ${missing.map((m) => m.title).join(', ')}`
       )
@@ -126,9 +153,11 @@ export class MixExportService {
     const crossfades = valid.map((song, i) => {
       if (i === valid.length - 1) return 0
       const raw = song.crossfadeDuration ?? request.defaultCrossfadeDuration
-      const effectiveCurrent = (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+      const effectiveCurrent =
+        (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
       const next = valid[i + 1]
-      const effectiveNext = (next.trimEnd ?? next.duration ?? 0) - (next.trimStart ?? 0)
+      const effectiveNext =
+        (next.trimEnd ?? next.duration ?? 0) - (next.trimStart ?? 0)
       const { value } = clampCrossfade(raw, effectiveCurrent, effectiveNext)
       return value
     })
@@ -136,7 +165,9 @@ export class MixExportService {
     console.log(`[MixExport] Crossfades: [${crossfades.join(', ')}]`)
 
     // ── Phase 2: Analyze loudness ───────────────────────────────────────
-    console.log(`[MixExport] Analyzing loudness (normalization=${request.normalization})...`)
+    console.log(
+      `[MixExport] Analyzing loudness (normalization=${request.normalization})...`
+    )
     const loudnormResults: (LoudnormAnalysis | undefined)[] = []
 
     for (let i = 0; i < valid.length; i++) {
@@ -152,9 +183,13 @@ export class MixExportService {
 
       if (request.normalization) {
         const filePath = resolveSongPath(valid[i])!
-        console.log(`[MixExport] Analyzing track ${i + 1}/${valid.length}: "${valid[i].title}" — ${filePath}`)
+        console.log(
+          `[MixExport] Analyzing track ${i + 1}/${valid.length}: "${valid[i].title}" — ${filePath}`
+        )
         const analysis = await analyzeLoudness(filePath)
-        console.log(`[MixExport] Track ${i + 1} loudness: I=${analysis.input_i}, TP=${analysis.input_tp}, LRA=${analysis.input_lra}`)
+        console.log(
+          `[MixExport] Track ${i + 1} loudness: I=${analysis.input_i}, TP=${analysis.input_tp}, LRA=${analysis.input_lra}`
+        )
         loudnormResults.push(analysis)
       } else {
         loudnormResults.push(undefined)
@@ -191,28 +226,32 @@ export class MixExportService {
       outputPath,
       request.format,
       request.mp3Bitrate,
-      request.metadata,
+      request.metadata
     )
 
     // Compute total mix duration for progress
     const totalMixDuration = this.computeTotalDuration(valid, crossfades)
-    console.log(`[MixExport] Total mix duration: ${totalMixDuration.toFixed(1)}s — spawning FFmpeg render...`)
+    console.log(
+      `[MixExport] Total mix duration: ${totalMixDuration.toFixed(1)}s — spawning FFmpeg render...`
+    )
 
     // Spawn FFmpeg render
     const { process, promise } = spawnFfmpeg(renderArgs, (elapsedSeconds) => {
       if (this.activeJob?.cancelled) return
-      const renderPercent = totalMixDuration > 0
-        ? Math.min(100, 20 + (elapsedSeconds / totalMixDuration) * 80)
-        : 20
+      const renderPercent =
+        totalMixDuration > 0
+          ? Math.min(100, 20 + (elapsedSeconds / totalMixDuration) * 80)
+          : 20
       this.broadcastProgress({
         phase: 'rendering',
         currentTrackIndex: 0,
         currentTrackName: 'Rendering mix...',
         totalTracks: valid.length,
         percentage: Math.round(renderPercent),
-        eta: totalMixDuration > 0
-          ? Math.max(0, Math.round(totalMixDuration - elapsedSeconds))
-          : undefined,
+        eta:
+          totalMixDuration > 0
+            ? Math.max(0, Math.round(totalMixDuration - elapsedSeconds))
+            : undefined,
       })
     })
 
@@ -224,7 +263,9 @@ export class MixExportService {
 
     if (result.code !== 0) {
       console.error(`[MixExport] FFmpeg exited with code ${result.code}`)
-      console.error(`[MixExport] FFmpeg stderr (last 500 chars):\n${result.stderr.slice(-500)}`)
+      console.error(
+        `[MixExport] FFmpeg stderr (last 500 chars):\n${result.stderr.slice(-500)}`
+      )
       throw new Error(
         `FFmpeg render failed (code ${result.code}):\n${result.stderr.slice(-500)}`
       )
@@ -244,15 +285,22 @@ export class MixExportService {
         cuePoints: song.cuePoints,
       }))
 
-      const mixTitle = request.metadata?.title || project.mixMetadata?.title || project.name || 'Mix'
+      const mixTitle =
+        request.metadata?.title ||
+        project.mixMetadata?.title ||
+        project.name ||
+        'Mix'
       const cueContent = generateCueSheet(
         cueTrackInfos,
         mixTitle,
         path.basename(outputPath),
-        request.metadata,
+        request.metadata
       )
 
-      const cuePath = path.join(request.outputDirectory, `${request.outputFilename}.cue`)
+      const cuePath = path.join(
+        request.outputDirectory,
+        `${request.outputFilename}.cue`
+      )
       writeFileSync(cuePath, cueContent, 'utf-8')
       console.log(`[MixExport] CUE sheet written: ${cuePath}`)
     }
@@ -290,7 +338,8 @@ export class MixExportService {
     let total = 0
     for (let i = 0; i < songs.length; i++) {
       const song = songs[i]
-      const effective = (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+      const effective =
+        (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
       total += effective
       if (i < crossfades.length) {
         total -= crossfades[i]
