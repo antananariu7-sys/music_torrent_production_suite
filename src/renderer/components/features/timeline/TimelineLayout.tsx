@@ -25,7 +25,7 @@ interface TimelineLayoutProps {
 export const PX_PER_SEC = 10
 
 /** Track height in pixels */
-const TRACK_HEIGHT = 120
+const TRACK_HEIGHT = 240
 
 /** Alternating track colors for visual distinction */
 export const TRACK_COLORS = ['#3b82f6', '#8b5cf6', '#06b6d4']

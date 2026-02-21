@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { HStack, VStack, Text, Box } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import { useWaveformData } from '@/hooks/useWaveformData'
 import { useBpmData } from '@/hooks/useBpmData'
 import {
@@ -20,10 +22,29 @@ export function TimelineTab(): JSX.Element {
   const isLoading = useTimelineStore((s) => s.isLoadingWaveforms)
   const loadingProgress = useTimelineStore((s) => s.loadingProgress)
   const selectedTrackId = useTimelineStore((s) => s.selectedTrackId)
+  const zoomLevel = useTimelineStore((s) => s.zoomLevel)
 
   // Trigger batch waveform loading and BPM detection
   useWaveformData(currentProject?.id)
   useBpmData(currentProject?.id)
+
+  // Space bar to toggle play/pause
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.code === 'Space' &&
+        !(
+          e.target instanceof HTMLInputElement ||
+          e.target instanceof HTMLTextAreaElement
+        )
+      ) {
+        e.preventDefault()
+        useAudioPlayerStore.getState().togglePlayPause()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   if (!currentProject) {
     return <></>
@@ -31,18 +52,23 @@ export function TimelineTab(): JSX.Element {
 
   const songs = [...currentProject.songs].sort((a, b) => a.order - b.order)
   const totalDuration = calculateTotalDuration(songs)
-  const defaultCrossfade = currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5
+  const defaultCrossfade =
+    currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5
   const selectedSong = selectedTrackId
     ? songs.find((s) => s.id === selectedTrackId)
     : undefined
 
   // Compute positions for Minimap (shared with TimelineLayout)
-  const zoomLevel = useTimelineStore((s) => s.zoomLevel)
   const pixelsPerSecond = PX_PER_SEC * zoomLevel
-  const positions = computeTrackPositions(songs, pixelsPerSecond, defaultCrossfade)
-  const totalWidth = positions.length > 0
-    ? Math.max(...positions.map((p) => p.left + p.width))
-    : 0
+  const positions = computeTrackPositions(
+    songs,
+    pixelsPerSecond,
+    defaultCrossfade
+  )
+  const totalWidth =
+    positions.length > 0
+      ? Math.max(...positions.map((p) => p.left + p.width))
+      : 0
 
   return (
     <VStack align="stretch" gap={4}>
@@ -62,7 +88,8 @@ export function TimelineTab(): JSX.Element {
       {isLoading && loadingProgress && (
         <Box>
           <Text fontSize="xs" color="text.muted" mb={1}>
-            Generating waveforms... {loadingProgress.current}/{loadingProgress.total}
+            Generating waveforms... {loadingProgress.current}/
+            {loadingProgress.total}
           </Text>
           <Box h="4px" bg="bg.surface" borderRadius="full" overflow="hidden">
             <Box
@@ -113,9 +140,7 @@ export function TimelineTab(): JSX.Element {
       )}
 
       {/* Selected track detail panel */}
-      {selectedSong && (
-        <TrackDetailPanel song={selectedSong} />
-      )}
+      {selectedSong && <TrackDetailPanel song={selectedSong} />}
     </VStack>
   )
 }
