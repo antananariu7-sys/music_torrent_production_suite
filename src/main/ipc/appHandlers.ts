@@ -1,4 +1,4 @@
-import { ipcMain, shell } from 'electron'
+import { app, ipcMain, shell } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { ConfigService } from '../services/ConfigService'
 
@@ -15,7 +15,7 @@ export function registerAppHandlers(configService: ConfigService): void {
   ipcMain.handle(IPC_CHANNELS.APP_READY, async () => {
     return {
       name: 'Music Production Suite',
-      version: '0.2.0',
+      version: app.getVersion(),
       platform: process.platform,
       arch: process.arch,
     }
