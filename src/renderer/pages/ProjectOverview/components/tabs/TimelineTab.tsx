@@ -1,5 +1,13 @@
 import { useEffect, useMemo } from 'react'
-import { HStack, VStack, Text, Box } from '@chakra-ui/react'
+import {
+  HStack,
+  VStack,
+  Text,
+  Box,
+  IconButton,
+  Spinner,
+} from '@chakra-ui/react'
+import { FiRefreshCw } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
@@ -25,7 +33,7 @@ export function TimelineTab(): JSX.Element {
   const zoomLevel = useTimelineStore((s) => s.zoomLevel)
 
   // Trigger batch waveform loading and BPM detection
-  useWaveformData(currentProject?.id)
+  const { rebuild: rebuildWaveforms } = useWaveformData(currentProject?.id)
   useBpmData(currentProject?.id)
 
   const projectSongs = currentProject?.songs
@@ -90,24 +98,61 @@ export function TimelineTab(): JSX.Element {
             {songs.length} {songs.length === 1 ? 'track' : 'tracks'}
           </Text>
         </HStack>
+        {songs.length > 0 && (
+          <IconButton
+            aria-label="Rebuild waveforms"
+            size="xs"
+            variant="ghost"
+            disabled={isLoading}
+            onClick={rebuildWaveforms}
+          >
+            <FiRefreshCw />
+          </IconButton>
+        )}
       </HStack>
 
-      {/* Loading progress */}
+      {/* Full-page loading overlay */}
       {isLoading && loadingProgress && (
-        <Box>
-          <Text fontSize="xs" color="text.muted" mb={1}>
-            Generating waveforms... {loadingProgress.current}/
-            {loadingProgress.total}
-          </Text>
-          <Box h="4px" bg="bg.surface" borderRadius="full" overflow="hidden">
+        <Box
+          position="fixed"
+          inset="0"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          bg="blackAlpha.600"
+          zIndex="overlay"
+        >
+          <VStack
+            bg="bg.elevated"
+            borderRadius="lg"
+            p={8}
+            gap={4}
+            minW="320px"
+            boxShadow="lg"
+          >
+            <Spinner size="lg" color="blue.500" />
+            <Text fontSize="md" fontWeight="medium" color="text.primary">
+              Generating waveforms...
+            </Text>
+            <Text fontSize="sm" color="text.muted">
+              {loadingProgress.current} / {loadingProgress.total} tracks
+            </Text>
             <Box
-              h="100%"
-              w={`${(loadingProgress.current / loadingProgress.total) * 100}%`}
-              bg="blue.500"
+              w="100%"
+              h="6px"
+              bg="bg.surface"
               borderRadius="full"
-              transition="width 0.3s ease"
-            />
-          </Box>
+              overflow="hidden"
+            >
+              <Box
+                h="100%"
+                w={`${(loadingProgress.current / loadingProgress.total) * 100}%`}
+                bg="blue.500"
+                borderRadius="full"
+                transition="width 0.3s ease"
+              />
+            </Box>
+          </VStack>
         </Box>
       )}
 

@@ -508,6 +508,26 @@ export class WaveformExtractor {
     }
   }
 
+  /**
+   * Delete all cached waveform files for the active project.
+   */
+  async invalidateAllCaches(): Promise<void> {
+    const project = this.projectService.getActiveProject()
+    if (!project) throw new Error('No active project')
+
+    const waveformDir = path.join(
+      project.projectDirectory,
+      'assets',
+      'waveforms'
+    )
+    if (await fs.pathExists(waveformDir)) {
+      await fs.remove(waveformDir)
+      console.log(
+        `[WaveformExtractor] Deleted waveform cache dir: ${waveformDir}`
+      )
+    }
+  }
+
   cleanup(): void {
     // No active processes to kill in current implementation
     // Future: cancel in-flight batch operations

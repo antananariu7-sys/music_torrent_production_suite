@@ -108,6 +108,7 @@ export const IPC_CHANNELS = {
   // Waveform extraction
   WAVEFORM_GENERATE: 'waveform:generate',
   WAVEFORM_GENERATE_BATCH: 'waveform:generate-batch',
+  WAVEFORM_REBUILD_BATCH: 'waveform:rebuild-batch',
   WAVEFORM_PROGRESS: 'waveform:progress',
 
   // BPM detection

@@ -10,7 +10,11 @@ import type {
   UpdateSongRequest,
   AudioMetadata,
 } from '@shared/types/project.types'
-import type { LoginCredentials, LoginResult, AuthState } from '@shared/types/auth.types'
+import type {
+  LoginCredentials,
+  LoginResult,
+  AuthState,
+} from '@shared/types/auth.types'
 import type {
   SearchRequest,
   SearchResponse,
@@ -60,7 +64,11 @@ import type {
   TorrentMetadataRequest,
   TorrentMetadataResponse,
 } from '@shared/types/torrentMetadata.types'
-import type { FfmpegCheckResult, MixExportRequest, MixExportProgress } from '@shared/types/mixExport.types'
+import type {
+  FfmpegCheckResult,
+  MixExportRequest,
+  MixExportProgress,
+} from '@shared/types/mixExport.types'
 import type {
   WaveformData,
   WaveformGenerateRequest,
@@ -89,15 +97,19 @@ interface ApiResponse<T> {
 // Define the API that will be exposed to the renderer process
 const api = {
   // App methods
-  getAppInfo: (): Promise<AppInfo> => ipcRenderer.invoke(IPC_CHANNELS.APP_READY),
+  getAppInfo: (): Promise<AppInfo> =>
+    ipcRenderer.invoke(IPC_CHANNELS.APP_READY),
 
   // Settings methods
-  getSettings: (): Promise<AppSettings> => ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
+  getSettings: (): Promise<AppSettings> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET),
   setSettings: (settings: Partial<AppSettings>): Promise<AppSettings> =>
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_SET, settings),
 
   // Project methods
-  createProject: (request: CreateProjectRequest): Promise<ApiResponse<Project>> =>
+  createProject: (
+    request: CreateProjectRequest
+  ): Promise<ApiResponse<Project>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CREATE, request),
 
   openProject: (request: OpenProjectRequest): Promise<ApiResponse<Project>> =>
@@ -112,8 +124,15 @@ const api = {
   deleteProject: (projectId: string): Promise<ApiResponse<void>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE, projectId),
 
-  deleteProjectFromDisk: (projectId: string, projectDirectory: string): Promise<ApiResponse<void>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_DELETE_FROM_DISK, projectId, projectDirectory),
+  deleteProjectFromDisk: (
+    projectId: string,
+    projectDirectory: string
+  ): Promise<ApiResponse<void>> =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.PROJECT_DELETE_FROM_DISK,
+      projectId,
+      projectDirectory
+    ),
 
   // File operations
   selectDirectory: (title?: string): Promise<string | null> =>
@@ -130,14 +149,23 @@ const api = {
     login: (credentials: LoginCredentials): Promise<LoginResult> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGIN, credentials),
 
-    logout: (): Promise<void> =>
-      ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGOUT),
+    logout: (): Promise<void> => ipcRenderer.invoke(IPC_CHANNELS.AUTH_LOGOUT),
 
     getStatus: (): Promise<ApiResponse<AuthState>> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUTH_STATUS),
 
-    getDebugInfo: (): Promise<ApiResponse<{ cookies: Array<{ name: string; value: string; domain: string; path: string; expires: number }>; cookieCount: number }>> =>
-      ipcRenderer.invoke(IPC_CHANNELS.AUTH_DEBUG),
+    getDebugInfo: (): Promise<
+      ApiResponse<{
+        cookies: Array<{
+          name: string
+          value: string
+          domain: string
+          path: string
+          expires: number
+        }>
+        cookieCount: number
+      }>
+    > => ipcRenderer.invoke(IPC_CHANNELS.AUTH_DEBUG),
   },
 
   // Search methods
@@ -145,11 +173,18 @@ const api = {
     start: (request: SearchRequest): Promise<SearchResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SEARCH_START, request),
 
-    startProgressive: (request: ProgressiveSearchRequest): Promise<SearchResponse> =>
+    startProgressive: (
+      request: ProgressiveSearchRequest
+    ): Promise<SearchResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.SEARCH_START_PROGRESSIVE, request),
 
-    onProgress: (callback: (progress: SearchProgressEvent) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, progress: SearchProgressEvent) => {
+    onProgress: (
+      callback: (progress: SearchProgressEvent) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        progress: SearchProgressEvent
+      ) => {
         callback(progress)
       }
       ipcRenderer.on(IPC_CHANNELS.SEARCH_PROGRESS, handler)
@@ -165,33 +200,51 @@ const api = {
 
   // Discography search methods
   discography: {
-    search: (request: DiscographySearchRequest): Promise<DiscographySearchResponse> =>
+    search: (
+      request: DiscographySearchRequest
+    ): Promise<DiscographySearchResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.DISCOGRAPHY_SEARCH, request),
 
-    onProgress: (callback: (progress: DiscographySearchProgress) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, progress: DiscographySearchProgress) => {
+    onProgress: (
+      callback: (progress: DiscographySearchProgress) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        progress: DiscographySearchProgress
+      ) => {
         callback(progress)
       }
       ipcRenderer.on(IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS, handler)
       // Return cleanup function
       return () => {
-        ipcRenderer.removeListener(IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS, handler)
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS,
+          handler
+        )
       }
     },
   },
 
   // MusicBrainz methods
   musicBrainz: {
-    classifySearch: (request: SearchClassificationRequest): Promise<SearchClassificationResponse> =>
+    classifySearch: (
+      request: SearchClassificationRequest
+    ): Promise<SearchClassificationResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.MUSICBRAINZ_CLASSIFY_SEARCH, request),
 
-    findAlbumsBySong: (request: AlbumSearchRequest): Promise<AlbumSearchResponse> =>
+    findAlbumsBySong: (
+      request: AlbumSearchRequest
+    ): Promise<AlbumSearchResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.MUSICBRAINZ_FIND_ALBUMS, request),
 
-    getAlbumDetails: (albumId: string): Promise<ApiResponse<MusicBrainzAlbum | null>> =>
+    getAlbumDetails: (
+      albumId: string
+    ): Promise<ApiResponse<MusicBrainzAlbum | null>> =>
       ipcRenderer.invoke(IPC_CHANNELS.MUSICBRAINZ_GET_ALBUM, albumId),
 
-    getArtistAlbums: (request: ArtistAlbumsRequest): Promise<ArtistAlbumsResponse> =>
+    getArtistAlbums: (
+      request: ArtistAlbumsRequest
+    ): Promise<ArtistAlbumsResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.MUSICBRAINZ_GET_ARTIST_ALBUMS, request),
 
     createRuTrackerQuery: (albumId: string): Promise<ApiResponse<string>> =>
@@ -200,10 +253,14 @@ const api = {
 
   // Torrent methods
   torrent: {
-    download: (request: TorrentDownloadRequest): Promise<TorrentDownloadResponse> =>
+    download: (
+      request: TorrentDownloadRequest
+    ): Promise<TorrentDownloadResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_DOWNLOAD, request),
 
-    getHistory: (projectDirectory?: string): Promise<ApiResponse<TorrentFile[]>> =>
+    getHistory: (
+      projectDirectory?: string
+    ): Promise<ApiResponse<TorrentFile[]>> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_GET_HISTORY, projectDirectory),
 
     clearHistory: (projectDirectory?: string): Promise<ApiResponse<void>> =>
@@ -212,32 +269,47 @@ const api = {
     getSettings: (): Promise<ApiResponse<TorrentSettings>> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_GET_SETTINGS),
 
-    updateSettings: (settings: TorrentSettings): Promise<ApiResponse<TorrentSettings>> =>
+    updateSettings: (
+      settings: TorrentSettings
+    ): Promise<ApiResponse<TorrentSettings>> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_UPDATE_SETTINGS, settings),
 
-    checkLocalFile: (request: CheckLocalTorrentRequest): Promise<CheckLocalTorrentResponse> =>
+    checkLocalFile: (
+      request: CheckLocalTorrentRequest
+    ): Promise<CheckLocalTorrentResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_CHECK_LOCAL_FILE, request),
   },
 
   // Search history methods
   searchHistory: {
-    load: (request: LoadSearchHistoryRequest & { projectDirectory: string }): Promise<SearchHistoryResponse> =>
+    load: (
+      request: LoadSearchHistoryRequest & { projectDirectory: string }
+    ): Promise<SearchHistoryResponse> =>
       ipcRenderer.invoke('searchHistory:load', request),
 
-    save: (request: SaveSearchHistoryRequest & { projectDirectory: string }): Promise<SearchHistoryResponse> =>
+    save: (
+      request: SaveSearchHistoryRequest & { projectDirectory: string }
+    ): Promise<SearchHistoryResponse> =>
       ipcRenderer.invoke('searchHistory:save', request),
   },
 
   // Torrent collection methods
   torrentCollection: {
-    load: (request: LoadTorrentCollectionRequest): Promise<TorrentCollectionResponse> =>
+    load: (
+      request: LoadTorrentCollectionRequest
+    ): Promise<TorrentCollectionResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_COLLECTION_LOAD, request),
 
-    save: (request: SaveTorrentCollectionRequest): Promise<TorrentCollectionResponse> =>
+    save: (
+      request: SaveTorrentCollectionRequest
+    ): Promise<TorrentCollectionResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_COLLECTION_SAVE, request),
 
     clear: (projectDirectory: string): Promise<TorrentCollectionResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.TORRENT_COLLECTION_CLEAR, projectDirectory),
+      ipcRenderer.invoke(
+        IPC_CHANNELS.TORRENT_COLLECTION_CLEAR,
+        projectDirectory
+      ),
   },
 
   // WebTorrent download queue methods
@@ -251,7 +323,10 @@ const api = {
     resume: (id: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_RESUME, id),
 
-    remove: (id: string, deleteFiles?: boolean): Promise<{ success: boolean; error?: string }> =>
+    remove: (
+      id: string,
+      deleteFiles?: boolean
+    ): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_REMOVE, id, deleteFiles),
 
     getAll: (): Promise<ApiResponse<QueuedTorrent[]>> =>
@@ -260,11 +335,18 @@ const api = {
     getSettings: (): Promise<ApiResponse<WebTorrentSettings>> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_GET_SETTINGS),
 
-    updateSettings: (settings: Partial<WebTorrentSettings>): Promise<ApiResponse<WebTorrentSettings>> =>
+    updateSettings: (
+      settings: Partial<WebTorrentSettings>
+    ): Promise<ApiResponse<WebTorrentSettings>> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_UPDATE_SETTINGS, settings),
 
-    onProgress: (callback: (updates: QueuedTorrentProgress[]) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, updates: QueuedTorrentProgress[]) => {
+    onProgress: (
+      callback: (updates: QueuedTorrentProgress[]) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        updates: QueuedTorrentProgress[]
+      ) => {
         callback(updates)
       }
       ipcRenderer.on(IPC_CHANNELS.WEBTORRENT_PROGRESS, handler)
@@ -273,45 +355,88 @@ const api = {
       }
     },
 
-    onStatusChange: (callback: (torrent: QueuedTorrent) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, torrent: QueuedTorrent) => {
+    onStatusChange: (
+      callback: (torrent: QueuedTorrent) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        torrent: QueuedTorrent
+      ) => {
         callback(torrent)
       }
       ipcRenderer.on(IPC_CHANNELS.WEBTORRENT_STATUS_CHANGE, handler)
       return () => {
-        ipcRenderer.removeListener(IPC_CHANNELS.WEBTORRENT_STATUS_CHANGE, handler)
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.WEBTORRENT_STATUS_CHANGE,
+          handler
+        )
       }
     },
 
-    onFileSelectionNeeded: (callback: (data: { id: string; name: string; files: TorrentContentFile[] }) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: { id: string; name: string; files: TorrentContentFile[] }) => {
+    onFileSelectionNeeded: (
+      callback: (data: {
+        id: string
+        name: string
+        files: TorrentContentFile[]
+      }) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: { id: string; name: string; files: TorrentContentFile[] }
+      ) => {
         callback(data)
       }
       ipcRenderer.on(IPC_CHANNELS.WEBTORRENT_FILE_SELECTION_NEEDED, handler)
       return () => {
-        ipcRenderer.removeListener(IPC_CHANNELS.WEBTORRENT_FILE_SELECTION_NEEDED, handler)
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.WEBTORRENT_FILE_SELECTION_NEEDED,
+          handler
+        )
       }
     },
 
     getDownloadPath: (projectId: string): Promise<ApiResponse<string>> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_GET_DOWNLOAD_PATH, projectId),
 
-    setDownloadPath: (projectId: string, downloadPath: string): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_SET_DOWNLOAD_PATH, projectId, downloadPath),
+    setDownloadPath: (
+      projectId: string,
+      downloadPath: string
+    ): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(
+        IPC_CHANNELS.WEBTORRENT_SET_DOWNLOAD_PATH,
+        projectId,
+        downloadPath
+      ),
 
-    selectFiles: (request: SelectTorrentFilesRequest): Promise<SelectTorrentFilesResponse> =>
+    selectFiles: (
+      request: SelectTorrentFilesRequest
+    ): Promise<SelectTorrentFilesResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_SELECT_FILES, request),
 
-    parseTorrentFiles: (torrentFilePath: string): Promise<ParseTorrentFilesResponse> =>
-      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_PARSE_TORRENT_FILES, torrentFilePath),
+    parseTorrentFiles: (
+      torrentFilePath: string
+    ): Promise<ParseTorrentFilesResponse> =>
+      ipcRenderer.invoke(
+        IPC_CHANNELS.WEBTORRENT_PARSE_TORRENT_FILES,
+        torrentFilePath
+      ),
 
-    downloadMoreFiles: (id: string, fileIndices: number[]): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke(IPC_CHANNELS.WEBTORRENT_DOWNLOAD_MORE_FILES, id, fileIndices),
+    downloadMoreFiles: (
+      id: string,
+      fileIndices: number[]
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke(
+        IPC_CHANNELS.WEBTORRENT_DOWNLOAD_MORE_FILES,
+        id,
+        fileIndices
+      ),
   },
 
   // Torrent metadata parsing
   torrentMetadata: {
-    parse: (request: TorrentMetadataRequest): Promise<TorrentMetadataResponse> =>
+    parse: (
+      request: TorrentMetadataRequest
+    ): Promise<TorrentMetadataResponse> =>
       ipcRenderer.invoke(IPC_CHANNELS.TORRENT_PARSE_METADATA, request),
   },
 
@@ -320,14 +445,21 @@ const api = {
     checkFfmpeg: (): Promise<ApiResponse<FfmpegCheckResult>> =>
       ipcRenderer.invoke(IPC_CHANNELS.MIX_EXPORT_FFMPEG_CHECK),
 
-    start: (request: MixExportRequest): Promise<ApiResponse<{ jobId: string }>> =>
+    start: (
+      request: MixExportRequest
+    ): Promise<ApiResponse<{ jobId: string }>> =>
       ipcRenderer.invoke(IPC_CHANNELS.MIX_EXPORT_START, request),
 
     cancel: (): Promise<ApiResponse<void>> =>
       ipcRenderer.invoke(IPC_CHANNELS.MIX_EXPORT_CANCEL),
 
-    onProgress: (callback: (progress: MixExportProgress) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, progress: MixExportProgress) => {
+    onProgress: (
+      callback: (progress: MixExportProgress) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        progress: MixExportProgress
+      ) => {
         callback(progress)
       }
       ipcRenderer.on(IPC_CHANNELS.MIX_EXPORT_PROGRESS, handler)
@@ -339,23 +471,41 @@ const api = {
 
   // Audio playback
   audio: {
-    readFile: (filePath: string): Promise<{ success: boolean; dataUrl?: string; error?: string }> =>
+    readFile: (
+      filePath: string
+    ): Promise<{ success: boolean; dataUrl?: string; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUDIO_READ_FILE, filePath),
 
-    readMetadata: (filePath: string): Promise<{ success: boolean; data?: AudioMetadata; error?: string }> =>
+    readMetadata: (
+      filePath: string
+    ): Promise<{ success: boolean; data?: AudioMetadata; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUDIO_READ_METADATA, filePath),
   },
 
   // Waveform extraction
   waveform: {
-    generate: (request: WaveformGenerateRequest): Promise<{ success: boolean; data?: WaveformData; error?: string }> =>
+    generate: (
+      request: WaveformGenerateRequest
+    ): Promise<{ success: boolean; data?: WaveformData; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.WAVEFORM_GENERATE, request),
 
-    generateBatch: (request: WaveformBatchRequest): Promise<{ success: boolean; data?: WaveformData[]; error?: string }> =>
+    generateBatch: (
+      request: WaveformBatchRequest
+    ): Promise<{ success: boolean; data?: WaveformData[]; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.WAVEFORM_GENERATE_BATCH, request),
 
-    onProgress: (callback: (progress: WaveformProgressEvent) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, progress: WaveformProgressEvent) => {
+    rebuildBatch: (
+      request: WaveformBatchRequest
+    ): Promise<{ success: boolean; data?: WaveformData[]; error?: string }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.WAVEFORM_REBUILD_BATCH, request),
+
+    onProgress: (
+      callback: (progress: WaveformProgressEvent) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        progress: WaveformProgressEvent
+      ) => {
         callback(progress)
       }
       ipcRenderer.on(IPC_CHANNELS.WAVEFORM_PROGRESS, handler)
@@ -367,17 +517,28 @@ const api = {
 
   // BPM detection
   bpm: {
-    detect: (request: BpmDetectRequest): Promise<{ success: boolean; data?: BpmData; error?: string }> =>
+    detect: (
+      request: BpmDetectRequest
+    ): Promise<{ success: boolean; data?: BpmData; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.BPM_DETECT, request),
 
-    detectBatch: (request: BpmBatchRequest): Promise<{ success: boolean; data?: BpmData[]; error?: string }> =>
+    detectBatch: (
+      request: BpmBatchRequest
+    ): Promise<{ success: boolean; data?: BpmData[]; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.BPM_DETECT_BATCH, request),
 
-    detectSong: (request: BpmDetectSongRequest): Promise<{ success: boolean; data?: BpmData; error?: string }> =>
+    detectSong: (
+      request: BpmDetectSongRequest
+    ): Promise<{ success: boolean; data?: BpmData; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.BPM_DETECT_SONG, request),
 
-    onProgress: (callback: (progress: BpmProgressEvent) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, progress: BpmProgressEvent) => {
+    onProgress: (
+      callback: (progress: BpmProgressEvent) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        progress: BpmProgressEvent
+      ) => {
         callback(progress)
       }
       ipcRenderer.on(IPC_CHANNELS.BPM_PROGRESS, handler)
@@ -389,14 +550,21 @@ const api = {
 
   // Stream preview
   streamPreview: {
-    start: (request: StreamPreviewStartRequest): Promise<{ success: boolean }> =>
+    start: (
+      request: StreamPreviewStartRequest
+    ): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC_CHANNELS.STREAM_PREVIEW_START, request),
 
     stop: (): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC_CHANNELS.STREAM_PREVIEW_STOP),
 
-    onReady: (callback: (event: StreamPreviewReadyEvent) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: StreamPreviewReadyEvent) => {
+    onReady: (
+      callback: (event: StreamPreviewReadyEvent) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: StreamPreviewReadyEvent
+      ) => {
         callback(data)
       }
       ipcRenderer.on(IPC_CHANNELS.STREAM_PREVIEW_READY, handler)
@@ -405,18 +573,31 @@ const api = {
       }
     },
 
-    onBuffering: (callback: (event: StreamPreviewBufferingEvent) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: StreamPreviewBufferingEvent) => {
+    onBuffering: (
+      callback: (event: StreamPreviewBufferingEvent) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: StreamPreviewBufferingEvent
+      ) => {
         callback(data)
       }
       ipcRenderer.on(IPC_CHANNELS.STREAM_PREVIEW_BUFFERING, handler)
       return () => {
-        ipcRenderer.removeListener(IPC_CHANNELS.STREAM_PREVIEW_BUFFERING, handler)
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.STREAM_PREVIEW_BUFFERING,
+          handler
+        )
       }
     },
 
-    onError: (callback: (event: StreamPreviewErrorEvent) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, data: StreamPreviewErrorEvent) => {
+    onError: (
+      callback: (event: StreamPreviewErrorEvent) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: StreamPreviewErrorEvent
+      ) => {
         callback(data)
       }
       ipcRenderer.on(IPC_CHANNELS.STREAM_PREVIEW_ERROR, handler)
@@ -428,20 +609,40 @@ const api = {
 
   // Mix / song management
   mix: {
-    addSong: (request: AddSongFromFileRequest): Promise<{ success: boolean; data?: Project; error?: string }> =>
+    addSong: (
+      request: AddSongFromFileRequest
+    ): Promise<{ success: boolean; data?: Project; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.PROJECT_ADD_SONG, request),
 
-    removeSong: (projectId: string, songId: string): Promise<{ success: boolean; data?: Project; error?: string }> =>
+    removeSong: (
+      projectId: string,
+      songId: string
+    ): Promise<{ success: boolean; data?: Project; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.PROJECT_REMOVE_SONG, projectId, songId),
 
-    updateSong: (request: UpdateSongRequest): Promise<{ success: boolean; data?: Project; error?: string }> =>
+    updateSong: (
+      request: UpdateSongRequest
+    ): Promise<{ success: boolean; data?: Project; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.PROJECT_UPDATE_SONG, request),
 
-    reorderSongs: (projectId: string, orderedSongIds: string[]): Promise<{ success: boolean; data?: Project; error?: string }> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PROJECT_REORDER_SONGS, projectId, orderedSongIds),
+    reorderSongs: (
+      projectId: string,
+      orderedSongIds: string[]
+    ): Promise<{ success: boolean; data?: Project; error?: string }> =>
+      ipcRenderer.invoke(
+        IPC_CHANNELS.PROJECT_REORDER_SONGS,
+        projectId,
+        orderedSongIds
+      ),
 
-    syncAudioFolder: (projectId: string): Promise<{ success: boolean; data?: Project; newCount?: number; error?: string }> =>
-      ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SYNC_AUDIO_FOLDER, projectId),
+    syncAudioFolder: (
+      projectId: string
+    ): Promise<{
+      success: boolean
+      data?: Project
+      newCount?: number
+      error?: string
+    }> => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SYNC_AUDIO_FOLDER, projectId),
   },
 }
 
