@@ -225,27 +225,27 @@ Progress for batch operations can be pushed via `mix:waveform:progress` and `mix
 
 ## Acceptance Criteria
 
-- [ ] Timeline tab appears in ProjectOverview with waveform visualization of all tracks
-- [ ] Real audio waveforms are displayed (not decorative random bars)
-- [ ] Waveform data is cached to disk (`assets/waveforms/`) and loaded lazily
-- [ ] Format badge (e.g., "320k FLAC") visible on each track's waveform segment
-- [ ] Hover tooltip shows full track metadata (format, bitrate, sample rate, channels, duration, size)
-- [ ] Crossfade overlap zones visually highlighted between adjacent tracks
-- [ ] Click on crossfade zone opens popover with duration slider (0–30s) — changes persist to project.json
-- [ ] BPM detected per track with beat grid lines rendered on waveform
-- [ ] Beat grid lines align to detected beats, with downbeats visually distinct
-- [ ] Snap-to-beat mode available (toolbar toggle or Shift key) for cue point placement and crossfade adjustment
-- [ ] Double-click on waveform places a cue point with label and type (marker / trim-start / trim-end)
-- [ ] Trim-start and trim-end cue points dim the waveform outside the active range
-- [ ] Export pipeline respects trim boundaries (atrim filter in FFmpeg, adjusted CUE timestamps)
-- [ ] User cue points written into .cue sheet as additional INDEX entries
-- [ ] Minimap at top shows full mix overview with draggable viewport indicator
-- [ ] Zoom via Ctrl+scroll and toolbar controls; horizontal scroll to pan
-- [ ] Click anywhere on timeline starts playback at that position with moving playhead
-- [ ] Playhead syncs with AudioPlayer and auto-advances between tracks
-- [ ] Track detail panel shows metadata and cue point list for selected track
-- [ ] Waveform loading shows progress (skeleton → filled waveform per track)
-- [ ] Works with 20+ tracks without noticeable lag
+- [x] Timeline tab appears in ProjectOverview with waveform visualization of all tracks
+- [x] Real audio waveforms are displayed (not decorative random bars)
+- [x] Waveform data is cached to disk (`assets/waveforms/`) and loaded lazily
+- [x] Format badge (e.g., "320k FLAC") visible on each track's waveform segment
+- [x] Hover tooltip shows full track metadata (format, bitrate, sample rate, channels, duration, size)
+- [x] Crossfade overlap zones visually highlighted between adjacent tracks
+- [x] Click on crossfade zone opens popover with duration slider (0–30s) — changes persist to project.json
+- [x] BPM detected per track with beat grid lines rendered on waveform
+- [x] Beat grid lines align to detected beats, with downbeats visually distinct
+- [x] Snap-to-beat mode available (toolbar toggle or Shift key) for cue point placement and crossfade adjustment
+- [x] Double-click on waveform places a cue point with label and type (marker / trim-start / trim-end)
+- [x] Trim-start and trim-end cue points dim the waveform outside the active range
+- [x] Export pipeline respects trim boundaries (atrim filter in FFmpeg, adjusted CUE timestamps)
+- [x] User cue points written into .cue sheet as additional INDEX entries
+- [x] Minimap at top shows full mix overview with draggable viewport indicator
+- [x] Zoom via Ctrl+scroll and toolbar controls; horizontal scroll to pan
+- [x] Click anywhere on timeline starts playback at that position with moving playhead
+- [x] Playhead syncs with AudioPlayer and auto-advances between tracks
+- [x] Track detail panel shows metadata and cue point list for selected track
+- [x] Waveform loading shows progress (skeleton → filled waveform per track)
+- [x] Works with 20+ tracks without noticeable lag
 
 ## Open Questions
 

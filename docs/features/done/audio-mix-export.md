@@ -131,21 +131,21 @@ Waveform data is cached in-memory and/or in a temp directory. Recomputed if sour
 
 ## Acceptance Criteria
 
-- [ ] Crossfade duration input appears between each pair of songs in MixTab (0–30s range, default 5s)
-- [ ] Crossfade durations persist in project.json and survive app restart
-- [ ] Waveform timeline displays actual audio waveforms for all tracks with crossfade zones highlighted
-- [ ] Export modal allows selecting WAV, FLAC, or MP3 format
-- [ ] MP3 bitrate selector appears only when MP3 format is chosen
-- [ ] Rendering runs in background — user can navigate other tabs during export
-- [ ] Progress bar shows current track, percentage, and ETA
-- [ ] Cancel button stops rendering and cleans up partial files
-- [ ] Output file plays seamlessly with correct crossfades between all tracks
-- [ ] Tracks of different formats/bitrates/sample rates are correctly mixed together
-- [ ] Loudness is consistent across all tracks in the output (EBU R128 normalization)
-- [ ] .cue sheet is generated with accurate track start timestamps
-- [ ] Missing audio files block export with clear error listing which tracks need files
-- [ ] "Export available tracks only" fallback works for partial mixes
-- [ ] Toast notification on completion with "Open file" / "Open folder" actions
+- [x] Crossfade duration input appears between each pair of songs in MixTab (0–30s range, default 5s)
+- [x] Crossfade durations persist in project.json and survive app restart
+- [x] Waveform timeline displays actual audio waveforms for all tracks with crossfade zones highlighted
+- [x] Export modal allows selecting WAV, FLAC, or MP3 format
+- [x] MP3 bitrate selector appears only when MP3 format is chosen
+- [x] Rendering runs in background — user can navigate other tabs during export
+- [x] Progress bar shows current track, percentage, and ETA
+- [x] Cancel button stops rendering and cleans up partial files
+- [x] Output file plays seamlessly with correct crossfades between all tracks
+- [x] Tracks of different formats/bitrates/sample rates are correctly mixed together
+- [x] Loudness is consistent across all tracks in the output (EBU R128 normalization)
+- [x] .cue sheet is generated with accurate track start timestamps
+- [x] Missing audio files block export with clear error listing which tracks need files
+- [x] "Export available tracks only" fallback works for partial mixes
+- [x] Toast notification on completion with "Open file" / "Open folder" actions
 
 ## Out of Scope (v1)
 
