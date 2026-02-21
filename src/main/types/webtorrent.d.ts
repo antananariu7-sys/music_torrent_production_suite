@@ -29,6 +29,7 @@ declare module 'webtorrent' {
     progress: number
     select(): void
     deselect(): void
+    createReadStream(opts?: { start?: number; end?: number }): import('stream').Readable
   }
 
   interface Wire {

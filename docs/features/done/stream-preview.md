@@ -172,17 +172,17 @@ No persistent data model changes. Preview is fully ephemeral — no new fields o
 - **User clicks download while previewing same torrent:** Stop preview, start normal download flow
 
 ## Acceptance Criteria
-- [ ] Expanded track list in TorrentItem shows a play button per track
-- [ ] Clicking play starts buffering with a visible spinner on the track row
-- [ ] AudioPlayer plays the streamed audio within 15 seconds (or shows timeout error)
-- [ ] AudioPlayer shows "Preview" badge during stream playback
-- [ ] Playback auto-stops after 60 seconds
-- [ ] User can manually stop preview via the stop button (track row or AudioPlayer)
-- [ ] Starting a new preview stops the current one
-- [ ] Torrent connection is fully torn down after preview ends
-- [ ] No data persists on disk after preview cleanup
-- [ ] Unsupported audio formats show a clear message instead of attempting to play
-- [ ] 15-second timeout shows "No peers available" when no seeders respond
+- [x] Expanded track list in TorrentItem shows a play button per track
+- [x] Clicking play starts buffering with a visible spinner on the track row
+- [x] AudioPlayer plays the streamed audio within 15 seconds (or shows timeout error)
+- [x] AudioPlayer shows "Preview" badge during stream playback
+- [x] Playback auto-stops after 60 seconds
+- [x] User can manually stop preview via the stop button (track row or AudioPlayer)
+- [x] Starting a new preview stops the current one
+- [x] Torrent connection is fully torn down after preview ends
+- [x] No data persists on disk after preview cleanup
+- [x] Unsupported audio formats show a clear message instead of attempting to play
+- [x] 15-second timeout shows "No peers available" when no seeders respond
 
 ## Out of Scope
 - Full-track streaming (only 30-60s sample)

@@ -1,7 +1,8 @@
-import { Box, HStack, VStack, Text, IconButton, Icon } from '@chakra-ui/react'
+import { Box, HStack, VStack, Text, IconButton, Icon, Badge } from '@chakra-ui/react'
 import { FiPlay, FiPause, FiSkipBack, FiSkipForward, FiVolume2, FiVolumeX, FiX } from 'react-icons/fi'
 import { useEffect, useRef, useState } from 'react'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
+import { useStreamPreviewStore } from '@/store/streamPreviewStore'
 import { Slider } from '@/components/ui/slider'
 
 export function AudioPlayer(): JSX.Element | null {
@@ -14,6 +15,9 @@ export function AudioPlayer(): JSX.Element | null {
   const currentIndex = useAudioPlayerStore((s) => s.currentIndex)
 
   const pendingSeekTime = useAudioPlayerStore((s) => s.pendingSeekTime)
+  const previewMaxDuration = useAudioPlayerStore((s) => s.previewMaxDuration)
+
+  const stopPreview = useStreamPreviewStore((s) => s.stopPreview)
 
   const togglePlayPause = useAudioPlayerStore((s) => s.togglePlayPause)
   const seek = useAudioPlayerStore((s) => s.seek)
@@ -101,14 +105,23 @@ export function AudioPlayer(): JSX.Element | null {
       if (!audioRef.current || !currentTrack) return
 
       try {
-        // Read audio file through IPC
-        const response = await window.api.audio.readFile(currentTrack.filePath)
+        let dataUrl: string
 
-        if (!response.success || !response.dataUrl) {
-          console.error('Failed to load audio file:', response.error)
-          isLoadingRef.current = false
-          loadedFilePathRef.current = ''
-          return
+        // Preview tracks already carry a data URL — skip the IPC read
+        if (currentTrack.filePath.startsWith('data:')) {
+          dataUrl = currentTrack.filePath
+        } else {
+          // Read audio file through IPC
+          const response = await window.api.audio.readFile(currentTrack.filePath)
+
+          if (!response.success || !response.dataUrl) {
+            console.error('Failed to load audio file:', response.error)
+            isLoadingRef.current = false
+            loadedFilePathRef.current = ''
+            return
+          }
+
+          dataUrl = response.dataUrl
         }
 
         if (!audioRef.current) {
@@ -116,7 +129,7 @@ export function AudioPlayer(): JSX.Element | null {
           return
         }
 
-        audioRef.current.src = response.dataUrl
+        audioRef.current.src = dataUrl
         audioRef.current.load()
 
         // Wait for audio to be ready before playing
@@ -161,6 +174,14 @@ export function AudioPlayer(): JSX.Element | null {
       useAudioPlayerStore.getState().next()
     }
   }, [currentTime, currentTrack, isPlaying])
+
+  // Auto-stop preview after max duration
+  useEffect(() => {
+    if (!currentTrack?.isPreview || !isPlaying) return
+    if (currentTime >= previewMaxDuration) {
+      stopPreview()
+    }
+  }, [currentTime, currentTrack, isPlaying, previewMaxDuration, stopPreview])
 
   // Handle play/pause state changes (only when NOT loading a new track)
   useEffect(() => {
@@ -217,8 +238,17 @@ export function AudioPlayer(): JSX.Element | null {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  const hasNext = currentIndex < playlist.length - 1
-  const hasPrevious = currentIndex > 0
+  const isPreview = !!currentTrack.isPreview
+  const hasNext = !isPreview && currentIndex < playlist.length - 1
+  const hasPrevious = !isPreview && currentIndex > 0
+
+  const handleClose = () => {
+    if (isPreview) {
+      stopPreview()
+    } else {
+      clearPlaylist()
+    }
+  }
 
   return (
     <Box
@@ -239,7 +269,7 @@ export function AudioPlayer(): JSX.Element | null {
         position="absolute"
         top={1}
         right={1}
-        onClick={clearPlaylist}
+        onClick={handleClose}
         title="Close player"
       >
         <Icon as={FiX} boxSize={3} />
@@ -270,10 +300,17 @@ export function AudioPlayer(): JSX.Element | null {
           {/* Track info */}
           <HStack flex="1" minW={0}>
             <VStack align="start" gap={0} minW={0}>
-              <Text fontSize="sm" fontWeight="medium" color="text.primary" lineClamp={1}>
-                {currentTrack.name}
-              </Text>
-              {playlist.length > 1 && (
+              <HStack gap={2}>
+                <Text fontSize="sm" fontWeight="medium" color="text.primary" lineClamp={1}>
+                  {currentTrack.name}
+                </Text>
+                {isPreview && (
+                  <Badge colorPalette="purple" size="sm" variant="subtle">
+                    Preview
+                  </Badge>
+                )}
+              </HStack>
+              {!isPreview && playlist.length > 1 && (
                 <Text fontSize="xs" color="text.muted">
                   {currentIndex + 1} / {playlist.length}
                 </Text>
@@ -283,16 +320,18 @@ export function AudioPlayer(): JSX.Element | null {
 
           {/* Playback controls */}
           <HStack gap={1}>
-            <IconButton
-              aria-label="Previous track"
-              size="sm"
-              variant="ghost"
-              onClick={previous}
-              disabled={!hasPrevious && currentTime < 3}
-              title="Previous track"
-            >
-              <Icon as={FiSkipBack} boxSize={4} />
-            </IconButton>
+            {!isPreview && (
+              <IconButton
+                aria-label="Previous track"
+                size="sm"
+                variant="ghost"
+                onClick={previous}
+                disabled={!hasPrevious && currentTime < 3}
+                title="Previous track"
+              >
+                <Icon as={FiSkipBack} boxSize={4} />
+              </IconButton>
+            )}
 
             <IconButton
               aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -305,16 +344,18 @@ export function AudioPlayer(): JSX.Element | null {
               <Icon as={isPlaying ? FiPause : FiPlay} boxSize={5} />
             </IconButton>
 
-            <IconButton
-              aria-label="Next track"
-              size="sm"
-              variant="ghost"
-              onClick={next}
-              disabled={!hasNext}
-              title="Next track"
-            >
-              <Icon as={FiSkipForward} boxSize={4} />
-            </IconButton>
+            {!isPreview && (
+              <IconButton
+                aria-label="Next track"
+                size="sm"
+                variant="ghost"
+                onClick={next}
+                disabled={!hasNext}
+                title="Next track"
+              >
+                <Icon as={FiSkipForward} boxSize={4} />
+              </IconButton>
+            )}
           </HStack>
 
           {/* Volume control */}

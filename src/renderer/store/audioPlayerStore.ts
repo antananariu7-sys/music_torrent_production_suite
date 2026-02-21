@@ -5,6 +5,7 @@ export interface Track {
   name: string
   duration?: number
   trimEnd?: number
+  isPreview?: boolean
 }
 
 interface AudioPlayerState {
@@ -19,6 +20,9 @@ interface AudioPlayerState {
 
   // Seek
   pendingSeekTime: number | null
+
+  // Preview
+  previewMaxDuration: number
 
   // Playlist
   playlist: Track[]
@@ -47,6 +51,7 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
   duration: 0,
   volume: 0.7,
   pendingSeekTime: null,
+  previewMaxDuration: 60,
   playlist: [],
   currentIndex: -1,
 

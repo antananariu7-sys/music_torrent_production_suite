@@ -10,6 +10,7 @@ import { AudioPlayer } from '@/components/common/AudioPlayer'
 import { useThemeStore } from '@/store/useThemeStore'
 import { useAuthStore } from '@/store/useAuthStore'
 import { useDownloadQueueListener } from '@/hooks/useDownloadQueueListener'
+import { useStreamPreviewListener } from '@/hooks/useStreamPreviewListener'
 import { useDownloadQueueStore } from '@/store/downloadQueueStore'
 
 function AppContent() {
@@ -20,6 +21,8 @@ function AppContent() {
 
   // Subscribe to WebTorrent progress/status events globally
   useDownloadQueueListener()
+  // Subscribe to stream preview events globally
+  useStreamPreviewListener()
   const loadAllQueue = useDownloadQueueStore((s) => s.loadAll)
 
   useEffect(() => {

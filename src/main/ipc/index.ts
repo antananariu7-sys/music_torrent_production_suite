@@ -24,6 +24,8 @@ import { WaveformExtractor } from '../services/waveform/WaveformExtractor'
 import { registerWaveformHandlers } from './waveformHandlers'
 import { BpmDetector } from '../services/waveform/BpmDetector'
 import { registerBpmHandlers } from './bpmHandlers'
+import { StreamPreviewService } from '../services/StreamPreviewService'
+import { registerStreamPreviewHandlers } from './streamPreviewHandlers'
 
 // Service instances (initialized in registerIpcHandlers)
 let fileSystemService: FileSystemService
@@ -40,6 +42,7 @@ let projectService: ProjectService
 let mixExportService: MixExportService
 let waveformExtractor: WaveformExtractor
 let bpmDetector: BpmDetector
+let streamPreviewService: StreamPreviewService
 
 export function registerIpcHandlers(): void {
   console.log('Registering IPC handlers...')
@@ -77,6 +80,8 @@ export function registerIpcHandlers(): void {
   registerWaveformHandlers(waveformExtractor)
   bpmDetector = new BpmDetector(projectService)
   registerBpmHandlers(bpmDetector)
+  streamPreviewService = new StreamPreviewService()
+  registerStreamPreviewHandlers(streamPreviewService)
 
   // Resume any persisted WebTorrent downloads
   webtorrentService.resumePersistedDownloads()
@@ -97,5 +102,6 @@ export async function cleanupServices(): Promise<void> {
   mixExportService.cleanup()
   waveformExtractor.cleanup()
   bpmDetector.cleanup()
+  await streamPreviewService.cleanup()
   console.log('Services cleaned up successfully')
 }

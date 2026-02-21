@@ -139,11 +139,22 @@ export class TorrentMetadataService {
       // Wait for the post body to be present
       await page.waitForSelector('.post_body', { timeout: 10000 })
 
+      // Extract magnet link while on the page (for stream preview)
+      let magnetLink: string | undefined
+      try {
+        const magnetSelector = 'a.magnet-link[href^="magnet:"]'
+        await page.waitForSelector(magnetSelector, { timeout: 5000 })
+        magnetLink = await page.$eval(magnetSelector, (el) => (el as HTMLAnchorElement).href) || undefined
+      } catch {
+        console.log(`[TorrentMetadataService] No magnet link found on page ${torrentId}`)
+      }
+
       // Extract page HTML
       const html = await page.content()
 
       // Parse using pure function
       const metadata = parseAlbumsFromHtml(html)
+      metadata.magnetLink = magnetLink
 
       // Cache result
       this.cache.set(torrentId, metadata)

@@ -72,6 +72,12 @@ import type {
   BpmDetectSongRequest,
   BpmProgressEvent,
 } from '@shared/types/waveform.types'
+import type {
+  StreamPreviewStartRequest,
+  StreamPreviewReadyEvent,
+  StreamPreviewBufferingEvent,
+  StreamPreviewErrorEvent,
+} from '@shared/types/streamPreview.types'
 
 // API response wrapper
 interface ApiResponse<T> {
@@ -377,6 +383,45 @@ const api = {
       ipcRenderer.on(IPC_CHANNELS.BPM_PROGRESS, handler)
       return () => {
         ipcRenderer.removeListener(IPC_CHANNELS.BPM_PROGRESS, handler)
+      }
+    },
+  },
+
+  // Stream preview
+  streamPreview: {
+    start: (request: StreamPreviewStartRequest): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.STREAM_PREVIEW_START, request),
+
+    stop: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC_CHANNELS.STREAM_PREVIEW_STOP),
+
+    onReady: (callback: (event: StreamPreviewReadyEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: StreamPreviewReadyEvent) => {
+        callback(data)
+      }
+      ipcRenderer.on(IPC_CHANNELS.STREAM_PREVIEW_READY, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.STREAM_PREVIEW_READY, handler)
+      }
+    },
+
+    onBuffering: (callback: (event: StreamPreviewBufferingEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: StreamPreviewBufferingEvent) => {
+        callback(data)
+      }
+      ipcRenderer.on(IPC_CHANNELS.STREAM_PREVIEW_BUFFERING, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.STREAM_PREVIEW_BUFFERING, handler)
+      }
+    },
+
+    onError: (callback: (event: StreamPreviewErrorEvent) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, data: StreamPreviewErrorEvent) => {
+        callback(data)
+      }
+      ipcRenderer.on(IPC_CHANNELS.STREAM_PREVIEW_ERROR, handler)
+      return () => {
+        ipcRenderer.removeListener(IPC_CHANNELS.STREAM_PREVIEW_ERROR, handler)
       }
     },
   },

@@ -28,6 +28,8 @@ export interface TorrentPageMetadata {
   bitrate?: string
   /** Total duration string */
   totalDuration?: string
+  /** Magnet link extracted from the torrent page (for stream preview) */
+  magnetLink?: string
 }
 
 /** Request to parse torrent page metadata */

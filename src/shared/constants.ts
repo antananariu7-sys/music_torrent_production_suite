@@ -115,6 +115,13 @@ export const IPC_CHANNELS = {
   BPM_DETECT_BATCH: 'bpm:detect-batch',
   BPM_DETECT_SONG: 'bpm:detect-song',
   BPM_PROGRESS: 'bpm:progress',
+
+  // Stream preview
+  STREAM_PREVIEW_START: 'stream-preview:start',
+  STREAM_PREVIEW_STOP: 'stream-preview:stop',
+  STREAM_PREVIEW_READY: 'stream-preview:ready',
+  STREAM_PREVIEW_ERROR: 'stream-preview:error',
+  STREAM_PREVIEW_BUFFERING: 'stream-preview:buffering',
 } as const
 
 // Application settings
