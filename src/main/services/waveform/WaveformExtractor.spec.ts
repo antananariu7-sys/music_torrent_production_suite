@@ -14,7 +14,9 @@ jest.mock('../../utils/ffmpegPath', () => ({
 
 const mockFs = fsExtra as jest.Mocked<typeof fsExtra>
 
-function makeProjectService(overrides: Partial<ReturnType<ProjectService['getActiveProject']>> = {}): ProjectService {
+function makeProjectService(
+  overrides: Partial<ReturnType<ProjectService['getActiveProject']>> = {}
+): ProjectService {
   return {
     getActiveProject: () => ({
       id: 'proj-1',
@@ -46,7 +48,9 @@ describe('WaveformExtractor', () => {
 
     it('normalizes peaks to 0–1 range', () => {
       // 10 samples → windowSize=1 → 10 peaks (each sample = its own peak)
-      const samples = new Float32Array([0.0, 0.2, 0.5, 0.8, 1.0, 0.6, 0.3, 0.1, 0.0, 0.4])
+      const samples = new Float32Array([
+        0.0, 0.2, 0.5, 0.8, 1.0, 0.6, 0.3, 0.1, 0.0, 0.4,
+      ])
 
       const peaks = extractor.downsamplePeaks(samples)
 
@@ -64,13 +68,13 @@ describe('WaveformExtractor', () => {
 
       expect(peaks.length).toBe(4)
       // Global max = 0.8
-      expect(peaks[0]).toBeCloseTo(0.5)   // 0.4 / 0.8
-      expect(peaks[1]).toBeCloseTo(1.0)   // 0.8 / 0.8
-      expect(peaks[3]).toBeCloseTo(0.25)  // 0.2 / 0.8
+      expect(peaks[0]).toBeCloseTo(0.5) // 0.4 / 0.8
+      expect(peaks[1]).toBeCloseTo(1.0) // 0.8 / 0.8
+      expect(peaks[3]).toBeCloseTo(0.25) // 0.2 / 0.8
     })
 
-    it('produces ~2000 peaks for large input', () => {
-      // 8000 samples/sec * 180 sec = 1,440,000 samples (3 min track at 8kHz)
+    it('produces ~8000 peaks for large input', () => {
+      // 16000 samples/sec * 90 sec = 1,440,000 samples (1.5 min track at 16kHz)
       const samples = new Float32Array(1_440_000)
       for (let i = 0; i < samples.length; i++) {
         samples[i] = Math.sin(i * 0.01)
@@ -78,8 +82,8 @@ describe('WaveformExtractor', () => {
 
       const peaks = extractor.downsamplePeaks(samples)
 
-      expect(peaks.length).toBeLessThanOrEqual(2000)
-      expect(peaks.length).toBeGreaterThan(1900)
+      expect(peaks.length).toBeLessThanOrEqual(8000)
+      expect(peaks.length).toBeGreaterThan(7900)
       // All peaks should be normalized 0–1
       for (const p of peaks) {
         expect(p).toBeGreaterThanOrEqual(0)
@@ -97,13 +101,16 @@ describe('WaveformExtractor', () => {
     it('handles all-zero input without division by zero', () => {
       const samples = new Float32Array(4000)
       const peaks = extractor.downsamplePeaks(samples)
-      expect(peaks.every(p => p === 0)).toBe(true)
+      expect(peaks.every((p) => p === 0)).toBe(true)
     })
   })
 
   describe('computeFileHash', () => {
     it('returns size-mtime string', async () => {
-      mockFs.stat.mockResolvedValue({ size: 12345, mtimeMs: 1700000000 } as fsExtra.Stats)
+      mockFs.stat.mockResolvedValue({
+        size: 12345,
+        mtimeMs: 1700000000,
+      } as fsExtra.Stats)
 
       const hash = await extractor.computeFileHash('/some/file.flac')
       expect(hash).toBe('12345-1700000000')
@@ -111,7 +118,9 @@ describe('WaveformExtractor', () => {
 
     it('throws if file does not exist', async () => {
       mockFs.stat.mockRejectedValue(new Error('ENOENT'))
-      await expect(extractor.computeFileHash('/missing.flac')).rejects.toThrow('ENOENT')
+      await expect(extractor.computeFileHash('/missing.flac')).rejects.toThrow(
+        'ENOENT'
+      )
     })
   })
 
@@ -119,18 +128,29 @@ describe('WaveformExtractor', () => {
     const songId = 'song-abc'
     const filePath = '/music/track.flac'
     const fileHash = '999-1700000000'
-    const cachePath = path.join('/projects/test', 'assets', 'waveforms', 'song-abc.json')
+    const cachePath = path.join(
+      '/projects/test',
+      'assets',
+      'waveforms',
+      'song-abc.json'
+    )
 
     beforeEach(() => {
-      mockFs.stat.mockResolvedValue({ size: 999, mtimeMs: 1700000000 } as fsExtra.Stats)
+      mockFs.stat.mockResolvedValue({
+        size: 999,
+        mtimeMs: 1700000000,
+      } as fsExtra.Stats)
     })
 
     it('returns cached data when hash matches', async () => {
       const cachedData: WaveformData = {
         songId,
-        peaks: [0.5, 1.0],
+        peaks: new Array(8000).fill(0.5),
+        peaksLow: new Array(8000).fill(0.3),
+        peaksMid: new Array(8000).fill(0.2),
+        peaksHigh: new Array(8000).fill(0.1),
         duration: 180,
-        sampleRate: 8000,
+        sampleRate: 16000,
         fileHash,
       }
 
@@ -171,7 +191,11 @@ describe('WaveformExtractor', () => {
       const result = await extractor.generate(songId, filePath)
 
       expect(result).toEqual(mockData)
-      expect(extractor.extractPeaks).toHaveBeenCalledWith(songId, filePath, fileHash)
+      expect(extractor.extractPeaks).toHaveBeenCalledWith(
+        songId,
+        filePath,
+        fileHash
+      )
       expect(mockFs.writeJson).toHaveBeenCalledWith(cachePath, mockData)
     })
 
