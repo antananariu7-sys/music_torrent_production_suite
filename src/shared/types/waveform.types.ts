@@ -6,9 +6,9 @@
  * and as trim boundaries for export.
  */
 export interface CuePoint {
-  id: string                    // nanoid
-  timestamp: number             // seconds from track start
-  label: string                 // user-provided name
+  id: string // nanoid
+  timestamp: number // seconds from track start
+  label: string // user-provided name
   type: 'marker' | 'trim-start' | 'trim-end'
 }
 
@@ -18,10 +18,13 @@ export interface CuePoint {
  */
 export interface WaveformData {
   songId: string
-  peaks: number[]               // normalized 0–1, ~2000 points
-  duration: number              // seconds
-  sampleRate: number            // source sample rate
-  fileHash: string              // "${size}-${mtimeMs}" for cache invalidation
+  peaks: number[] // normalized 0–1, ~2000 points
+  peaksLow?: number[] // low-band (<250 Hz) amplitude peaks, same length as peaks
+  peaksMid?: number[] // mid-band (250 Hz – 4 kHz) amplitude peaks
+  peaksHigh?: number[] // high-band (>4 kHz) amplitude peaks
+  duration: number // seconds
+  sampleRate: number // source sample rate
+  fileHash: string // "${size}-${mtimeMs}" for cache invalidation
 }
 
 /**
@@ -31,8 +34,8 @@ export interface WaveformData {
 export interface BpmData {
   songId: string
   bpm: number
-  firstBeatOffset: number       // seconds to first downbeat
-  confidence: number            // 0–1
+  firstBeatOffset: number // seconds to first downbeat
+  confidence: number // 0–1
   fileHash: string
 }
 

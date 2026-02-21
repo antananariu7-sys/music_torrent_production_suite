@@ -1,5 +1,11 @@
 import { HStack, Text, IconButton, Box } from '@chakra-ui/react'
-import { FiZoomIn, FiZoomOut, FiMaximize2, FiGrid } from 'react-icons/fi'
+import {
+  FiZoomIn,
+  FiZoomOut,
+  FiMaximize2,
+  FiGrid,
+  FiBarChart2,
+} from 'react-icons/fi'
 import { useTimelineStore } from '@/store/timelineStore'
 
 interface ZoomControlsProps {
@@ -12,13 +18,19 @@ function formatDuration(seconds: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}`
 }
 
-export function ZoomControls({ totalDuration }: ZoomControlsProps): JSX.Element {
+export function ZoomControls({
+  totalDuration,
+}: ZoomControlsProps): JSX.Element {
   const zoomLevel = useTimelineStore((s) => s.zoomLevel)
   const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
   const zoomIn = useTimelineStore((s) => s.zoomIn)
   const zoomOut = useTimelineStore((s) => s.zoomOut)
   const snapMode = useTimelineStore((s) => s.snapMode)
   const toggleSnapMode = useTimelineStore((s) => s.toggleSnapMode)
+  const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
+  const toggleFrequencyColorMode = useTimelineStore(
+    (s) => s.toggleFrequencyColorMode
+  )
 
   return (
     <HStack gap={3} align="center">
@@ -74,8 +86,29 @@ export function ZoomControls({ totalDuration }: ZoomControlsProps): JSX.Element 
       >
         <FiGrid />
       </IconButton>
-      <Text fontSize="xs" color={snapMode === 'beat' ? 'text.primary' : 'text.muted'}>
+      <Text
+        fontSize="xs"
+        color={snapMode === 'beat' ? 'text.primary' : 'text.muted'}
+      >
         Snap
+      </Text>
+
+      <Box w="1px" h="16px" bg="border.base" mx={1} />
+
+      <IconButton
+        aria-label="Toggle frequency color mode"
+        size="xs"
+        variant={frequencyColorMode ? 'solid' : 'ghost'}
+        colorPalette={frequencyColorMode ? 'teal' : 'gray'}
+        onClick={toggleFrequencyColorMode}
+      >
+        <FiBarChart2 />
+      </IconButton>
+      <Text
+        fontSize="xs"
+        color={frequencyColorMode ? 'text.primary' : 'text.muted'}
+      >
+        Frequency
       </Text>
 
       {totalDuration > 0 && (

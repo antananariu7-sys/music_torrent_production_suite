@@ -4,7 +4,10 @@ import { BrowserWindow } from 'electron'
 import { spawn } from 'child_process'
 import { getFfmpegPath } from '../../utils/ffmpegPath'
 import { IPC_CHANNELS } from '@shared/constants'
-import type { WaveformData, WaveformProgressEvent } from '@shared/types/waveform.types'
+import type {
+  WaveformData,
+  WaveformProgressEvent,
+} from '@shared/types/waveform.types'
 import type { ProjectService } from '../ProjectService'
 
 /** Number of peaks in the downsampled waveform */
@@ -12,6 +15,9 @@ const PEAK_COUNT = 2000
 
 /** Sample rate for waveform extraction (low = fast, sufficient for visual) */
 const EXTRACT_SAMPLE_RATE = 8000
+
+/** Sample rate for frequency band extraction (needs >8kHz for high band) */
+const FREQ_SAMPLE_RATE = 16000
 
 /**
  * Extracts audio waveform peaks via FFmpeg and caches them to disk.
@@ -34,11 +40,16 @@ export class WaveformExtractor {
     const fileHash = await this.computeFileHash(filePath)
     const cachePath = this.getCachePath(songId)
 
-    // Check disk cache
+    // Check disk cache (also invalidate if missing frequency band data)
     const cached = await this.readCache(cachePath, fileHash)
-    if (cached) {
+    if (cached && cached.peaksLow && cached.peaksMid && cached.peaksHigh) {
       console.log(`[WaveformExtractor] Cache hit for ${songId}`)
       return cached
+    }
+    if (cached) {
+      console.log(
+        `[WaveformExtractor] Cache missing frequency data for ${songId}, re-extracting`
+      )
     }
 
     console.log(`[WaveformExtractor] Extracting peaks for ${songId}`)
@@ -67,7 +78,9 @@ export class WaveformExtractor {
       const song = songs[i]
       const filePath = this.resolveSongPath(song, project.projectDirectory)
       if (!filePath) {
-        console.warn(`[WaveformExtractor] No file path for song ${song.id}, skipping`)
+        console.warn(
+          `[WaveformExtractor] No file path for song ${song.id}, skipping`
+        )
         continue
       }
 
@@ -77,7 +90,10 @@ export class WaveformExtractor {
         const data = await this.generate(song.id, filePath)
         results.push(data)
       } catch (error) {
-        console.error(`[WaveformExtractor] Failed to extract ${song.id}:`, error)
+        console.error(
+          `[WaveformExtractor] Failed to extract ${song.id}:`,
+          error
+        )
       }
     }
 
@@ -86,20 +102,44 @@ export class WaveformExtractor {
 
   /**
    * Extract peaks from an audio file via FFmpeg.
+   * Also extracts 3-band frequency peaks for coloring (optional, non-blocking).
    */
-  async extractPeaks(songId: string, filePath: string, fileHash: string): Promise<WaveformData> {
+  async extractPeaks(
+    songId: string,
+    filePath: string,
+    fileHash: string
+  ): Promise<WaveformData> {
     const pcmBuffer = await this.extractPcm(filePath)
-    const rawSamples = new Float32Array(pcmBuffer.buffer, pcmBuffer.byteOffset, pcmBuffer.byteLength / 4)
+    const rawSamples = new Float32Array(
+      pcmBuffer.buffer,
+      pcmBuffer.byteOffset,
+      pcmBuffer.byteLength / 4
+    )
     const peaks = this.downsamplePeaks(rawSamples)
     const duration = rawSamples.length / EXTRACT_SAMPLE_RATE
 
-    return {
+    const result: WaveformData = {
       songId,
       peaks,
       duration,
       sampleRate: EXTRACT_SAMPLE_RATE,
       fileHash,
     }
+
+    // Extract frequency bands (optional — don't block waveform on failure)
+    try {
+      const bands = await this.extractFrequencyBands(filePath)
+      result.peaksLow = this.downsamplePeaks(bands.low)
+      result.peaksMid = this.downsamplePeaks(bands.mid)
+      result.peaksHigh = this.downsamplePeaks(bands.high)
+    } catch (error) {
+      console.warn(
+        `[WaveformExtractor] Frequency band extraction failed for ${songId}, using single-color mode:`,
+        error
+      )
+    }
+
+    return result
   }
 
   /**
@@ -109,10 +149,14 @@ export class WaveformExtractor {
     return new Promise((resolve, reject) => {
       const ffmpegPath = getFfmpegPath()
       const args = [
-        '-i', filePath,
-        '-ac', '1',
-        '-ar', String(EXTRACT_SAMPLE_RATE),
-        '-f', 'f32le',
+        '-i',
+        filePath,
+        '-ac',
+        '1',
+        '-ar',
+        String(EXTRACT_SAMPLE_RATE),
+        '-f',
+        'f32le',
         'pipe:1',
       ]
 
@@ -141,6 +185,74 @@ export class WaveformExtractor {
   }
 
   /**
+   * Run FFmpeg with filter_complex to extract 3 frequency bands (low/mid/high).
+   * Outputs a 3-channel interleaved float32 stream: [low, mid, high] per sample.
+   */
+  private extractFrequencyBands(
+    filePath: string
+  ): Promise<{ low: Float32Array; mid: Float32Array; high: Float32Array }> {
+    return new Promise((resolve, reject) => {
+      const ffmpegPath = getFfmpegPath()
+      const args = [
+        '-i',
+        filePath,
+        '-filter_complex',
+        '[0:a]lowpass=f=250[low];[0:a]bandpass=f=1000:width_type=o:w=2[mid];[0:a]highpass=f=4000[high];[low][mid][high]amerge=inputs=3',
+        '-ar',
+        String(FREQ_SAMPLE_RATE),
+        '-f',
+        'f32le',
+        'pipe:1',
+      ]
+
+      const proc = spawn(ffmpegPath, args, {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+
+      const chunks: Buffer[] = []
+
+      proc.stdout!.on('data', (chunk: Buffer) => {
+        chunks.push(chunk)
+      })
+
+      proc.on('error', (err) => {
+        reject(
+          new Error(`FFmpeg frequency extraction spawn error: ${err.message}`)
+        )
+      })
+
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          reject(
+            new Error(`FFmpeg frequency extraction exited with code ${code}`)
+          )
+          return
+        }
+
+        const buffer = Buffer.concat(chunks)
+        const interleaved = new Float32Array(
+          buffer.buffer,
+          buffer.byteOffset,
+          buffer.byteLength / 4
+        )
+        const sampleCount = Math.floor(interleaved.length / 3)
+
+        const low = new Float32Array(sampleCount)
+        const mid = new Float32Array(sampleCount)
+        const high = new Float32Array(sampleCount)
+
+        for (let i = 0; i < sampleCount; i++) {
+          low[i] = interleaved[i * 3]
+          mid[i] = interleaved[i * 3 + 1]
+          high[i] = interleaved[i * 3 + 2]
+        }
+
+        resolve({ low, mid, high })
+      })
+    })
+  }
+
+  /**
    * Downsample raw PCM float32 samples to PEAK_COUNT peaks.
    * Each peak is the max absolute value in its window, normalized 0–1.
    */
@@ -148,7 +260,10 @@ export class WaveformExtractor {
     if (samples.length === 0) return []
 
     const windowSize = Math.max(1, Math.floor(samples.length / PEAK_COUNT))
-    const peakCount = Math.min(PEAK_COUNT, Math.ceil(samples.length / windowSize))
+    const peakCount = Math.min(
+      PEAK_COUNT,
+      Math.ceil(samples.length / windowSize)
+    )
     const peaks: number[] = new Array(peakCount)
 
     let globalMax = 0
@@ -189,15 +304,23 @@ export class WaveformExtractor {
   private getCachePath(songId: string): string {
     const project = this.projectService.getActiveProject()
     if (!project) throw new Error('No active project')
-    return path.join(project.projectDirectory, 'assets', 'waveforms', `${songId}.json`)
+    return path.join(
+      project.projectDirectory,
+      'assets',
+      'waveforms',
+      `${songId}.json`
+    )
   }
 
   /**
    * Read cached waveform data from disk. Returns null on miss or hash mismatch.
    */
-  private async readCache(cachePath: string, expectedHash: string): Promise<WaveformData | null> {
+  private async readCache(
+    cachePath: string,
+    expectedHash: string
+  ): Promise<WaveformData | null> {
     try {
-      if (!await fs.pathExists(cachePath)) return null
+      if (!(await fs.pathExists(cachePath))) return null
       const data: WaveformData = await fs.readJson(cachePath)
       if (data.fileHash !== expectedHash) return null
       return data
@@ -209,7 +332,10 @@ export class WaveformExtractor {
   /**
    * Write waveform data to disk cache, creating directories as needed.
    */
-  private async writeCache(cachePath: string, data: WaveformData): Promise<void> {
+  private async writeCache(
+    cachePath: string,
+    data: WaveformData
+  ): Promise<void> {
     await fs.ensureDir(path.dirname(cachePath))
     await fs.writeJson(cachePath, data)
   }
@@ -217,7 +343,10 @@ export class WaveformExtractor {
   /**
    * Resolve the absolute file path for a song.
    */
-  private resolveSongPath(song: { localFilePath?: string; externalFilePath?: string }, projectDir: string): string | null {
+  private resolveSongPath(
+    song: { localFilePath?: string; externalFilePath?: string },
+    projectDir: string
+  ): string | null {
     if (song.localFilePath) {
       return path.isAbsolute(song.localFilePath)
         ? song.localFilePath

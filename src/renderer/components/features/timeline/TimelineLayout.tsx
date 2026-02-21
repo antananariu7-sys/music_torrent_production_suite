@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
-import { Box, Text, VStack } from '@chakra-ui/react'
+import { Box, Text, VStack, Spinner } from '@chakra-ui/react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAudioPlayerStore, type Track } from '@/store/audioPlayerStore'
@@ -66,6 +66,7 @@ export function TimelineLayout({
   const containerRef = useRef<HTMLDivElement>(null)
   const isScrollSyncing = useRef(false)
   const userScrolledRef = useRef(false)
+  const zoomRef = useRef({ zoomLevel: 1, totalWidth: 0 })
 
   const currentProject = useProjectStore((s) => s.currentProject)
 
@@ -76,6 +77,8 @@ export function TimelineLayout({
   const setScrollPosition = useTimelineStore((s) => s.setScrollPosition)
   const setViewportWidth = useTimelineStore((s) => s.setViewportWidth)
   const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
+
+  const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
 
   const activeCrossfadePopover = useTimelineStore(
     (s) => s.activeCrossfadePopover
@@ -96,6 +99,10 @@ export function TimelineLayout({
     positions.length > 0
       ? Math.max(...positions.map((p) => p.left + p.width))
       : 0
+
+  // Keep ref in sync for the wheel handler (avoids effect re-runs on every zoom tick)
+  zoomRef.current.zoomLevel = zoomLevel
+  zoomRef.current.totalWidth = totalWidth
 
   // Measure container width and track viewport size
   useEffect(() => {
@@ -183,40 +190,46 @@ export function TimelineLayout({
   }, [songs, positions, pixelsPerSecond, setScrollPosition])
 
   // Ctrl+scroll zoom with stable cursor point
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+  // Attached once via useEffect with { passive: false } so preventDefault() works.
+  // Reads zoomLevel/totalWidth from ref to avoid re-attaching on every zoom tick.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+
+    const handleWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return
       e.preventDefault()
 
-      const el = containerRef.current
-      if (!el) return
+      const { zoomLevel: currentZoom, totalWidth: currentTotalWidth } =
+        zoomRef.current
 
       const rect = el.getBoundingClientRect()
       const cursorXInViewport = e.clientX - rect.left
       const cursorXInTimeline = cursorXInViewport + el.scrollLeft
 
       const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15
-      const newZoom = Math.max(1, Math.min(50, zoomLevel * zoomFactor))
+      const newZoom = Math.max(1, Math.min(50, currentZoom * zoomFactor))
 
-      const cursorFraction = totalWidth > 0 ? cursorXInTimeline / totalWidth : 0
-      const newTotalWidth = totalWidth * (newZoom / zoomLevel)
+      const cursorFraction =
+        currentTotalWidth > 0 ? cursorXInTimeline / currentTotalWidth : 0
+      const newTotalWidth = currentTotalWidth * (newZoom / currentZoom)
       const newScrollLeft = cursorFraction * newTotalWidth - cursorXInViewport
 
       setZoomLevel(newZoom)
 
       requestAnimationFrame(() => {
-        if (el) {
-          isScrollSyncing.current = true
-          el.scrollLeft = Math.max(0, newScrollLeft)
-          setScrollPosition(Math.max(0, newScrollLeft))
-          requestAnimationFrame(() => {
-            isScrollSyncing.current = false
-          })
-        }
+        isScrollSyncing.current = true
+        el.scrollLeft = Math.max(0, newScrollLeft)
+        setScrollPosition(Math.max(0, newScrollLeft))
+        requestAnimationFrame(() => {
+          isScrollSyncing.current = false
+        })
       })
-    },
-    [zoomLevel, totalWidth, setZoomLevel, setScrollPosition]
-  )
+    }
+
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
+  }, [setZoomLevel, setScrollPosition])
 
   // Double-click on track waveform → open cue point popover
   const handleTrackDoubleClick = useCallback(
@@ -297,7 +310,6 @@ export function TimelineLayout({
         borderRadius="md"
         p={3}
         onScroll={handleScroll}
-        onWheel={handleWheel}
       >
         {/* Time ruler */}
         <TimeRuler totalWidth={totalWidth} pixelsPerSecond={pixelsPerSecond} />
@@ -344,6 +356,10 @@ export function TimelineLayout({
                   {waveform ? (
                     <WaveformCanvas
                       peaks={waveform.peaks}
+                      peaksLow={waveform.peaksLow}
+                      peaksMid={waveform.peaksMid}
+                      peaksHigh={waveform.peaksHigh}
+                      frequencyColorMode={frequencyColorMode}
                       width={pos.width}
                       height={TRACK_HEIGHT}
                       color={color}
@@ -490,9 +506,10 @@ function WaveformPlaceholder({
       borderWidth="1px"
       borderColor="border.base"
     >
-      <VStack h="100%" justify="center">
+      <VStack h="100%" justify="center" gap={2}>
+        <Spinner size="sm" color="blue.400" />
         <Text fontSize="xs" color="text.muted">
-          Loading...
+          Extracting waveform...
         </Text>
       </VStack>
     </Box>

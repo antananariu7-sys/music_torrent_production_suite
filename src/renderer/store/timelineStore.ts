@@ -21,6 +21,9 @@ interface TimelineState {
   // Snap mode
   snapMode: 'off' | 'beat'
 
+  // Waveform display options
+  frequencyColorMode: boolean
+
   // Editing popovers
   activeCrossfadePopover: { songId: string; position: PopoverPosition } | null
   activeCuePointPopover: {
@@ -43,9 +46,15 @@ interface TimelineState {
   zoomOut: () => void
   openCrossfadePopover: (songId: string, position: PopoverPosition) => void
   closeCrossfadePopover: () => void
-  openCuePointPopover: (songId: string, timestamp: number, position: PopoverPosition, cuePoint?: CuePoint) => void
+  openCuePointPopover: (
+    songId: string,
+    timestamp: number,
+    position: PopoverPosition,
+    cuePoint?: CuePoint
+  ) => void
   closeCuePointPopover: () => void
   toggleSnapMode: () => void
+  toggleFrequencyColorMode: () => void
   clearCache: () => void
 }
 
@@ -58,6 +67,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   scrollPosition: 0,
   viewportWidth: 0,
   snapMode: 'off',
+  frequencyColorMode: false,
   activeCrossfadePopover: null,
   activeCuePointPopover: null,
 
@@ -76,10 +86,12 @@ export const useTimelineStore = create<TimelineState>((set) => ({
     }),
 
   setLoading: (loading) =>
-    set({ isLoadingWaveforms: loading, ...(loading ? {} : { loadingProgress: null }) }),
+    set({
+      isLoadingWaveforms: loading,
+      ...(loading ? {} : { loadingProgress: null }),
+    }),
 
-  setProgress: (current, total) =>
-    set({ loadingProgress: { current, total } }),
+  setProgress: (current, total) => set({ loadingProgress: { current, total } }),
 
   setSelectedTrack: (songId) => set({ selectedTrackId: songId }),
   setZoomLevel: (level) => set({ zoomLevel: Math.max(1, Math.min(50, level)) }),
@@ -89,12 +101,21 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   zoomOut: () => set((s) => ({ zoomLevel: Math.max(1, s.zoomLevel / 1.3) })),
 
   openCrossfadePopover: (songId, position) =>
-    set({ activeCrossfadePopover: { songId, position }, activeCuePointPopover: null }),
+    set({
+      activeCrossfadePopover: { songId, position },
+      activeCuePointPopover: null,
+    }),
   closeCrossfadePopover: () => set({ activeCrossfadePopover: null }),
   openCuePointPopover: (songId, timestamp, position, cuePoint) =>
-    set({ activeCuePointPopover: { songId, timestamp, cuePoint, position }, activeCrossfadePopover: null }),
+    set({
+      activeCuePointPopover: { songId, timestamp, cuePoint, position },
+      activeCrossfadePopover: null,
+    }),
   closeCuePointPopover: () => set({ activeCuePointPopover: null }),
-  toggleSnapMode: () => set((s) => ({ snapMode: s.snapMode === 'off' ? 'beat' : 'off' })),
+  toggleSnapMode: () =>
+    set((s) => ({ snapMode: s.snapMode === 'off' ? 'beat' : 'off' })),
+  toggleFrequencyColorMode: () =>
+    set((s) => ({ frequencyColorMode: !s.frequencyColorMode })),
 
   clearCache: () =>
     set({
