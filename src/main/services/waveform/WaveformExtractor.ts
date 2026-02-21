@@ -20,13 +20,26 @@ const EXTRACT_SAMPLE_RATE = 16000
 const FREQ_SAMPLE_RATE = 16000
 
 /**
+ * Binary .peaks file format:
+ * [0-3]   Magic: 0x50454B53 ("PEKS")
+ * [4-7]   Version: uint32 = 1
+ * [8-11]  Peak count (N): uint32
+ * [12-15] Flags: uint32 (bit 0 = hasBands)
+ * [16..]  Float32Array: peaks[N], then if hasBands: peaksLow[N], peaksMid[N], peaksHigh[N]
+ */
+const PEAKS_MAGIC = 0x50454b53
+const PEAKS_VERSION = 1
+const PEAKS_HEADER_SIZE = 16
+
+/**
  * Extracts audio waveform peaks via FFmpeg and caches them to disk.
  *
  * FFmpeg command: `ffmpeg -i <file> -ac 1 -ar 8000 -f f32le pipe:1`
  * Produces mono float32 PCM at 8kHz, piped to stdout.
  * The raw PCM is downsampled to ~2000 peaks, normalized 0–1.
  *
- * Cache: `<projectDir>/assets/waveforms/<songId>.json`
+ * Cache: `<projectDir>/assets/waveforms/<songId>.peaks` + `.meta.json` (binary)
+ * Falls back to legacy `<songId>.json` for migration.
  * Cache key: `"${stat.size}-${stat.mtimeMs}"` — recomputes if file changes.
  */
 export class WaveformExtractor {
@@ -38,10 +51,10 @@ export class WaveformExtractor {
    */
   async generate(songId: string, filePath: string): Promise<WaveformData> {
     const fileHash = await this.computeFileHash(filePath)
-    const cachePath = this.getCachePath(songId)
+    const cacheBase = this.getCacheBasePath(songId)
 
     // Check disk cache (invalidate if missing frequency data or low-res peaks)
-    const cached = await this.readCache(cachePath, fileHash)
+    const cached = await this.readCache(cacheBase, fileHash)
     if (
       cached &&
       cached.peaksLow &&
@@ -65,8 +78,8 @@ export class WaveformExtractor {
     console.log(`[WaveformExtractor] Extracting peaks for ${songId}`)
     const waveformData = await this.extractPeaks(songId, filePath, fileHash)
 
-    // Write to disk cache
-    await this.writeCache(cachePath, waveformData)
+    // Write to disk cache (binary format)
+    await this.writeCache(cacheBase, waveformData)
 
     return waveformData
   }
@@ -309,29 +322,31 @@ export class WaveformExtractor {
   }
 
   /**
-   * Get the cache file path for a song's waveform data.
+   * Get the cache base path (without extension) for a song's waveform data.
    */
-  private getCachePath(songId: string): string {
+  private getCacheBasePath(songId: string): string {
     const project = this.projectService.getActiveProject()
     if (!project) throw new Error('No active project')
-    return path.join(
-      project.projectDirectory,
-      'assets',
-      'waveforms',
-      `${songId}.json`
-    )
+    return path.join(project.projectDirectory, 'assets', 'waveforms', songId)
   }
 
   /**
-   * Read cached waveform data from disk. Returns null on miss or hash mismatch.
+   * Read cached waveform data from disk.
+   * Tries binary .peaks + .meta.json first, falls back to legacy .json.
    */
   private async readCache(
-    cachePath: string,
+    basePath: string,
     expectedHash: string
   ): Promise<WaveformData | null> {
+    // Try binary format first
+    const binaryResult = await this.readBinaryCache(basePath, expectedHash)
+    if (binaryResult) return binaryResult
+
+    // Fall back to legacy JSON
     try {
-      if (!(await fs.pathExists(cachePath))) return null
-      const data: WaveformData = await fs.readJson(cachePath)
+      const jsonPath = `${basePath}.json`
+      if (!(await fs.pathExists(jsonPath))) return null
+      const data: WaveformData = await fs.readJson(jsonPath)
       if (data.fileHash !== expectedHash) return null
       return data
     } catch {
@@ -340,14 +355,131 @@ export class WaveformExtractor {
   }
 
   /**
-   * Write waveform data to disk cache, creating directories as needed.
+   * Read binary .peaks + .meta.json cache.
+   */
+  private async readBinaryCache(
+    basePath: string,
+    expectedHash: string
+  ): Promise<WaveformData | null> {
+    try {
+      const peaksPath = `${basePath}.peaks`
+      const metaPath = `${basePath}.meta.json`
+      if (!(await fs.pathExists(peaksPath)) || !(await fs.pathExists(metaPath)))
+        return null
+
+      const meta = await fs.readJson(metaPath)
+      if (meta.fileHash !== expectedHash) return null
+
+      const buf = await fs.readFile(peaksPath)
+
+      // Validate header
+      if (buf.length < PEAKS_HEADER_SIZE) return null
+      const magic = buf.readUInt32LE(0)
+      if (magic !== PEAKS_MAGIC) return null
+      const version = buf.readUInt32LE(4)
+      if (version !== PEAKS_VERSION) return null
+
+      const peakCount = buf.readUInt32LE(8)
+      const flags = buf.readUInt32LE(12)
+      const hasBands = (flags & 1) !== 0
+      const arrayCount = hasBands ? 4 : 1
+      const expectedSize = PEAKS_HEADER_SIZE + peakCount * 4 * arrayCount
+      if (buf.length < expectedSize) return null
+
+      // Read peaks arrays
+      const offset = PEAKS_HEADER_SIZE
+      const peaks = Array.from(
+        new Float32Array(buf.buffer, buf.byteOffset + offset, peakCount)
+      )
+
+      const result: WaveformData = {
+        songId: meta.songId,
+        peaks,
+        duration: meta.duration,
+        sampleRate: meta.sampleRate,
+        fileHash: meta.fileHash,
+      }
+
+      if (hasBands) {
+        result.peaksLow = Array.from(
+          new Float32Array(
+            buf.buffer,
+            buf.byteOffset + offset + peakCount * 4,
+            peakCount
+          )
+        )
+        result.peaksMid = Array.from(
+          new Float32Array(
+            buf.buffer,
+            buf.byteOffset + offset + peakCount * 8,
+            peakCount
+          )
+        )
+        result.peaksHigh = Array.from(
+          new Float32Array(
+            buf.buffer,
+            buf.byteOffset + offset + peakCount * 12,
+            peakCount
+          )
+        )
+      }
+
+      return result
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Write waveform data to disk as binary .peaks + .meta.json.
    */
   private async writeCache(
-    cachePath: string,
+    basePath: string,
     data: WaveformData
   ): Promise<void> {
-    await fs.ensureDir(path.dirname(cachePath))
-    await fs.writeJson(cachePath, data)
+    await fs.ensureDir(path.dirname(basePath))
+
+    const peakCount = data.peaks.length
+    const hasBands = !!(data.peaksLow && data.peaksMid && data.peaksHigh)
+    const arrayCount = hasBands ? 4 : 1
+    const bufSize = PEAKS_HEADER_SIZE + peakCount * 4 * arrayCount
+    const buf = Buffer.alloc(bufSize)
+
+    // Header
+    buf.writeUInt32LE(PEAKS_MAGIC, 0)
+    buf.writeUInt32LE(PEAKS_VERSION, 4)
+    buf.writeUInt32LE(peakCount, 8)
+    buf.writeUInt32LE(hasBands ? 1 : 0, 12)
+
+    // Peaks data
+    const floats = new Float32Array(
+      buf.buffer,
+      buf.byteOffset + PEAKS_HEADER_SIZE,
+      peakCount * arrayCount
+    )
+    for (let i = 0; i < peakCount; i++) {
+      floats[i] = data.peaks[i]
+    }
+    if (hasBands) {
+      for (let i = 0; i < peakCount; i++) {
+        floats[peakCount + i] = data.peaksLow![i]
+        floats[peakCount * 2 + i] = data.peaksMid![i]
+        floats[peakCount * 3 + i] = data.peaksHigh![i]
+      }
+    }
+
+    // Write binary peaks
+    await fs.writeFile(`${basePath}.peaks`, buf)
+
+    // Write metadata JSON
+    await fs.writeJson(`${basePath}.meta.json`, {
+      songId: data.songId,
+      duration: data.duration,
+      sampleRate: data.sampleRate,
+      fileHash: data.fileHash,
+      peakCount,
+      hasBands,
+    })
   }
 
   /**

@@ -1,5 +1,4 @@
-import { memo, useMemo } from 'react'
-import { Box } from '@chakra-ui/react'
+import { memo, useRef, useEffect } from 'react'
 
 interface BeatGridProps {
   bpm: number
@@ -12,6 +11,7 @@ interface BeatGridProps {
 
 /**
  * Renders vertical beat grid lines overlaid on a track's waveform.
+ * Uses canvas for performance — draws hundreds of lines without DOM overhead.
  * Downbeats (every 4th) are visually distinct. Skips rendering
  * when beat density is too high to avoid visual noise.
  */
@@ -23,17 +23,29 @@ export const BeatGrid = memo(function BeatGrid({
   pixelsPerSecond,
   trimStart,
 }: BeatGridProps): JSX.Element | null {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+
   const beatInterval = 60 / bpm
   const beatWidthPx = beatInterval * pixelsPerSecond
 
-  const beats = useMemo(() => {
-    // Skip when beats are too dense (< 3px apart)
-    if (beatWidthPx < 3) return []
+  // Skip when beats are too dense (< 3px apart)
+  if (beatWidthPx < 3) return null
 
-    const result: { x: number; isDownbeat: boolean }[] = []
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    canvas.width = trackWidth
+    canvas.height = trackHeight
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    ctx.clearRect(0, 0, trackWidth, trackHeight)
+
     const startTime = trimStart
     const endTime = startTime + trackWidth / pixelsPerSecond
-
     const firstBeatIndex = Math.ceil(
       (startTime - firstBeatOffset) / beatInterval
     )
@@ -42,45 +54,36 @@ export const BeatGrid = memo(function BeatGrid({
       const t = firstBeatOffset + i * beatInterval
       if (t > endTime) break
       const x = (t - startTime) * pixelsPerSecond
-      if (x >= 0 && x <= trackWidth) {
-        result.push({ x, isDownbeat: i % 4 === 0 })
-      }
+      if (x < 0 || x > trackWidth) continue
+
+      const isDownbeat = i % 4 === 0
+      ctx.fillStyle = isDownbeat
+        ? 'rgba(255,255,255,0.5)'
+        : 'rgba(255,255,255,0.22)'
+      ctx.fillRect(Math.round(x), 0, isDownbeat ? 2 : 1, trackHeight)
     }
-    return result
   }, [
     firstBeatOffset,
     trackWidth,
+    trackHeight,
     pixelsPerSecond,
     trimStart,
     beatInterval,
     beatWidthPx,
   ])
 
-  if (beats.length === 0) return null
-
   return (
-    <Box
-      position="absolute"
-      left={0}
-      top={0}
-      w={`${trackWidth}px`}
-      h={`${trackHeight}px`}
-      pointerEvents="none"
-      zIndex={1}
-    >
-      {beats.map((beat, i) => (
-        <Box
-          key={i}
-          position="absolute"
-          left={`${beat.x}px`}
-          top={0}
-          w={beat.isDownbeat ? '2px' : '1px'}
-          h="100%"
-          bg={
-            beat.isDownbeat ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.22)'
-          }
-        />
-      ))}
-    </Box>
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: `${trackWidth}px`,
+        height: `${trackHeight}px`,
+        pointerEvents: 'none',
+        zIndex: 1,
+      }}
+    />
   )
 })
