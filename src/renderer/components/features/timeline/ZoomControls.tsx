@@ -5,6 +5,7 @@ import {
   FiMaximize2,
   FiGrid,
   FiBarChart2,
+  FiActivity,
 } from 'react-icons/fi'
 import { useTimelineStore } from '@/store/timelineStore'
 
@@ -31,6 +32,8 @@ export function ZoomControls({
   const toggleFrequencyColorMode = useTimelineStore(
     (s) => s.toggleFrequencyColorMode
   )
+  const waveformStyle = useTimelineStore((s) => s.waveformStyle)
+  const toggleWaveformStyle = useTimelineStore((s) => s.toggleWaveformStyle)
 
   return (
     <HStack gap={3} align="center">
@@ -109,6 +112,24 @@ export function ZoomControls({
         color={frequencyColorMode ? 'text.primary' : 'text.muted'}
       >
         Frequency
+      </Text>
+
+      <Box w="1px" h="16px" bg="border.base" mx={1} />
+
+      <IconButton
+        aria-label="Toggle waveform style"
+        size="xs"
+        variant={waveformStyle === 'smooth' ? 'solid' : 'ghost'}
+        colorPalette={waveformStyle === 'smooth' ? 'blue' : 'gray'}
+        onClick={toggleWaveformStyle}
+      >
+        <FiActivity />
+      </IconButton>
+      <Text
+        fontSize="xs"
+        color={waveformStyle === 'smooth' ? 'text.primary' : 'text.muted'}
+      >
+        Smooth
       </Text>
 
       {totalDuration > 0 && (

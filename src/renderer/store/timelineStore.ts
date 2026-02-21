@@ -23,6 +23,7 @@ interface TimelineState {
 
   // Waveform display options
   frequencyColorMode: boolean
+  waveformStyle: 'bars' | 'smooth'
 
   // Editing popovers
   activeCrossfadePopover: { songId: string; position: PopoverPosition } | null
@@ -55,6 +56,7 @@ interface TimelineState {
   closeCuePointPopover: () => void
   toggleSnapMode: () => void
   toggleFrequencyColorMode: () => void
+  toggleWaveformStyle: () => void
   clearCache: () => void
 }
 
@@ -68,6 +70,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   viewportWidth: 0,
   snapMode: 'off',
   frequencyColorMode: false,
+  waveformStyle: 'smooth',
   activeCrossfadePopover: null,
   activeCuePointPopover: null,
 
@@ -116,6 +119,10 @@ export const useTimelineStore = create<TimelineState>((set) => ({
     set((s) => ({ snapMode: s.snapMode === 'off' ? 'beat' : 'off' })),
   toggleFrequencyColorMode: () =>
     set((s) => ({ frequencyColorMode: !s.frequencyColorMode })),
+  toggleWaveformStyle: () =>
+    set((s) => ({
+      waveformStyle: s.waveformStyle === 'bars' ? 'smooth' : 'bars',
+    })),
 
   clearCache: () =>
     set({

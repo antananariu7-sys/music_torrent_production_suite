@@ -79,6 +79,7 @@ export function TimelineLayout({
   const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
 
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
+  const waveformStyle = useTimelineStore((s) => s.waveformStyle)
 
   const activeCrossfadePopover = useTimelineStore(
     (s) => s.activeCrossfadePopover
@@ -360,6 +361,7 @@ export function TimelineLayout({
                       peaksMid={waveform.peaksMid}
                       peaksHigh={waveform.peaksHigh}
                       frequencyColorMode={frequencyColorMode}
+                      waveformStyle={waveformStyle}
                       width={pos.width}
                       height={TRACK_HEIGHT}
                       color={color}
