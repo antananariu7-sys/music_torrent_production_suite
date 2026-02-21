@@ -1,4 +1,4 @@
-import { useRef, useEffect, useMemo } from 'react'
+import { memo, useRef, useEffect, useMemo } from 'react'
 import { Box } from '@chakra-ui/react'
 
 /** Convert a hex color to rgba with the given alpha */
@@ -327,145 +327,158 @@ interface WaveformCanvasProps {
  * Renders audio waveform peaks as mirrored vertical bars on a canvas.
  * Supports frequency-colored mode when 3-band peak data is available.
  */
-export function WaveformCanvas({
-  peaks,
-  peaksLow,
-  peaksMid,
-  peaksHigh,
-  frequencyColorMode = false,
-  waveformStyle = 'smooth',
-  width,
-  height = 80,
-  color = '#3b82f6',
-  isSelected = false,
-}: WaveformCanvasProps): JSX.Element {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+export const WaveformCanvas = memo(
+  function WaveformCanvas({
+    peaks,
+    peaksLow,
+    peaksMid,
+    peaksHigh,
+    frequencyColorMode = false,
+    waveformStyle = 'smooth',
+    width,
+    height = 80,
+    color = '#3b82f6',
+    isSelected = false,
+  }: WaveformCanvasProps): JSX.Element {
+    const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  // Zoom-adaptive LOD: downsample peaks to match visible pixel density
-  // Cap at canvas width (no point having more peaks than pixels)
-  const targetPeaks = useMemo(() => {
-    // Use ~1 peak per 2 CSS pixels for smooth look, capped at source length
-    const target = Math.min(peaks.length, Math.max(200, Math.ceil(width / 2)))
-    return target
-  }, [peaks.length, width])
+    // Zoom-adaptive LOD: downsample peaks to match visible pixel density
+    // Cap at canvas width (no point having more peaks than pixels)
+    const targetPeaks = useMemo(() => {
+      // Use ~1 peak per 2 CSS pixels for smooth look, capped at source length
+      const target = Math.min(peaks.length, Math.max(200, Math.ceil(width / 2)))
+      return target
+    }, [peaks.length, width])
 
-  const lodPeaks = useMemo(
-    () => downsampleArray(peaks, targetPeaks),
-    [peaks, targetPeaks]
-  )
-  const lodPeaksLow = useMemo(
-    () => (peaksLow ? downsampleArray(peaksLow, targetPeaks) : undefined),
-    [peaksLow, targetPeaks]
-  )
-  const lodPeaksMid = useMemo(
-    () => (peaksMid ? downsampleArray(peaksMid, targetPeaks) : undefined),
-    [peaksMid, targetPeaks]
-  )
-  const lodPeaksHigh = useMemo(
-    () => (peaksHigh ? downsampleArray(peaksHigh, targetPeaks) : undefined),
-    [peaksHigh, targetPeaks]
-  )
+    const lodPeaks = useMemo(
+      () => downsampleArray(peaks, targetPeaks),
+      [peaks, targetPeaks]
+    )
+    const lodPeaksLow = useMemo(
+      () => (peaksLow ? downsampleArray(peaksLow, targetPeaks) : undefined),
+      [peaksLow, targetPeaks]
+    )
+    const lodPeaksMid = useMemo(
+      () => (peaksMid ? downsampleArray(peaksMid, targetPeaks) : undefined),
+      [peaksMid, targetPeaks]
+    )
+    const lodPeaksHigh = useMemo(
+      () => (peaksHigh ? downsampleArray(peaksHigh, targetPeaks) : undefined),
+      [peaksHigh, targetPeaks]
+    )
 
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || lodPeaks.length === 0) return
+    useEffect(() => {
+      const canvas = canvasRef.current
+      if (!canvas || lodPeaks.length === 0) return
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
 
-    const dpr = window.devicePixelRatio || 1
-    canvas.width = width * dpr
-    canvas.height = height * dpr
-    ctx.scale(dpr, dpr)
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = width * dpr
+      canvas.height = height * dpr
+      ctx.scale(dpr, dpr)
 
-    // Clear
-    ctx.clearRect(0, 0, width, height)
+      // Clear
+      ctx.clearRect(0, 0, width, height)
 
-    // Draw mirrored waveform
-    const centerY = height / 2
-    const halfHeight = height / 2 - 2 // 2px padding
-    const barWidth = width / lodPeaks.length
-    const minBarWidth = Math.max(1, barWidth)
+      // Draw mirrored waveform
+      const centerY = height / 2
+      const halfHeight = height / 2 - 2 // 2px padding
+      const barWidth = width / lodPeaks.length
+      const minBarWidth = Math.max(1, barWidth)
 
-    const hasFrequencyData =
-      frequencyColorMode &&
-      lodPeaksLow &&
-      lodPeaksMid &&
-      lodPeaksHigh &&
-      lodPeaksLow.length === lodPeaks.length
+      const hasFrequencyData =
+        frequencyColorMode &&
+        lodPeaksLow &&
+        lodPeaksMid &&
+        lodPeaksHigh &&
+        lodPeaksLow.length === lodPeaks.length
 
-    if (waveformStyle === 'smooth') {
-      // --- Smooth bezier curve rendering ---
-      drawSmoothWaveform(
-        ctx,
-        lodPeaks,
-        width,
-        centerY,
-        halfHeight,
-        hasFrequencyData
-          ? {
-              peaksLow: lodPeaksLow!,
-              peaksMid: lodPeaksMid!,
-              peaksHigh: lodPeaksHigh!,
-            }
-          : null,
-        hasFrequencyData ? null : color
-      )
-    } else {
-      // --- Bar rendering ---
-      if (hasFrequencyData) {
-        drawFrequencyBars(
+      if (waveformStyle === 'smooth') {
+        // --- Smooth bezier curve rendering ---
+        drawSmoothWaveform(
           ctx,
           lodPeaks,
-          lodPeaksLow!,
-          lodPeaksMid!,
-          lodPeaksHigh!,
-          barWidth,
-          minBarWidth,
+          width,
           centerY,
           halfHeight,
-          height,
-          color
+          hasFrequencyData
+            ? {
+                peaksLow: lodPeaksLow!,
+                peaksMid: lodPeaksMid!,
+                peaksHigh: lodPeaksHigh!,
+              }
+            : null,
+          hasFrequencyData ? null : color
         )
       } else {
-        ctx.fillStyle = createBarGradient(ctx, height, color)
-        for (let i = 0; i < lodPeaks.length; i++) {
-          const x = i * barWidth
-          const peakHeight = lodPeaks[i] * halfHeight
-          if (peakHeight < 0.5) continue
-          ctx.fillRect(x, centerY - peakHeight, minBarWidth, peakHeight * 2)
+        // --- Bar rendering ---
+        if (hasFrequencyData) {
+          drawFrequencyBars(
+            ctx,
+            lodPeaks,
+            lodPeaksLow!,
+            lodPeaksMid!,
+            lodPeaksHigh!,
+            barWidth,
+            minBarWidth,
+            centerY,
+            halfHeight,
+            height,
+            color
+          )
+        } else {
+          ctx.fillStyle = createBarGradient(ctx, height, color)
+          for (let i = 0; i < lodPeaks.length; i++) {
+            const x = i * barWidth
+            const peakHeight = lodPeaks[i] * halfHeight
+            if (peakHeight < 0.5) continue
+            ctx.fillRect(x, centerY - peakHeight, minBarWidth, peakHeight * 2)
+          }
         }
       }
-    }
-  }, [
-    lodPeaks,
-    lodPeaksLow,
-    lodPeaksMid,
-    lodPeaksHigh,
-    frequencyColorMode,
-    waveformStyle,
-    width,
-    height,
-    color,
-  ])
+    }, [
+      lodPeaks,
+      lodPeaksLow,
+      lodPeaksMid,
+      lodPeaksHigh,
+      frequencyColorMode,
+      waveformStyle,
+      width,
+      height,
+      color,
+    ])
 
-  return (
-    <Box
-      borderWidth={isSelected ? '2px' : '0px'}
-      borderColor={isSelected ? 'blue.500' : 'transparent'}
-      borderRadius="sm"
-      overflow="hidden"
-      cursor="pointer"
-      transition="border-color 0.15s"
-    >
-      <canvas
-        ref={canvasRef}
-        style={{
-          width: `${width}px`,
-          height: `${height}px`,
-          display: 'block',
-        }}
-      />
-    </Box>
-  )
-}
+    return (
+      <Box
+        borderWidth={isSelected ? '2px' : '0px'}
+        borderColor={isSelected ? 'blue.500' : 'transparent'}
+        borderRadius="sm"
+        overflow="hidden"
+        cursor="pointer"
+        transition="border-color 0.15s"
+      >
+        <canvas
+          ref={canvasRef}
+          style={{
+            width: `${width}px`,
+            height: `${height}px`,
+            display: 'block',
+          }}
+        />
+      </Box>
+    )
+  },
+  (prev, next) =>
+    prev.peaks === next.peaks &&
+    prev.peaksLow === next.peaksLow &&
+    prev.peaksMid === next.peaksMid &&
+    prev.peaksHigh === next.peaksHigh &&
+    prev.frequencyColorMode === next.frequencyColorMode &&
+    prev.waveformStyle === next.waveformStyle &&
+    prev.width === next.width &&
+    prev.height === next.height &&
+    prev.color === next.color &&
+    prev.isSelected === next.isSelected
+)

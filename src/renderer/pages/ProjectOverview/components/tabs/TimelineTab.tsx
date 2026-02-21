@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { HStack, VStack, Text, Box } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useTimelineStore } from '@/store/timelineStore'
@@ -28,6 +28,30 @@ export function TimelineTab(): JSX.Element {
   useWaveformData(currentProject?.id)
   useBpmData(currentProject?.id)
 
+  const projectSongs = currentProject?.songs
+  const songs = useMemo(
+    () =>
+      projectSongs ? [...projectSongs].sort((a, b) => a.order - b.order) : [],
+    [projectSongs]
+  )
+  const totalDuration = useMemo(() => calculateTotalDuration(songs), [songs])
+  const defaultCrossfade =
+    currentProject?.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5
+
+  // Compute positions for Minimap (shared with TimelineLayout)
+  const pixelsPerSecond = PX_PER_SEC * zoomLevel
+  const positions = useMemo(
+    () => computeTrackPositions(songs, pixelsPerSecond, defaultCrossfade),
+    [songs, pixelsPerSecond, defaultCrossfade]
+  )
+  const totalWidth = useMemo(
+    () =>
+      positions.length > 0
+        ? Math.max(...positions.map((p) => p.left + p.width))
+        : 0,
+    [positions]
+  )
+
   // Space bar to toggle play/pause
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -50,25 +74,9 @@ export function TimelineTab(): JSX.Element {
     return <></>
   }
 
-  const songs = [...currentProject.songs].sort((a, b) => a.order - b.order)
-  const totalDuration = calculateTotalDuration(songs)
-  const defaultCrossfade =
-    currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5
   const selectedSong = selectedTrackId
     ? songs.find((s) => s.id === selectedTrackId)
     : undefined
-
-  // Compute positions for Minimap (shared with TimelineLayout)
-  const pixelsPerSecond = PX_PER_SEC * zoomLevel
-  const positions = computeTrackPositions(
-    songs,
-    pixelsPerSecond,
-    defaultCrossfade
-  )
-  const totalWidth =
-    positions.length > 0
-      ? Math.max(...positions.map((p) => p.left + p.width))
-      : 0
 
   return (
     <VStack align="stretch" gap={4}>

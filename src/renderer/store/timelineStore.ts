@@ -73,7 +73,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   snapMode: 'off',
   frequencyColorMode: false,
   waveformStyle: 'smooth',
-  showBeatGrid: true,
+  showBeatGrid: false,
   activeCrossfadePopover: null,
   activeCuePointPopover: null,
 

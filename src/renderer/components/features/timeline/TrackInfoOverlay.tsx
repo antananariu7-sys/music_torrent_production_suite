@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Box, Badge } from '@chakra-ui/react'
 import type { Song } from '@shared/types/project.types'
 
@@ -37,39 +38,53 @@ function buildTooltipText(song: Song): string {
  * Overlay showing format badge on each track in the timeline.
  * Hover shows full metadata via native title tooltip.
  */
-export function TrackInfoOverlay({ song }: TrackInfoOverlayProps): JSX.Element {
-  const label = formatBitrate(song)
+export const TrackInfoOverlay = memo(
+  function TrackInfoOverlay({ song }: TrackInfoOverlayProps): JSX.Element {
+    const label = formatBitrate(song)
 
-  const hasBpm = song.bpm != null && song.bpm > 0
+    const hasBpm = song.bpm != null && song.bpm > 0
 
-  if (!label && !hasBpm) return <></>
+    if (!label && !hasBpm) return <></>
 
-  return (
-    <Box position="absolute" top={1} left={1} zIndex={1} display="flex" gap="4px">
-      {label && (
-        <Badge
-          fontSize="2xs"
-          fontWeight="bold"
-          textTransform="uppercase"
-          colorPalette="blue"
-          variant="subtle"
-          cursor="default"
-          title={buildTooltipText(song)}
-        >
-          {label}
-        </Badge>
-      )}
-      {hasBpm && (
-        <Badge
-          fontSize="2xs"
-          fontWeight="bold"
-          colorPalette="purple"
-          variant="subtle"
-          cursor="default"
-        >
-          {Math.round(song.bpm!)} BPM
-        </Badge>
-      )}
-    </Box>
-  )
-}
+    return (
+      <Box
+        position="absolute"
+        top={1}
+        left={1}
+        zIndex={1}
+        display="flex"
+        gap="4px"
+      >
+        {label && (
+          <Badge
+            fontSize="2xs"
+            fontWeight="bold"
+            textTransform="uppercase"
+            colorPalette="blue"
+            variant="subtle"
+            cursor="default"
+            title={buildTooltipText(song)}
+          >
+            {label}
+          </Badge>
+        )}
+        {hasBpm && (
+          <Badge
+            fontSize="2xs"
+            fontWeight="bold"
+            colorPalette="purple"
+            variant="subtle"
+            cursor="default"
+          >
+            {Math.round(song.bpm!)} BPM
+          </Badge>
+        )}
+      </Box>
+    )
+  },
+  (prev, next) =>
+    prev.song.id === next.song.id &&
+    prev.song.bpm === next.song.bpm &&
+    prev.song.bitrate === next.song.bitrate &&
+    prev.song.format === next.song.format
+)

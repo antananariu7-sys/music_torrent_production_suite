@@ -1,4 +1,4 @@
-import { Box } from '@chakra-ui/react'
+import { memo, useRef, useEffect } from 'react'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import type { TrackPosition } from './TimelineLayout'
 import type { Song } from '@shared/types/project.types'
@@ -11,45 +11,76 @@ interface PlayheadProps {
 }
 
 /**
- * Renders a moving vertical playhead line over the timeline,
- * synced to audioPlayerStore.currentTime.
+ * Renders a moving vertical playhead line over the timeline.
+ * Uses direct DOM updates via store subscription to avoid
+ * triggering React re-renders at ~60fps.
  */
-export function Playhead({
+export const Playhead = memo(function Playhead({
   positions,
   songs,
   pixelsPerSecond,
   trackHeight,
-}: PlayheadProps): JSX.Element | null {
-  const currentTrack = useAudioPlayerStore((s) => s.currentTrack)
-  const currentTime = useAudioPlayerStore((s) => s.currentTime)
-  const isPlaying = useAudioPlayerStore((s) => s.isPlaying)
+}: PlayheadProps): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
 
-  if (!currentTrack || (!isPlaying && currentTime === 0)) return null
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
 
-  // Find which song matches the currently playing track
-  const trackIndex = songs.findIndex(
-    (s) => (s.localFilePath ?? s.externalFilePath) === currentTrack.filePath
-  )
-  if (trackIndex === -1) return null
+    const update = () => {
+      const { currentTrack, currentTime, isPlaying } =
+        useAudioPlayerStore.getState()
 
-  const pos = positions[trackIndex]
-  const song = songs[trackIndex]
-  const x = pos.left + (currentTime - (song.trimStart ?? 0)) * pixelsPerSecond
+      if (!currentTrack || (!isPlaying && currentTime === 0)) {
+        el.style.display = 'none'
+        return
+      }
 
-  // Don't render if playhead is outside track bounds
-  if (x < pos.left || x > pos.left + pos.width) return null
+      const trackIndex = songs.findIndex(
+        (s) => (s.localFilePath ?? s.externalFilePath) === currentTrack.filePath
+      )
+      if (trackIndex === -1) {
+        el.style.display = 'none'
+        return
+      }
+
+      const pos = positions[trackIndex]
+      const song = songs[trackIndex]
+      const x =
+        pos.left + (currentTime - (song.trimStart ?? 0)) * pixelsPerSecond
+
+      if (x < pos.left || x > pos.left + pos.width) {
+        el.style.display = 'none'
+        return
+      }
+
+      el.style.display = 'block'
+      el.style.transform = `translateX(${x}px)`
+    }
+
+    // Initial position
+    update()
+
+    // Subscribe to store changes — direct DOM, no React re-renders
+    const unsub = useAudioPlayerStore.subscribe(update)
+    return unsub
+  }, [songs, positions, pixelsPerSecond])
 
   return (
-    <Box
-      position="absolute"
-      left={`${x}px`}
-      top={0}
-      w="2px"
-      h={`${trackHeight}px`}
-      bg="#f97316"
-      zIndex={10}
-      pointerEvents="none"
-      transition="left 0.05s linear"
+    <div
+      ref={ref}
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: '2px',
+        height: `${trackHeight}px`,
+        background: '#f97316',
+        zIndex: 10,
+        pointerEvents: 'none',
+        willChange: 'transform',
+        display: 'none',
+      }}
     />
   )
-}
+})

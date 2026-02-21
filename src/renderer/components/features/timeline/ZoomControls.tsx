@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { HStack, Text, IconButton, Box } from '@chakra-ui/react'
 import {
   FiZoomIn,
@@ -20,7 +21,7 @@ function formatDuration(seconds: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}`
 }
 
-export function ZoomControls({
+export const ZoomControls = memo(function ZoomControls({
   totalDuration,
 }: ZoomControlsProps): JSX.Element {
   const zoomLevel = useTimelineStore((s) => s.zoomLevel)
@@ -155,4 +156,4 @@ export function ZoomControls({
       )}
     </HStack>
   )
-}
+})

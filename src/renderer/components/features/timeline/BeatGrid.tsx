@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { memo, useMemo } from 'react'
 import { Box } from '@chakra-ui/react'
 
 interface BeatGridProps {
@@ -15,7 +15,7 @@ interface BeatGridProps {
  * Downbeats (every 4th) are visually distinct. Skips rendering
  * when beat density is too high to avoid visual noise.
  */
-export function BeatGrid({
+export const BeatGrid = memo(function BeatGrid({
   bpm,
   firstBeatOffset,
   trackWidth,
@@ -34,7 +34,9 @@ export function BeatGrid({
     const startTime = trimStart
     const endTime = startTime + trackWidth / pixelsPerSecond
 
-    const firstBeatIndex = Math.ceil((startTime - firstBeatOffset) / beatInterval)
+    const firstBeatIndex = Math.ceil(
+      (startTime - firstBeatOffset) / beatInterval
+    )
 
     for (let i = firstBeatIndex; ; i++) {
       const t = firstBeatOffset + i * beatInterval
@@ -45,7 +47,14 @@ export function BeatGrid({
       }
     }
     return result
-  }, [bpm, firstBeatOffset, trackWidth, pixelsPerSecond, trimStart, beatInterval, beatWidthPx])
+  }, [
+    firstBeatOffset,
+    trackWidth,
+    pixelsPerSecond,
+    trimStart,
+    beatInterval,
+    beatWidthPx,
+  ])
 
   if (beats.length === 0) return null
 
@@ -67,9 +76,11 @@ export function BeatGrid({
           top={0}
           w={beat.isDownbeat ? '2px' : '1px'}
           h="100%"
-          bg={beat.isDownbeat ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.22)'}
+          bg={
+            beat.isDownbeat ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.22)'
+          }
         />
       ))}
     </Box>
   )
-}
+})

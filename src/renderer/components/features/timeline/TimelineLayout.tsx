@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback } from 'react'
+import { useRef, useEffect, useCallback, useMemo } from 'react'
 import { Box, Text, VStack, Spinner } from '@chakra-ui/react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useProjectStore } from '@/store/useProjectStore'
@@ -92,15 +92,17 @@ export function TimelineLayout({
   const closeCuePointPopover = useTimelineStore((s) => s.closeCuePointPopover)
 
   const pixelsPerSecond = PX_PER_SEC * zoomLevel
-  const positions = computeTrackPositions(
-    songs,
-    pixelsPerSecond,
-    defaultCrossfade
+  const positions = useMemo(
+    () => computeTrackPositions(songs, pixelsPerSecond, defaultCrossfade),
+    [songs, pixelsPerSecond, defaultCrossfade]
   )
-  const totalWidth =
-    positions.length > 0
-      ? Math.max(...positions.map((p) => p.left + p.width))
-      : 0
+  const totalWidth = useMemo(
+    () =>
+      positions.length > 0
+        ? Math.max(...positions.map((p) => p.left + p.width))
+        : 0,
+    [positions]
+  )
 
   // Keep ref in sync for the wheel handler (avoids effect re-runs on every zoom tick)
   zoomRef.current.zoomLevel = zoomLevel
@@ -232,6 +234,24 @@ export function TimelineLayout({
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
   }, [setZoomLevel, setScrollPosition])
+
+  // Click on cue point marker → open cue point popover for existing cue point
+  const handleCuePointClick = useCallback(
+    (
+      songId: string,
+      posLeft: number,
+      cpX: number,
+      cuePoint: import('@shared/types/waveform.types').CuePoint
+    ) => {
+      openCuePointPopover(
+        songId,
+        cuePoint.timestamp,
+        { x: posLeft + cpX, y: 0 },
+        cuePoint
+      )
+    },
+    [openCuePointPopover]
+  )
 
   // Double-click on track waveform → open cue point popover
   const handleTrackDoubleClick = useCallback(
@@ -398,14 +418,9 @@ export function TimelineLayout({
                         cuePoint={cp}
                         x={cpX}
                         trackHeight={TRACK_HEIGHT}
-                        onClick={(clickedCp) => {
-                          openCuePointPopover(
-                            song.id,
-                            clickedCp.timestamp,
-                            { x: pos.left + cpX, y: 0 },
-                            clickedCp
-                          )
-                        }}
+                        onClick={(clickedCp) =>
+                          handleCuePointClick(song.id, pos.left, cpX, clickedCp)
+                        }
                       />
                     )
                   })}

@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Box } from '@chakra-ui/react'
 
 interface TrimOverlayProps {
@@ -12,7 +13,7 @@ interface TrimOverlayProps {
 /**
  * Semi-transparent overlay dimming waveform regions outside trim boundaries.
  */
-export function TrimOverlay({
+export const TrimOverlay = memo(function TrimOverlay({
   trimStart,
   trimEnd,
   trackWidth,
@@ -57,4 +58,4 @@ export function TrimOverlay({
       )}
     </>
   )
-}
+})

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { memo, useRef, useEffect } from 'react'
 import { Box } from '@chakra-ui/react'
 import { useTimelineStore } from '@/store/timelineStore'
 
@@ -33,7 +33,7 @@ function getTickIntervals(pxPerSec: number): [number, number] {
  * Only the visible portion + buffer is drawn to avoid exceeding
  * the browser's maximum canvas dimension at high zoom levels.
  */
-export function TimeRuler({
+export const TimeRuler = memo(function TimeRuler({
   totalWidth,
   pixelsPerSecond,
 }: TimeRulerProps): JSX.Element {
@@ -115,4 +115,4 @@ export function TimeRuler({
       />
     </Box>
   )
-}
+})
