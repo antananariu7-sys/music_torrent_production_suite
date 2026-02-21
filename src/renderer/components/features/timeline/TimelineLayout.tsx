@@ -210,7 +210,7 @@ export function TimelineLayout({
       const cursorXInTimeline = cursorXInViewport + el.scrollLeft
 
       const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15
-      const newZoom = Math.max(1, Math.min(50, currentZoom * zoomFactor))
+      const newZoom = Math.max(1, Math.min(4, currentZoom * zoomFactor))
 
       const cursorFraction =
         currentTotalWidth > 0 ? cursorXInTimeline / currentTotalWidth : 0

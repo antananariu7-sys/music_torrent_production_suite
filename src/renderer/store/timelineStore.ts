@@ -100,10 +100,10 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   setProgress: (current, total) => set({ loadingProgress: { current, total } }),
 
   setSelectedTrack: (songId) => set({ selectedTrackId: songId }),
-  setZoomLevel: (level) => set({ zoomLevel: Math.max(1, Math.min(50, level)) }),
+  setZoomLevel: (level) => set({ zoomLevel: Math.max(1, Math.min(4, level)) }),
   setScrollPosition: (pos) => set({ scrollPosition: pos }),
   setViewportWidth: (width) => set({ viewportWidth: width }),
-  zoomIn: () => set((s) => ({ zoomLevel: Math.min(50, s.zoomLevel * 1.3) })),
+  zoomIn: () => set((s) => ({ zoomLevel: Math.min(4, s.zoomLevel * 1.3) })),
   zoomOut: () => set((s) => ({ zoomLevel: Math.max(1, s.zoomLevel / 1.3) })),
 
   openCrossfadePopover: (songId, position) =>

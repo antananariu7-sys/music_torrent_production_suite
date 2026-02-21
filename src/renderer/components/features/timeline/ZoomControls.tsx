@@ -52,7 +52,7 @@ export function ZoomControls({
       <input
         type="range"
         min={1}
-        max={50}
+        max={4}
         step={0.1}
         value={zoomLevel}
         onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
