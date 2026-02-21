@@ -148,16 +148,35 @@ Add a toolbar control to show/hide the beat grid overlay, independent of BPM det
 
 ## Acceptance Criteria
 
-- [ ] Waveforms render with vertical gradient fills (bright at peaks, darker at center)
-- [ ] Frequency-colored mode shows bass/mid/high distribution as warm-to-cool colors
-- [ ] Smooth bezier curve rendering available as the default waveform style
-- [ ] Bar-style rendering available as an alternative option
-- [ ] Zoom in shows progressively more waveform detail (visible difference between 1× and 20×)
-- [ ] Zoom out simplifies waveform to broad shapes without aliasing artifacts
-- [ ] Beat grid toggle in toolbar shows/hides beat lines
-- [ ] Old waveform cache files still load (graceful degradation)
-- [ ] Frequency extraction adds < 2s to per-track waveform generation time
-- [ ] Visual quality comparable to professional DJ software (Rekordbox, Serato)
+- [x] Waveforms render with vertical gradient fills (bright at peaks, darker at center)
+- [x] Frequency-colored mode shows bass/mid/high distribution as warm-to-cool colors
+- [x] Smooth bezier curve rendering available as the default waveform style
+- [x] Bar-style rendering available as an alternative option
+- [x] Zoom in shows progressively more waveform detail (visible difference between 1× and 4×)
+- [x] Zoom out simplifies waveform to broad shapes without aliasing artifacts
+- [x] Beat grid toggle in toolbar shows/hides beat lines
+- [x] Old waveform cache files still load (graceful degradation)
+- [x] Frequency extraction adds < 2s to per-track waveform generation time
+- [x] Visual quality comparable to professional DJ software (Rekordbox, Serato)
+
+## Implementation Notes
+
+- Frequency extraction uses FFmpeg `filter_complex` with 3 parallel bandpass filters directly in `WaveformExtractor.ts` (no separate `FrequencyAnalyzer.ts` module — simpler integration)
+- Max zoom capped at 4× (not 50× as originally speculated) for performance
+- Peak count: 8000 (from 2000), sample rate: 16kHz (from 8kHz)
+- `frequencyColorMode` toggle added to `timelineStore` alongside `waveformStyle` and `showBeatGrid`
+- TimeRuler virtualized to fix white band artifact at high zoom
+
+### Commits
+
+- `55123a1` — Gradient waveforms, 3-band frequency coloring
+- `10a0ab1` — Smooth bezier waveform rendering with style toggle
+- `b611638` — Zoom-adaptive LOD and timeline layout fixes
+- `d8f5abe` — Space bar play/pause and timeline track height
+- `c831e40` — Beat grid visibility toggle
+- `9f74373` — TimeRuler canvas virtualization fix
+- `2718230` — Max zoom cap to 4×, version bump to 0.3.1
+- `1eae766` — WaveformExtractor test update for 8000 peaks
 
 ## Out of Scope
 

@@ -2,10 +2,11 @@
 
 > Interactive waveform timeline editor: visual mix arrangement with real audio waveforms, BPM-synced beat grids, editable crossfade zones, cue points with trim boundaries, and integrated playback.
 
-**Status**: Design — Ready for Implementation
+**Status**: Implemented (core + visual improvements)
 **Depends on**: Component 3 (Mix Builder, doc 16), Audio Mix Export (doc 17), ProjectService, AudioPlayer
-**Feature spec**: [docs/features/waveform-timeline.md](../features/waveform-timeline.md)
-**Implementation plan**: [docs/features/waveform-timeline-plan.md](../features/waveform-timeline-plan.md)
+**Feature spec**: [docs/features/done/waveform-timeline.md](../features/done/waveform-timeline.md)
+**Implementation plan**: [docs/features/done/waveform-timeline-plan.md](../features/done/waveform-timeline-plan.md)
+**Visual improvements spec**: [docs/features/done/waveform-visual-improvements.md](../features/done/waveform-visual-improvements.md)
 
 ---
 
@@ -39,15 +40,16 @@ Add to `Song` interface in `src/shared/types/project.types.ts`:
 ```typescript
 interface Song {
   // ... existing fields (line 21–38) ...
-  cuePoints?: CuePoint[]        // User-placed markers
-  bpm?: number                  // Detected BPM (cached)
-  firstBeatOffset?: number      // Seconds to first downbeat (cached)
-  trimStart?: number            // Effective start (derived from trim-start cue point)
-  trimEnd?: number              // Effective end (derived from trim-end cue point)
+  cuePoints?: CuePoint[] // User-placed markers
+  bpm?: number // Detected BPM (cached)
+  firstBeatOffset?: number // Seconds to first downbeat (cached)
+  trimStart?: number // Effective start (derived from trim-start cue point)
+  trimEnd?: number // Effective end (derived from trim-end cue point)
 }
 ```
 
 **Semantics:**
+
 - `trimStart` / `trimEnd` — derived from trim-type cue points, stored as top-level fields for quick access by the export pipeline. Updated whenever cue points change.
 - `bpm` / `firstBeatOffset` — cached analysis results. Persisted in project.json so detection doesn't re-run across sessions.
 
@@ -56,14 +58,15 @@ interface Song {
 ```typescript
 // src/shared/types/waveform.types.ts
 interface CuePoint {
-  id: string                    // nanoid
-  timestamp: number             // seconds from track start
-  label: string                 // user-provided name ("drop", "breakdown")
+  id: string // nanoid
+  timestamp: number // seconds from track start
+  label: string // user-provided name ("drop", "breakdown")
   type: 'marker' | 'trim-start' | 'trim-end'
 }
 ```
 
 Constraints:
+
 - One `trim-start` and one `trim-end` per song (enforced in UI)
 - Placing a duplicate replaces with confirmation
 
@@ -73,10 +76,13 @@ Constraints:
 // src/shared/types/waveform.types.ts
 interface WaveformData {
   songId: string
-  peaks: number[]               // normalized 0–1, ~2000 points
-  duration: number              // seconds
-  sampleRate: number            // source sample rate
-  fileHash: string              // "${stat.size}-${stat.mtimeMs}" for invalidation
+  peaks: number[] // normalized 0–1, ~8000 points (upgraded from 2000)
+  peaksLow?: number[] // low-band (<250 Hz) peaks for frequency coloring
+  peaksMid?: number[] // mid-band (250 Hz–4 kHz) peaks for frequency coloring
+  peaksHigh?: number[] // high-band (>4 kHz) peaks for frequency coloring
+  duration: number // seconds
+  sampleRate: number // source sample rate (16kHz extraction)
+  fileHash: string // "${stat.size}-${stat.mtimeMs}" for invalidation
 }
 ```
 
@@ -89,8 +95,8 @@ Stored as: `<projectDir>/assets/waveforms/<songId>.json`
 interface BpmData {
   songId: string
   bpm: number
-  firstBeatOffset: number       // seconds to first downbeat
-  confidence: number            // 0–1
+  firstBeatOffset: number // seconds to first downbeat
+  confidence: number // 0–1
   fileHash: string
 }
 ```
@@ -102,10 +108,12 @@ Stored as: `<projectDir>/assets/waveforms/<songId>.bpm.json`
 Throughout the system, "effective duration" means:
 
 ```typescript
-const effectiveDuration = (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+const effectiveDuration =
+  (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
 ```
 
 This replaces raw `song.duration` in:
+
 - Timeline layout positioning
 - Export filter graph (atrim filter)
 - Cue sheet start time computation
@@ -134,14 +142,14 @@ BPM_PROGRESS:            'bpm:progress',              // M→R push event
 
 ### 3.2 Channel details
 
-| Channel | Pattern | Direction | Payload → Return |
-|---------|---------|-----------|------------------|
-| `waveform:generate` | `handle/invoke` | R → M | `{ songId, filePath }` → `ApiResponse<WaveformData>` |
-| `waveform:generate-batch` | `handle/invoke` | R → M | `{ projectId }` → `ApiResponse<WaveformData[]>` |
-| `waveform:progress` | `send/on` | M → R | `{ songId, index, total }` |
-| `bpm:detect` | `handle/invoke` | R → M | `{ songId, filePath }` → `ApiResponse<BpmData>` |
-| `bpm:detect-batch` | `handle/invoke` | R → M | `{ projectId }` → `ApiResponse<BpmData[]>` |
-| `bpm:progress` | `send/on` | M → R | `{ songId, index, total }` |
+| Channel                   | Pattern         | Direction | Payload → Return                                     |
+| ------------------------- | --------------- | --------- | ---------------------------------------------------- |
+| `waveform:generate`       | `handle/invoke` | R → M     | `{ songId, filePath }` → `ApiResponse<WaveformData>` |
+| `waveform:generate-batch` | `handle/invoke` | R → M     | `{ projectId }` → `ApiResponse<WaveformData[]>`      |
+| `waveform:progress`       | `send/on`       | M → R     | `{ songId, index, total }`                           |
+| `bpm:detect`              | `handle/invoke` | R → M     | `{ songId, filePath }` → `ApiResponse<BpmData>`      |
+| `bpm:detect-batch`        | `handle/invoke` | R → M     | `{ projectId }` → `ApiResponse<BpmData[]>`           |
+| `bpm:progress`            | `send/on`       | M → R     | `{ songId, index, total }`                           |
 
 ### 3.3 Preload API
 
@@ -228,16 +236,33 @@ WaveformExtractor
     └── activeProcess: ChildProcess | null               // for cleanup/cancel
 ```
 
-**FFmpeg command**:
+**FFmpeg command (main peaks)**:
+
 ```bash
-ffmpeg -i <file> -ac 1 -ar 8000 -f f32le pipe:1
+ffmpeg -i <file> -ac 1 -ar 16000 -f f32le pipe:1
 ```
-- Mono, 8kHz, float32 PCM to stdout
+
+- Mono, 16kHz, float32 PCM to stdout
 - Collect Buffer → `new Float32Array(buffer.buffer)`
-- Downsample: split into windows of `totalSamples / 2000`, take `Math.max(Math.abs(...))` per window
+- Downsample: split into windows of `totalSamples / 8000`, take `Math.max(Math.abs(...))` per window
 - Normalize: divide all peaks by global max
 
+**FFmpeg command (3-band frequency extraction)**:
+
+```bash
+ffmpeg -i <file> -filter_complex "
+  [0:a]lowpass=f=250,aresample=16000[low];
+  [0:a]bandpass=f=1000:width_type=o:w=2,aresample=16000[mid];
+  [0:a]highpass=f=4000,aresample=16000[high]
+" -map [low] -f f32le pipe:3 -map [mid] -f f32le pipe:4 -map [high] -f f32le pipe:5
+```
+
+- 3 parallel bandpass filters extract low/mid/high energy
+- Same downsample + normalize pipeline per band
+- Results stored as optional `peaksLow`, `peaksMid`, `peaksHigh` arrays
+
 **Disk cache**:
+
 - Path: `<projectDir>/assets/waveforms/<songId>.json`
 - Cache key: `"${stat.size}-${stat.mtimeMs}"`
 - On generate: check cache → return if hash matches → extract if miss → write → return
@@ -271,6 +296,7 @@ BpmDetector
 ```
 
 **Algorithm (Option B — FFmpeg + custom autocorrelation)**:
+
 1. Extract PCM at 44.1kHz mono via FFmpeg (higher rate than waveform for accuracy)
 2. Compute onset strength function (energy envelope with windowed frames)
 3. Autocorrelation on onset function → find dominant period → BPM
@@ -278,6 +304,7 @@ BpmDetector
 5. Confidence = strength of autocorrelation peak relative to noise floor
 
 **Edge cases**:
+
 - Ambient/spoken word → confidence < 0.3 → return `{ bpm: null, confidence }`
 - Short tracks < 10s → skip autocorrelation → low confidence
 - After detection: `projectService.updateSong({ bpm, firstBeatOffset })` to persist
@@ -365,12 +392,15 @@ interface TimelineState {
   selectedTrackId: string | null
 
   // Zoom & scroll
-  zoomLevel: number              // 1 (fit-to-view) to 50
-  scrollLeft: number             // pixels
-  viewportWidth: number          // pixels
+  zoomLevel: number // 1 (fit-to-view) to 4
+  scrollLeft: number // pixels
+  viewportWidth: number // pixels
 
-  // Snap
+  // Snap & visual preferences
   snapMode: 'off' | 'beat'
+  waveformStyle: 'bars' | 'smooth' // rendering mode (default: 'smooth')
+  frequencyColorMode: boolean // 3-band frequency coloring toggle
+  showBeatGrid: boolean // beat grid visibility (independent of snap)
 
   // Caches
   waveformCache: Map<string, WaveformData>
@@ -378,11 +408,15 @@ interface TimelineState {
 
   // Popovers
   activeCrossfadePopover: { songId: string; position: number } | null
-  activeCuePointPopover: { songId: string; timestamp: number; existing?: CuePoint } | null
+  activeCuePointPopover: {
+    songId: string
+    timestamp: number
+    existing?: CuePoint
+  } | null
 
   // Playback
   isPlaybackActive: boolean
-  playheadPosition: number       // pixels
+  playheadPosition: number // pixels
 
   // Actions
   setSelectedTrack: (id: string | null) => void
@@ -397,7 +431,11 @@ interface TimelineState {
   setBpmData: (songId: string, data: BpmData) => void
   openCrossfadePopover: (songId: string, position: number) => void
   closeCrossfadePopover: () => void
-  openCuePointPopover: (songId: string, timestamp: number, existing?: CuePoint) => void
+  openCuePointPopover: (
+    songId: string,
+    timestamp: number,
+    existing?: CuePoint
+  ) => void
   closeCuePointPopover: () => void
 }
 ```
@@ -406,20 +444,34 @@ interface TimelineState {
 
 - **One `<canvas>` per track** (not one giant canvas) — simplifies hit detection, individual updates, avoids browser canvas size limits
 - Each WaveformCanvas receives: `peaks`, `width` (duration × pixelsPerSecond × zoom), `height` (80px), `color`, `isSelected`
-- Draw mirrored bars: for each peak, vertical line from `centerY - peak * halfHeight` to `centerY + peak * halfHeight`
+- **Two rendering modes** (togglable via toolbar):
+  - **Smooth** (default): `Path2D` with `quadraticCurveTo()` bezier curves for organic look
+  - **Bars**: Classic `fillRect()` bar rendering
+- **Gradient fills**: Vertical `createLinearGradient` — bright at peaks (100% alpha), darker at center (40% alpha)
+- **Frequency coloring** (optional toggle): 3-band energy (bass/mid/high) colors bars red/green/cyan based on dominant frequency
+- **LOD downsampling**: 8000 peaks stored, max-pooled down at render time based on `canvasWidth × 2` — zoom-adaptive detail
 - Crossfade zones: semi-transparent colored overlay on the overlapping region
-- Beat grid: thin vertical lines at beat positions (only visible range computed)
+- Beat grid: thin vertical lines at beat positions (only visible range computed), independently toggleable
 - Trim overlay: gray semi-transparent overlay outside trim boundaries
 
 ### 5.5 Layout calculation
 
 ```typescript
-function computeTrackPositions(songs: Song[], pixelsPerSecond: number): TrackPosition[] {
+function computeTrackPositions(
+  songs: Song[],
+  pixelsPerSecond: number
+): TrackPosition[] {
   let currentOffset = 0
   return songs.map((song, i) => {
-    const effectiveDuration = (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
-    const position = { left: currentOffset, width: effectiveDuration * pixelsPerSecond, songId: song.id }
-    const crossfade = i < songs.length - 1 ? (song.crossfadeDuration ?? defaultCrossfade) : 0
+    const effectiveDuration =
+      (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+    const position = {
+      left: currentOffset,
+      width: effectiveDuration * pixelsPerSecond,
+      songId: song.id,
+    }
+    const crossfade =
+      i < songs.length - 1 ? (song.crossfadeDuration ?? defaultCrossfade) : 0
     currentOffset += (effectiveDuration - crossfade) * pixelsPerSecond
     return position
   })
@@ -430,7 +482,7 @@ function computeTrackPositions(songs: Song[], pixelsPerSecond: number): TrackPos
 
 - `pixelsPerSecond = basePixelsPerSecond * zoomLevel`
 - `basePixelsPerSecond` computed so that `totalMixDuration * basePixelsPerSecond = containerWidth` (fit-to-view)
-- `zoomLevel` range: 1 (fit-to-view) to ~50 (1 second ≈ screen width)
+- `zoomLevel` range: 1 (fit-to-view) to 4 (capped for performance)
 - Ctrl+scroll: zoom toward cursor position (adjust scrollLeft to keep mouse point stable)
 
 ### 5.7 Playback integration
@@ -447,6 +499,7 @@ clearPendingSeek: () => void
 ```
 
 **Click-to-play flow**:
+
 1. User clicks track waveform at position X
 2. Compute: which song? what timestamp? (account for trimStart)
 3. Build `Track` object from song (reuse `songToTrack` helper from MixTab)
@@ -472,8 +525,8 @@ export interface TrackInfo {
   index: number
   loudnorm?: LoudnormAnalysis
   crossfadeDuration: number
-  trimStart?: number            // NEW
-  trimEnd?: number              // NEW
+  trimStart?: number // NEW
+  trimEnd?: number // NEW
 }
 ```
 
@@ -499,9 +552,9 @@ Add `cuePoints?` and effective duration fields to `CueTrackInfo`:
 export interface CueTrackInfo {
   title: string
   artist?: string
-  duration: number              // effective duration (after trim)
+  duration: number // effective duration (after trim)
   crossfadeDuration: number
-  cuePoints?: CuePoint[]       // NEW — user cue points
+  cuePoints?: CuePoint[] // NEW — user cue points
 }
 ```
 
@@ -534,8 +587,8 @@ File: `src/main/services/mixExport/MixValidator.ts`
 // Existing signature unchanged:
 export function clampCrossfade(
   crossfade: number,
-  currentDuration: number | undefined,  // callers now pass effective duration
-  nextDuration: number | undefined,     // callers now pass effective duration
+  currentDuration: number | undefined, // callers now pass effective duration
+  nextDuration: number | undefined // callers now pass effective duration
 ): { value: number; clamped: boolean }
 ```
 
@@ -546,7 +599,8 @@ File: `src/main/services/mixExport/MixExportService.ts`
 - When building `TrackInfo[]`: include `trimStart` and `trimEnd` from song
 - When calling `clampCrossfade`: pass effective duration instead of raw duration:
   ```typescript
-  const effectiveDuration = (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+  const effectiveDuration =
+    (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
   ```
 - Adjust total duration estimate for progress: use effective durations
 - Pass effective duration to CueSheetGenerator as `CueTrackInfo.duration`
@@ -557,25 +611,25 @@ File: `src/main/services/mixExport/MixExportService.ts`
 
 ### 7.1 Waveform extraction
 
-| Operation | Time | Notes |
-|-----------|------|-------|
-| Single track (5 min) | ~1–2s | FFmpeg 8kHz mono → downsample |
-| 20-track batch | ~30s | Sequential, progress per track |
-| Cache hit | <50ms | JSON read from disk |
+| Operation            | Time  | Notes                                        |
+| -------------------- | ----- | -------------------------------------------- |
+| Single track (5 min) | ~1–2s | FFmpeg 16kHz mono → downsample to 8000 peaks |
+| 20-track batch       | ~30s  | Sequential, progress per track               |
+| Cache hit            | <50ms | JSON read from disk                          |
 
 ### 7.2 Canvas rendering
 
-| Optimization | Strategy |
-|--------------|----------|
+| Optimization   | Strategy                                                                      |
+| -------------- | ----------------------------------------------------------------------------- |
 | Lazy rendering | Only render canvases within viewport + 1 screen buffer (IntersectionObserver) |
-| Minimap | Separate lower-resolution peak set (~100 peaks per track) |
-| Beat grid | Only compute beats in visible range; memoize per track |
-| Zoom extremes | At very low zoom (many beats/pixel), skip beat lines, show subtle pattern |
-| Canvas limits | Cap at ~32k px width per canvas; show warning if exceeded |
+| Minimap        | Separate lower-resolution peak set (~100 peaks per track)                     |
+| Beat grid      | Only compute beats in visible range; memoize per track                        |
+| Zoom extremes  | At very low zoom (many beats/pixel), skip beat lines, show subtle pattern     |
+| Canvas limits  | Cap at ~32k px width per canvas; show warning if exceeded                     |
 
 ### 7.3 Memory
 
-- Waveform data: ~2000 floats per track × 20 tracks = ~160 KB (negligible)
+- Waveform data: ~8000 floats per track (+ 3×8000 for frequency bands) × 20 tracks = ~2.5 MB (negligible)
 - BPM data: trivial per track
 - Canvas elements: one per visible track (~5–8 at a time with lazy loading)
 
@@ -590,67 +644,72 @@ File: `src/main/services/mixExport/MixExportService.ts`
 ## 8. Implementation Stages
 
 ### Stage 1: Foundation — Types, Schemas, IPC Channels
+
 **Scope**: Type definitions, Zod schemas, IPC channel registration. Zero runtime behavior — just the type foundation.
 
-| Action | File | Change |
-|--------|------|--------|
-| Create | `src/shared/types/waveform.types.ts` | `CuePoint`, `WaveformData`, `BpmData`, request/progress types |
-| Create | `src/shared/schemas/waveform.schema.ts` | Zod schemas for IPC validation |
-| Modify | `src/shared/types/project.types.ts` | Add `cuePoints?`, `bpm?`, `firstBeatOffset?`, `trimStart?`, `trimEnd?` to Song |
-| Modify | `src/shared/types/index.ts` | Re-export waveform types |
-| Modify | `src/shared/constants.ts` | Add 6 IPC channel constants |
+| Action | File                                    | Change                                                                         |
+| ------ | --------------------------------------- | ------------------------------------------------------------------------------ |
+| Create | `src/shared/types/waveform.types.ts`    | `CuePoint`, `WaveformData`, `BpmData`, request/progress types                  |
+| Create | `src/shared/schemas/waveform.schema.ts` | Zod schemas for IPC validation                                                 |
+| Modify | `src/shared/types/project.types.ts`     | Add `cuePoints?`, `bpm?`, `firstBeatOffset?`, `trimStart?`, `trimEnd?` to Song |
+| Modify | `src/shared/types/index.ts`             | Re-export waveform types                                                       |
+| Modify | `src/shared/constants.ts`               | Add 6 IPC channel constants                                                    |
 
 **Verify**: `yarn build` passes, existing tests pass.
 
 ---
 
 ### Stage 2: Waveform Extraction Service
+
 **Scope**: FFmpeg peak extraction, disk caching, IPC handlers, preload API.
 
-| Action | File | Purpose |
-|--------|------|---------|
-| Create | `src/main/services/waveform/WaveformExtractor.ts` | FFmpeg → PCM → peaks → normalize → cache |
+| Action | File                                                   | Purpose                                                  |
+| ------ | ------------------------------------------------------ | -------------------------------------------------------- |
+| Create | `src/main/services/waveform/WaveformExtractor.ts`      | FFmpeg → PCM → peaks → normalize → cache                 |
 | Create | `src/main/services/waveform/WaveformExtractor.spec.ts` | Peak computation, cache hit/miss, file hash invalidation |
-| Create | `src/main/services/waveform/index.ts` | Barrel exports |
-| Create | `src/main/ipc/waveformHandlers.ts` | Handle `WAVEFORM_GENERATE`, `WAVEFORM_GENERATE_BATCH` |
-| Modify | `src/main/ipc/index.ts` | Import, instantiate, register, cleanup |
-| Modify | `src/preload/index.ts` | Add `waveform` namespace |
+| Create | `src/main/services/waveform/index.ts`                  | Barrel exports                                           |
+| Create | `src/main/ipc/waveformHandlers.ts`                     | Handle `WAVEFORM_GENERATE`, `WAVEFORM_GENERATE_BATCH`    |
+| Modify | `src/main/ipc/index.ts`                                | Import, instantiate, register, cleanup                   |
+| Modify | `src/preload/index.ts`                                 | Add `waveform` namespace                                 |
 
 **Verify**: `yarn test:main --testPathPatterns WaveformExtractor`, manual `window.api.waveform.generate()`.
 
 ---
 
 ### Stage 3: BPM Detection Service
+
 **Scope**: BPM detection via FFmpeg + custom autocorrelation, disk caching, persistence to Song.
 
-| Action | File | Purpose |
-|--------|------|---------|
-| Create | `src/main/services/waveform/BpmDetector.ts` | Onset detection + autocorrelation → BPM + firstBeatOffset |
-| Create | `src/main/services/waveform/BpmDetector.spec.ts` | Known-BPM files, confidence thresholds, edge cases |
-| Create | `src/main/ipc/bpmHandlers.ts` | Handle `BPM_DETECT`, `BPM_DETECT_BATCH` |
-| Modify | `src/main/ipc/index.ts` | Register BPM handlers + cleanup |
-| Modify | `src/preload/index.ts` | Add `bpm` namespace |
+| Action | File                                             | Purpose                                                   |
+| ------ | ------------------------------------------------ | --------------------------------------------------------- |
+| Create | `src/main/services/waveform/BpmDetector.ts`      | Onset detection + autocorrelation → BPM + firstBeatOffset |
+| Create | `src/main/services/waveform/BpmDetector.spec.ts` | Known-BPM files, confidence thresholds, edge cases        |
+| Create | `src/main/ipc/bpmHandlers.ts`                    | Handle `BPM_DETECT`, `BPM_DETECT_BATCH`                   |
+| Modify | `src/main/ipc/index.ts`                          | Register BPM handlers + cleanup                           |
+| Modify | `src/preload/index.ts`                           | Add `bpm` namespace                                       |
 
 **Verify**: `yarn test:main --testPathPatterns BpmDetector`, verify `.bpm.json` on disk, BPM persisted in project.json.
 
 ---
 
 ### Stage 4: Timeline Tab + Canvas Waveform Rendering
+
 **Scope**: New Timeline tab in ProjectOverview, `<canvas>` waveform rendering, track layout with crossfade overlaps, format badges, loading states.
 
-| Action | File | Purpose |
-|--------|------|---------|
-| Create | `src/renderer/pages/ProjectOverview/components/tabs/TimelineTab.tsx` | Tab shell: load data, manage selection, render sub-components |
-| Create | `src/renderer/components/features/timeline/WaveformCanvas.tsx` | Canvas: mirrored bars per track |
-| Create | `src/renderer/components/features/timeline/TimelineLayout.tsx` | Layout engine: track positioning + scroll container |
-| Create | `src/renderer/components/features/timeline/TrackInfoOverlay.tsx` | Format badge + hover tooltip |
-| Create | `src/renderer/components/features/timeline/TrackDetailPanel.tsx` | Bottom panel: selected track metadata |
-| Create | `src/renderer/hooks/useWaveformData.ts` | Batch waveform loading via IPC |
-| Create | `src/renderer/store/timelineStore.ts` | Zustand: selection, zoom, scroll, caches |
-| Modify | `src/renderer/pages/ProjectOverview/index.tsx` | Add `'timeline'` to `TabValue` union, add tab entry `{ value: 'timeline', label: 'Timeline', icon: FiActivity }`, add conditional render, add import |
-| Modify | `src/renderer/pages/ProjectOverview/components/tabs/index.ts` | Re-export `TimelineTab` |
+| Action | File                                                                 | Purpose                                                                                                                                              |
+| ------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create | `src/renderer/pages/ProjectOverview/components/tabs/TimelineTab.tsx` | Tab shell: load data, manage selection, render sub-components                                                                                        |
+| Create | `src/renderer/components/features/timeline/WaveformCanvas.tsx`       | Canvas: mirrored bars per track                                                                                                                      |
+| Create | `src/renderer/components/features/timeline/TimelineLayout.tsx`       | Layout engine: track positioning + scroll container                                                                                                  |
+| Create | `src/renderer/components/features/timeline/TrackInfoOverlay.tsx`     | Format badge + hover tooltip                                                                                                                         |
+| Create | `src/renderer/components/features/timeline/TrackDetailPanel.tsx`     | Bottom panel: selected track metadata                                                                                                                |
+| Create | `src/renderer/hooks/useWaveformData.ts`                              | Batch waveform loading via IPC                                                                                                                       |
+| Create | `src/renderer/store/timelineStore.ts`                                | Zustand: selection, zoom, scroll, caches                                                                                                             |
+| Modify | `src/renderer/pages/ProjectOverview/index.tsx`                       | Add `'timeline'` to `TabValue` union, add tab entry `{ value: 'timeline', label: 'Timeline', icon: FiActivity }`, add conditional render, add import |
+| Modify | `src/renderer/pages/ProjectOverview/components/tabs/index.ts`        | Re-export `TimelineTab`                                                                                                                              |
 
 **Tab integration detail**:
+
 ```typescript
 // index.tsx changes:
 import { FiActivity } from 'react-icons/fi'  // waveform-like icon
@@ -666,97 +725,103 @@ type TabValue = 'search' | 'torrent' | 'mix' | 'timeline'
 ---
 
 ### Stage 5: Navigation — Zoom, Scroll, Minimap
+
 **Scope**: Zoom in/out, horizontal scroll, minimap with viewport indicator, time ruler.
 
-| Action | File | Purpose |
-|--------|------|---------|
-| Create | `src/renderer/components/features/timeline/Minimap.tsx` | Overview canvas + draggable viewport rect |
-| Create | `src/renderer/components/features/timeline/TimeRuler.tsx` | Adaptive tick marks + time labels |
-| Create | `src/renderer/components/features/timeline/ZoomControls.tsx` | [−] slider [+], snap toggle, duration |
-| Modify | `src/renderer/store/timelineStore.ts` | Zoom, scroll, viewport state + actions |
-| Modify | `src/renderer/components/features/timeline/TimelineLayout.tsx` | Ctrl+scroll zoom, overflow-x scroll |
-| Modify | `TimelineTab.tsx` | Render Minimap, ZoomControls, TimeRuler |
+| Action | File                                                           | Purpose                                   |
+| ------ | -------------------------------------------------------------- | ----------------------------------------- |
+| Create | `src/renderer/components/features/timeline/Minimap.tsx`        | Overview canvas + draggable viewport rect |
+| Create | `src/renderer/components/features/timeline/TimeRuler.tsx`      | Adaptive tick marks + time labels         |
+| Create | `src/renderer/components/features/timeline/ZoomControls.tsx`   | [−] slider [+], snap toggle, duration     |
+| Modify | `src/renderer/store/timelineStore.ts`                          | Zoom, scroll, viewport state + actions    |
+| Modify | `src/renderer/components/features/timeline/TimelineLayout.tsx` | Ctrl+scroll zoom, overflow-x scroll       |
+| Modify | `TimelineTab.tsx`                                              | Render Minimap, ZoomControls, TimeRuler   |
 
 **Verify**: Ctrl+scroll zoom, toolbar controls, minimap viewport, time ruler adapts to zoom, fit-to-view.
 
 ---
 
 ### Stage 6: Interactive Editing — Crossfades, Cue Points, Trim
+
 **Scope**: Crossfade zone click-to-edit, cue point placement via double-click, trim boundary visualization.
 
-| Action | File | Purpose |
-|--------|------|---------|
-| Create | `src/renderer/components/features/timeline/CrossfadePopover.tsx` | Slider 0–30s + numeric input + reset |
-| Create | `src/renderer/components/features/timeline/CuePointMarker.tsx` | Colored line + flag label |
-| Create | `src/renderer/components/features/timeline/CuePointPopover.tsx` | Name, type selector, delete |
-| Create | `src/renderer/components/features/timeline/TrimOverlay.tsx` | Gray overlay outside trim bounds |
-| Modify | `src/renderer/components/features/timeline/WaveformCanvas.tsx` | Click/double-click handlers, render markers + overlays |
-| Modify | `src/renderer/components/features/timeline/TrackDetailPanel.tsx` | Cue point list with edit/delete |
-| Modify | `src/renderer/store/timelineStore.ts` | Popover state + actions |
+| Action | File                                                             | Purpose                                                |
+| ------ | ---------------------------------------------------------------- | ------------------------------------------------------ |
+| Create | `src/renderer/components/features/timeline/CrossfadePopover.tsx` | Slider 0–30s + numeric input + reset                   |
+| Create | `src/renderer/components/features/timeline/CuePointMarker.tsx`   | Colored line + flag label                              |
+| Create | `src/renderer/components/features/timeline/CuePointPopover.tsx`  | Name, type selector, delete                            |
+| Create | `src/renderer/components/features/timeline/TrimOverlay.tsx`      | Gray overlay outside trim bounds                       |
+| Modify | `src/renderer/components/features/timeline/WaveformCanvas.tsx`   | Click/double-click handlers, render markers + overlays |
+| Modify | `src/renderer/components/features/timeline/TrackDetailPanel.tsx` | Cue point list with edit/delete                        |
+| Modify | `src/renderer/store/timelineStore.ts`                            | Popover state + actions                                |
 
 **Verify**: Crossfade popover adjusts overlap, cue points placed + visible, trim overlays, cue list in detail panel.
 
 ---
 
 ### Stage 7: Beat Grid + Snap-to-Beat
+
 **Scope**: Beat grid lines on waveforms, snap mode for cue points and crossfade editing.
 
-| Action | File | Purpose |
-|--------|------|---------|
-| Create | `src/renderer/components/features/timeline/BeatGrid.tsx` | Beat line rendering (visible range only) |
-| Create | `src/renderer/hooks/useBpmData.ts` | Batch BPM loading via IPC |
-| Modify | `src/renderer/components/features/timeline/WaveformCanvas.tsx` | Integrate BeatGrid rendering |
-| Modify | `src/renderer/components/features/timeline/ZoomControls.tsx` | Snap toggle [off \| beat] |
-| Modify | `src/renderer/store/timelineStore.ts` | `snapMode`, `bpmDataCache` |
-| Modify | `src/renderer/components/features/timeline/CuePointPopover.tsx` | Apply snap to timestamp |
+| Action | File                                                            | Purpose                                  |
+| ------ | --------------------------------------------------------------- | ---------------------------------------- |
+| Create | `src/renderer/components/features/timeline/BeatGrid.tsx`        | Beat line rendering (visible range only) |
+| Create | `src/renderer/hooks/useBpmData.ts`                              | Batch BPM loading via IPC                |
+| Modify | `src/renderer/components/features/timeline/WaveformCanvas.tsx`  | Integrate BeatGrid rendering             |
+| Modify | `src/renderer/components/features/timeline/ZoomControls.tsx`    | Snap toggle [off \| beat]                |
+| Modify | `src/renderer/store/timelineStore.ts`                           | `snapMode`, `bpmDataCache`               |
+| Modify | `src/renderer/components/features/timeline/CuePointPopover.tsx` | Apply snap to timestamp                  |
 
 **Verify**: Beat grid visible, downbeats distinct, snap toggle works, cue points snap to beats, BPM badge on tracks.
 
 ---
 
 ### Stage 8: Playback Integration
+
 **Scope**: Click-to-play on timeline, moving playhead, AudioPlayer sync, auto-advance with trim support.
 
-| Action | File | Change |
-|--------|------|--------|
-| Modify | `src/renderer/store/audioPlayerStore.ts` | Add `pendingSeekTime`, `seekTo()`, `clearPendingSeek()` |
-| Modify | `src/renderer/components/common/AudioPlayer.tsx` | `useEffect` for `pendingSeekTime`; `currentTime >= trimEnd` detection |
-| Modify | `src/renderer/components/features/timeline/TimelineLayout.tsx` | Click handler → `seekTo()` |
-| Modify | `src/renderer/components/features/timeline/WaveformCanvas.tsx` | Render playhead line |
-| Modify | `src/renderer/store/timelineStore.ts` | `isPlaybackActive`, `playheadPosition` |
+| Action | File                                                           | Change                                                                |
+| ------ | -------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Modify | `src/renderer/store/audioPlayerStore.ts`                       | Add `pendingSeekTime`, `seekTo()`, `clearPendingSeek()`               |
+| Modify | `src/renderer/components/common/AudioPlayer.tsx`               | `useEffect` for `pendingSeekTime`; `currentTime >= trimEnd` detection |
+| Modify | `src/renderer/components/features/timeline/TimelineLayout.tsx` | Click handler → `seekTo()`                                            |
+| Modify | `src/renderer/components/features/timeline/WaveformCanvas.tsx` | Render playhead line                                                  |
+| Modify | `src/renderer/store/timelineStore.ts`                          | `isPlaybackActive`, `playheadPosition`                                |
 
 **Verify**: Click plays at position, playhead moves, auto-advance at trimEnd, scroll-to-playhead during playback.
 
 ---
 
 ### Stage 9: Export Pipeline Integration
+
 **Scope**: FilterGraphBuilder atrim support, CueSheetGenerator cue point entries, MixValidator effective duration.
 
-| Action | File | Change |
-|--------|------|--------|
-| Modify | `src/main/services/mixExport/FilterGraphBuilder.ts` | Add `trimStart?`, `trimEnd?` to TrackInfo; insert `atrim` + `asetpts` |
-| Modify | `src/main/services/mixExport/FilterGraphBuilder.spec.ts` | Tests: trim only, trim + loudnorm, trim < crossfade |
-| Modify | `src/main/services/mixExport/CueSheetGenerator.ts` | Add `cuePoints?` to CueTrackInfo; emit INDEX entries |
-| Modify | `src/main/services/mixExport/CueSheetGenerator.spec.ts` | Tests: cue points, trimmed tracks |
-| Modify | `src/main/services/mixExport/MixExportService.ts` | Include trim fields; adjust duration estimate |
-| Modify | `src/main/services/mixExport/MixValidator.ts` | `clampCrossfade` uses effective duration |
+| Action | File                                                     | Change                                                                |
+| ------ | -------------------------------------------------------- | --------------------------------------------------------------------- |
+| Modify | `src/main/services/mixExport/FilterGraphBuilder.ts`      | Add `trimStart?`, `trimEnd?` to TrackInfo; insert `atrim` + `asetpts` |
+| Modify | `src/main/services/mixExport/FilterGraphBuilder.spec.ts` | Tests: trim only, trim + loudnorm, trim < crossfade                   |
+| Modify | `src/main/services/mixExport/CueSheetGenerator.ts`       | Add `cuePoints?` to CueTrackInfo; emit INDEX entries                  |
+| Modify | `src/main/services/mixExport/CueSheetGenerator.spec.ts`  | Tests: cue points, trimmed tracks                                     |
+| Modify | `src/main/services/mixExport/MixExportService.ts`        | Include trim fields; adjust duration estimate                         |
+| Modify | `src/main/services/mixExport/MixValidator.ts`            | `clampCrossfade` uses effective duration                              |
 
 **Verify**: All mixExport tests pass, exported file respects trims, .cue contains cue points.
 
 ---
 
 ### Stage 10: Edge Cases + Polish
+
 **Scope**: Missing files, short tracks, trim validation, performance for 20+ tracks, zoom extremes, concurrent operation safety.
 
-| Area | Changes |
-|------|---------|
-| Missing files | WaveformCanvas placeholder; BpmDetector skips; cue points still editable |
-| Short tracks | BPM confidence threshold; no beat grid if bpm null |
-| Trim validation | Prevent trimEnd < trimStart; warn if effective < 1s; auto-clamp crossfade |
-| Multiple trim cues | Enforce one per type; confirm replacement |
+| Area                     | Changes                                                                           |
+| ------------------------ | --------------------------------------------------------------------------------- |
+| Missing files            | WaveformCanvas placeholder; BpmDetector skips; cue points still editable          |
+| Short tracks             | BPM confidence threshold; no beat grid if bpm null                                |
+| Trim validation          | Prevent trimEnd < trimStart; warn if effective < 1s; auto-clamp crossfade         |
+| Multiple trim cues       | Enforce one per type; confirm replacement                                         |
 | Performance (20+ tracks) | Lazy canvas rendering (IntersectionObserver); minimap low-res; memoized beat grid |
-| Zoom extremes | Cap at 50×; canvas width limit warning |
-| Concurrent operations | Single batch at a time; cancel on project switch; FFmpeg process cleanup |
+| Zoom extremes            | Cap at 50×; canvas width limit warning                                            |
+| Concurrent operations    | Single batch at a time; cancel on project switch; FFmpeg process cleanup          |
 
 **Verify**: All edge cases handled, 20-track project smooth, `yarn build`, `yarn test:main` pass.
 
@@ -766,53 +831,53 @@ type TabValue = 'search' | 'torrent' | 'mix' | 'timeline'
 
 ### New files (~25)
 
-| # | File | Stage |
-|---|------|-------|
-| 1 | `src/shared/types/waveform.types.ts` | 1 |
-| 2 | `src/shared/schemas/waveform.schema.ts` | 1 |
-| 3 | `src/main/services/waveform/WaveformExtractor.ts` | 2 |
-| 4 | `src/main/services/waveform/WaveformExtractor.spec.ts` | 2 |
-| 5 | `src/main/services/waveform/index.ts` | 2 |
-| 6 | `src/main/ipc/waveformHandlers.ts` | 2 |
-| 7 | `src/main/services/waveform/BpmDetector.ts` | 3 |
-| 8 | `src/main/services/waveform/BpmDetector.spec.ts` | 3 |
-| 9 | `src/main/ipc/bpmHandlers.ts` | 3 |
-| 10 | `src/renderer/pages/ProjectOverview/components/tabs/TimelineTab.tsx` | 4 |
-| 11 | `src/renderer/components/features/timeline/WaveformCanvas.tsx` | 4 |
-| 12 | `src/renderer/components/features/timeline/TimelineLayout.tsx` | 4 |
-| 13 | `src/renderer/components/features/timeline/TrackInfoOverlay.tsx` | 4 |
-| 14 | `src/renderer/components/features/timeline/TrackDetailPanel.tsx` | 4 |
-| 15 | `src/renderer/hooks/useWaveformData.ts` | 4 |
-| 16 | `src/renderer/store/timelineStore.ts` | 4 |
-| 17 | `src/renderer/components/features/timeline/Minimap.tsx` | 5 |
-| 18 | `src/renderer/components/features/timeline/TimeRuler.tsx` | 5 |
-| 19 | `src/renderer/components/features/timeline/ZoomControls.tsx` | 5 |
-| 20 | `src/renderer/components/features/timeline/CrossfadePopover.tsx` | 6 |
-| 21 | `src/renderer/components/features/timeline/CuePointMarker.tsx` | 6 |
-| 22 | `src/renderer/components/features/timeline/CuePointPopover.tsx` | 6 |
-| 23 | `src/renderer/components/features/timeline/TrimOverlay.tsx` | 6 |
-| 24 | `src/renderer/components/features/timeline/BeatGrid.tsx` | 7 |
-| 25 | `src/renderer/hooks/useBpmData.ts` | 7 |
+| #   | File                                                                 | Stage |
+| --- | -------------------------------------------------------------------- | ----- |
+| 1   | `src/shared/types/waveform.types.ts`                                 | 1     |
+| 2   | `src/shared/schemas/waveform.schema.ts`                              | 1     |
+| 3   | `src/main/services/waveform/WaveformExtractor.ts`                    | 2     |
+| 4   | `src/main/services/waveform/WaveformExtractor.spec.ts`               | 2     |
+| 5   | `src/main/services/waveform/index.ts`                                | 2     |
+| 6   | `src/main/ipc/waveformHandlers.ts`                                   | 2     |
+| 7   | `src/main/services/waveform/BpmDetector.ts`                          | 3     |
+| 8   | `src/main/services/waveform/BpmDetector.spec.ts`                     | 3     |
+| 9   | `src/main/ipc/bpmHandlers.ts`                                        | 3     |
+| 10  | `src/renderer/pages/ProjectOverview/components/tabs/TimelineTab.tsx` | 4     |
+| 11  | `src/renderer/components/features/timeline/WaveformCanvas.tsx`       | 4     |
+| 12  | `src/renderer/components/features/timeline/TimelineLayout.tsx`       | 4     |
+| 13  | `src/renderer/components/features/timeline/TrackInfoOverlay.tsx`     | 4     |
+| 14  | `src/renderer/components/features/timeline/TrackDetailPanel.tsx`     | 4     |
+| 15  | `src/renderer/hooks/useWaveformData.ts`                              | 4     |
+| 16  | `src/renderer/store/timelineStore.ts`                                | 4     |
+| 17  | `src/renderer/components/features/timeline/Minimap.tsx`              | 5     |
+| 18  | `src/renderer/components/features/timeline/TimeRuler.tsx`            | 5     |
+| 19  | `src/renderer/components/features/timeline/ZoomControls.tsx`         | 5     |
+| 20  | `src/renderer/components/features/timeline/CrossfadePopover.tsx`     | 6     |
+| 21  | `src/renderer/components/features/timeline/CuePointMarker.tsx`       | 6     |
+| 22  | `src/renderer/components/features/timeline/CuePointPopover.tsx`      | 6     |
+| 23  | `src/renderer/components/features/timeline/TrimOverlay.tsx`          | 6     |
+| 24  | `src/renderer/components/features/timeline/BeatGrid.tsx`             | 7     |
+| 25  | `src/renderer/hooks/useBpmData.ts`                                   | 7     |
 
 ### Modified files (~14)
 
-| File | Stages |
-|------|--------|
-| `src/shared/types/project.types.ts` | 1 |
-| `src/shared/types/index.ts` | 1 |
-| `src/shared/constants.ts` | 1 |
-| `src/main/ipc/index.ts` | 2, 3 |
-| `src/preload/index.ts` | 2, 3 |
-| `src/renderer/pages/ProjectOverview/index.tsx` | 4 |
-| `src/renderer/store/timelineStore.ts` | 5, 6, 7, 8 |
-| `src/renderer/store/audioPlayerStore.ts` | 8 |
-| `src/renderer/components/common/AudioPlayer.tsx` | 8 |
-| `src/main/services/mixExport/FilterGraphBuilder.ts` | 9 |
-| `src/main/services/mixExport/FilterGraphBuilder.spec.ts` | 9 |
-| `src/main/services/mixExport/CueSheetGenerator.ts` | 9 |
-| `src/main/services/mixExport/CueSheetGenerator.spec.ts` | 9 |
-| `src/main/services/mixExport/MixExportService.ts` | 9 |
-| `src/main/services/mixExport/MixValidator.ts` | 9 |
+| File                                                     | Stages     |
+| -------------------------------------------------------- | ---------- |
+| `src/shared/types/project.types.ts`                      | 1          |
+| `src/shared/types/index.ts`                              | 1          |
+| `src/shared/constants.ts`                                | 1          |
+| `src/main/ipc/index.ts`                                  | 2, 3       |
+| `src/preload/index.ts`                                   | 2, 3       |
+| `src/renderer/pages/ProjectOverview/index.tsx`           | 4          |
+| `src/renderer/store/timelineStore.ts`                    | 5, 6, 7, 8 |
+| `src/renderer/store/audioPlayerStore.ts`                 | 8          |
+| `src/renderer/components/common/AudioPlayer.tsx`         | 8          |
+| `src/main/services/mixExport/FilterGraphBuilder.ts`      | 9          |
+| `src/main/services/mixExport/FilterGraphBuilder.spec.ts` | 9          |
+| `src/main/services/mixExport/CueSheetGenerator.ts`       | 9          |
+| `src/main/services/mixExport/CueSheetGenerator.spec.ts`  | 9          |
+| `src/main/services/mixExport/MixExportService.ts`        | 9          |
+| `src/main/services/mixExport/MixValidator.ts`            | 9          |
 
 ---
 
@@ -867,13 +932,13 @@ type TabValue = 'search' | 'torrent' | 'mix' | 'timeline'
 
 ## 12. Risks & Mitigations
 
-| Risk | Impact | Likelihood | Mitigation |
-|------|--------|------------|------------|
-| BPM detection accuracy on complex material | Medium | Medium | Confidence threshold; hide beat grid for low confidence; manual BPM entry (future) |
-| Canvas performance with 20+ tracks | Medium | Low | Lazy rendering via IntersectionObserver; minimap uses low-res data |
-| FFmpeg process leak on app quit during batch | High | Low | `cleanup()` called from `cleanupServices()`; kills active child process |
-| Canvas size limit exceeded at extreme zoom | Low | Low | Cap zoom at 50×; per-canvas width check |
-| Trim + crossfade interaction edge cases | Medium | Medium | Comprehensive tests in Stage 9; auto-clamp with warnings |
+| Risk                                         | Impact | Likelihood | Mitigation                                                                         |
+| -------------------------------------------- | ------ | ---------- | ---------------------------------------------------------------------------------- |
+| BPM detection accuracy on complex material   | Medium | Medium     | Confidence threshold; hide beat grid for low confidence; manual BPM entry (future) |
+| Canvas performance with 20+ tracks           | Medium | Low        | Lazy rendering via IntersectionObserver; minimap uses low-res data                 |
+| FFmpeg process leak on app quit during batch | High   | Low        | `cleanup()` called from `cleanupServices()`; kills active child process            |
+| Canvas size limit exceeded at extreme zoom   | Low    | Low        | Zoom capped at 4×; TimeRuler virtualized                                           |
+| Trim + crossfade interaction edge cases      | Medium | Medium     | Comprehensive tests in Stage 9; auto-clamp with warnings                           |
 
 ---
 
@@ -889,6 +954,7 @@ type TabValue = 'search' | 'torrent' | 'mix' | 'timeline'
 ## 14. Success Criteria
 
 ### Functional
+
 - [ ] Timeline tab visible in ProjectOverview with real audio waveforms
 - [ ] Waveform data cached to disk, loaded lazily with progress
 - [ ] Format badge + hover tooltip per track
@@ -901,6 +967,7 @@ type TabValue = 'search' | 'torrent' | 'mix' | 'timeline'
 - [ ] Export respects trims (atrim filter) and cue points (.cue INDEX entries)
 
 ### Non-Functional
+
 - [ ] 20-track project: smooth scrolling, no visible jank
 - [ ] Waveform cache hit: < 100ms tab load
 - [ ] All existing tests pass after each stage
