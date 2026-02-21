@@ -21,21 +21,24 @@ Full spec: `docs/features/waveform-visual-improvements.md`
 **Goal:** Extract 8000 peaks instead of 2000. Downsample at render time based on zoom level for adaptive detail.
 
 ### Modify
-| File | Change |
-|------|--------|
-| `src/main/services/waveform/WaveformExtractor.ts` | Change `PEAK_COUNT` from `2000` to `8000`. Increase extraction sample rate from `8000` to `16000` for more accurate peaks |
-| `src/shared/types/waveform.types.ts` | No schema change needed — `peaks: number[]` already supports any length |
-| `src/renderer/components/features/timeline/WaveformCanvas.tsx` | Add LOD downsampling before rendering: compute visible peak count from `width` and decimate peaks via max-pooling |
+
+| File                                                           | Change                                                                                                                    |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `src/main/services/waveform/WaveformExtractor.ts`              | Change `PEAK_COUNT` from `2000` to `8000`. Increase extraction sample rate from `8000` to `16000` for more accurate peaks |
+| `src/shared/types/waveform.types.ts`                           | No schema change needed — `peaks: number[]` already supports any length                                                   |
+| `src/renderer/components/features/timeline/WaveformCanvas.tsx` | Add LOD downsampling before rendering: compute visible peak count from `width` and decimate peaks via max-pooling         |
 
 ### Key details
 
 **Extraction change (WaveformExtractor.ts):**
+
 - `PEAK_COUNT = 8000` (4× current)
 - `EXTRACT_SAMPLE_RATE = 16000` (2× current, gives more raw samples for accurate peaks)
 - Extraction time increases ~1.5× (still under 3s per track)
 - Cache file grows from ~16KB to ~64KB per track (negligible)
 
 **LOD downsampling (WaveformCanvas.tsx):**
+
 ```ts
 function decimatePeaks(peaks: number[], targetCount: number): number[] {
   if (peaks.length <= targetCount) return peaks
@@ -53,16 +56,19 @@ function decimatePeaks(peaks: number[], targetCount: number): number[] {
   return result
 }
 ```
+
 - Target count = `Math.min(peaks.length, canvasWidth * 2)` (2 peaks per pixel for smooth rendering)
 - At fit-to-view (zoom 1×, ~800px canvas): ~1600 peaks rendered
 - At max zoom (50×): all 8000 peaks rendered
 
 **Cache migration:**
+
 - Old 2000-peak caches still load fine (array length is variable)
 - Waveforms regenerated lazily on next visit (cache invalidation by file hash handles this naturally)
 - For immediate migration: can trigger batch regeneration from timeline tab
 
 ### Verify
+
 - `yarn test:main --testPathPatterns WaveformExtractor` — passes with new peak count
 - Waveform visually shows more detail when zoomed in (clear difference between 1× and 20×)
 - Zoomed-out waveform looks clean (no aliasing or noise)
@@ -75,21 +81,23 @@ function decimatePeaks(peaks: number[], targetCount: number): number[] {
 **Goal:** Replace flat solid bars with vertical gradient fills — bright at peaks, darker toward center line.
 
 ### Modify
-| File | Change |
-|------|--------|
+
+| File                                                           | Change                                                                                                         |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `src/renderer/components/features/timeline/WaveformCanvas.tsx` | Replace `ctx.fillStyle = color` with a `CanvasGradient` per draw pass. Apply gradient from peak edge to center |
 
 ### Key details
 
 **Gradient approach:**
+
 - Create a single `LinearGradient` for the entire canvas (not per-bar — performance):
   ```ts
   const gradient = ctx.createLinearGradient(0, 0, 0, height)
-  gradient.addColorStop(0, peakColorFull)      // top: full alpha
-  gradient.addColorStop(0.35, peakColorDimmed)  // near-center: 40% alpha
-  gradient.addColorStop(0.5, peakColorDimmed)   // center: 40% alpha
-  gradient.addColorStop(0.65, peakColorDimmed)  // near-center: 40% alpha
-  gradient.addColorStop(1, peakColorFull)       // bottom: full alpha
+  gradient.addColorStop(0, peakColorFull) // top: full alpha
+  gradient.addColorStop(0.35, peakColorDimmed) // near-center: 40% alpha
+  gradient.addColorStop(0.5, peakColorDimmed) // center: 40% alpha
+  gradient.addColorStop(0.65, peakColorDimmed) // near-center: 40% alpha
+  gradient.addColorStop(1, peakColorFull) // bottom: full alpha
   ```
 - Uses `ctx.fillStyle = gradient` once, then draws all bars — no per-bar gradient needed
 - Color parsing: convert hex color to RGBA for alpha stops using a helper
@@ -97,6 +105,7 @@ function decimatePeaks(peaks: number[], targetCount: number): number[] {
 **Track color palette remains unchanged** — each track gets a color from the existing alternating palette, just enhanced with the gradient.
 
 ### Verify
+
 - Waveforms show depth with gradient (bright at extremes, darker at center)
 - Visual quality noticeably improved over flat bars
 - No performance regression
@@ -108,17 +117,19 @@ function decimatePeaks(peaks: number[], targetCount: number): number[] {
 **Goal:** Extract low/mid/high frequency peaks alongside the main peaks. Color each bar by dominant frequency band.
 
 ### Modify
-| File | Change |
-|------|--------|
-| `src/main/services/waveform/WaveformExtractor.ts` | Add a second extraction pass with 3-band filtering. Store `peaksLow`, `peaksMid`, `peaksHigh` arrays |
-| `src/shared/types/waveform.types.ts` | Add optional `peaksLow?: number[]`, `peaksMid?: number[]`, `peaksHigh?: number[]` to `WaveformData` |
-| `src/renderer/components/features/timeline/WaveformCanvas.tsx` | When frequency data available, compute per-bar color from dominant band. Blend with gradient |
+
+| File                                                           | Change                                                                                               |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/main/services/waveform/WaveformExtractor.ts`              | Add a second extraction pass with 3-band filtering. Store `peaksLow`, `peaksMid`, `peaksHigh` arrays |
+| `src/shared/types/waveform.types.ts`                           | Add optional `peaksLow?: number[]`, `peaksMid?: number[]`, `peaksHigh?: number[]` to `WaveformData`  |
+| `src/renderer/components/features/timeline/WaveformCanvas.tsx` | When frequency data available, compute per-bar color from dominant band. Blend with gradient         |
 
 ### New files
-| File | Purpose |
-|------|---------|
-| `src/main/services/waveform/FrequencyAnalyzer.ts` | Pure function: takes Float32Array PCM → applies simple 3-band energy analysis → returns low/mid/high peak arrays |
-| `src/main/services/waveform/FrequencyAnalyzer.spec.ts` | Tests: known frequency content (pure sine tones), silence handling, output array length matches peak count |
+
+| File                                                   | Purpose                                                                                                          |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| `src/main/services/waveform/FrequencyAnalyzer.ts`      | Pure function: takes Float32Array PCM → applies simple 3-band energy analysis → returns low/mid/high peak arrays |
+| `src/main/services/waveform/FrequencyAnalyzer.spec.ts` | Tests: known frequency content (pure sine tones), silence handling, output array length matches peak count       |
 
 ### Key details
 
@@ -136,6 +147,7 @@ The simplest reliable approach is to use the same PCM data already extracted by 
 3. Normalize each band independently to 0–1
 
 **Alternative (simpler, less accurate but good enough):**
+
 - Per-window: compute DFT (or just zero-crossing rate as a proxy for frequency)
 - Zero-crossing rate high → high-frequency dominant, low → bass dominant
 - Pros: trivial to implement, no filter design needed
@@ -144,30 +156,49 @@ The simplest reliable approach is to use the same PCM data already extracted by 
 **Recommended: simple biquad filter approach.** Well-understood DSP, ~50 lines of code, runs in <1s per track.
 
 **Rendering (WaveformCanvas.tsx):**
+
 ```ts
 const FREQ_COLORS = {
-  low: { r: 239, g: 68, b: 68 },   // red/warm
-  mid: { r: 234, g: 179, b: 8 },   // yellow/green
+  low: { r: 239, g: 68, b: 68 }, // red/warm
+  mid: { r: 234, g: 179, b: 8 }, // yellow/green
   high: { r: 59, g: 130, b: 246 }, // cyan/blue
 }
 
 function getBarColor(low: number, mid: number, high: number): string {
   const total = low + mid + high || 1
-  const r = Math.round((low * FREQ_COLORS.low.r + mid * FREQ_COLORS.mid.r + high * FREQ_COLORS.high.r) / total)
-  const g = Math.round((low * FREQ_COLORS.low.g + mid * FREQ_COLORS.mid.g + high * FREQ_COLORS.high.g) / total)
-  const b = Math.round((low * FREQ_COLORS.low.b + mid * FREQ_COLORS.mid.b + high * FREQ_COLORS.high.b) / total)
+  const r = Math.round(
+    (low * FREQ_COLORS.low.r +
+      mid * FREQ_COLORS.mid.r +
+      high * FREQ_COLORS.high.r) /
+      total
+  )
+  const g = Math.round(
+    (low * FREQ_COLORS.low.g +
+      mid * FREQ_COLORS.mid.g +
+      high * FREQ_COLORS.high.g) /
+      total
+  )
+  const b = Math.round(
+    (low * FREQ_COLORS.low.b +
+      mid * FREQ_COLORS.mid.b +
+      high * FREQ_COLORS.high.b) /
+      total
+  )
   return `rgb(${r},${g},${b})`
 }
 ```
+
 - Per-bar color computed from weighted blend of 3-band energies
 - When frequency data unavailable (old cache), falls back to single-color gradient (Phase 2)
 
 **Cache extension:**
+
 - `WaveformData` gets 3 new optional arrays, same length as `peaks`
 - Cache file grows from ~64KB to ~256KB per track — still negligible
 - Missing fields → graceful fallback to single-color mode
 
 ### Verify
+
 - `yarn test:main --testPathPatterns FrequencyAnalyzer` — passes
 - Bass-heavy sections show red/warm tones
 - Hi-hat/cymbal sections show blue/cool tones
@@ -182,17 +213,24 @@ function getBarColor(low: number, mid: number, high: number): string {
 **Goal:** Add bezier curve waveform style as an alternative to bars. Default to smooth; allow switching.
 
 ### Modify
-| File | Change |
-|------|--------|
+
+| File                                                           | Change                                                                                                                                                   |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/renderer/components/features/timeline/WaveformCanvas.tsx` | Add `renderSmooth()` method alongside existing `renderBars()`. Switch based on `waveformStyle` prop. Smooth mode uses `Path2D` with `quadraticCurveTo()` |
-| `src/renderer/store/timelineStore.ts` | Add `waveformStyle: 'bars' \| 'smooth'` field (default: `'smooth'`), add `setWaveformStyle()` action |
-| `src/renderer/components/features/timeline/ZoomControls.tsx` | Add waveform style toggle button: bars icon / smooth icon |
+| `src/renderer/store/timelineStore.ts`                          | Add `waveformStyle: 'bars' \| 'smooth'` field (default: `'smooth'`), add `setWaveformStyle()` action                                                     |
+| `src/renderer/components/features/timeline/ZoomControls.tsx`   | Add waveform style toggle button: bars icon / smooth icon                                                                                                |
 
 ### Key details
 
 **Bezier curve rendering:**
+
 ```ts
-function renderSmooth(ctx: CanvasRenderingContext2D, peaks: number[], width: number, height: number) {
+function renderSmooth(
+  ctx: CanvasRenderingContext2D,
+  peaks: number[],
+  width: number,
+  height: number
+) {
   const centerY = height / 2
   const barWidth = width / peaks.length
 
@@ -203,9 +241,8 @@ function renderSmooth(ctx: CanvasRenderingContext2D, peaks: number[], width: num
     const x = i * barWidth
     const peakY = centerY - peaks[i] * (centerY - 2)
     const nextX = (i + 1) * barWidth
-    const nextPeakY = i + 1 < peaks.length
-      ? centerY - peaks[i + 1] * (centerY - 2)
-      : centerY
+    const nextPeakY =
+      i + 1 < peaks.length ? centerY - peaks[i + 1] * (centerY - 2) : centerY
     const controlX = x + barWidth / 2
     topPath.quadraticCurveTo(controlX, peakY, nextX, nextPeakY)
   }
@@ -217,9 +254,8 @@ function renderSmooth(ctx: CanvasRenderingContext2D, peaks: number[], width: num
     const x = i * barWidth
     const peakY = centerY + peaks[i] * (centerY - 2)
     const prevX = (i - 1) * barWidth
-    const prevPeakY = i - 1 >= 0
-      ? centerY + peaks[i - 1] * (centerY - 2)
-      : centerY
+    const prevPeakY =
+      i - 1 >= 0 ? centerY + peaks[i - 1] * (centerY - 2) : centerY
     const controlX = x - barWidth / 2
     bottomPath.quadraticCurveTo(controlX, peakY, prevX, prevPeakY)
   }
@@ -232,11 +268,13 @@ function renderSmooth(ctx: CanvasRenderingContext2D, peaks: number[], width: num
 **Fallback rule:** If fewer than 50 peaks visible (extreme zoom-out), switch to bars automatically — bezier looks too blobby with very few control points.
 
 **Integration with frequency colors (Phase 3):**
+
 - In smooth mode, frequency coloring requires drawing multiple small filled segments rather than one big path
 - Alternative: use the gradient approach (Phase 2) for smooth mode, save per-bar frequency color for bars mode
 - Recommended: gradient in smooth mode, frequency color in bars mode. Both look professional.
 
 ### Verify
+
 - Default rendering is smooth bezier curves
 - Toggle to bars shows the classic bar style
 - Smooth rendering looks organic (no hard edges)
@@ -250,25 +288,29 @@ function renderSmooth(ctx: CanvasRenderingContext2D, peaks: number[], width: num
 **Goal:** Add beat grid visibility toggle. Polish all visual improvements together.
 
 ### Modify
-| File | Change |
-|------|--------|
-| `src/renderer/store/timelineStore.ts` | Add `showBeatGrid: boolean` field (default: `true`), add `toggleBeatGrid()` action |
-| `src/renderer/components/features/timeline/ZoomControls.tsx` | Add beat grid toggle button (FiGrid icon) alongside existing snap toggle |
-| `src/renderer/components/features/timeline/BeatGrid.tsx` | Wrap render in `if (!showBeatGrid) return null` check — read from timelineStore |
-| `src/renderer/components/features/timeline/TimelineLayout.tsx` | Pass `showBeatGrid` from store to BeatGrid components |
+
+| File                                                           | Change                                                                             |
+| -------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `src/renderer/store/timelineStore.ts`                          | Add `showBeatGrid: boolean` field (default: `true`), add `toggleBeatGrid()` action |
+| `src/renderer/components/features/timeline/ZoomControls.tsx`   | Add beat grid toggle button (FiGrid icon) alongside existing snap toggle           |
+| `src/renderer/components/features/timeline/BeatGrid.tsx`       | Wrap render in `if (!showBeatGrid) return null` check — read from timelineStore    |
+| `src/renderer/components/features/timeline/TimelineLayout.tsx` | Pass `showBeatGrid` from store to BeatGrid components                              |
 
 ### Key details
+
 - Beat grid toggle is independent of snap-to-beat (snap can work without visible grid)
 - Toggle state lives in `timelineStore` (transient, not persisted to project — it's a view preference)
 - Button shows active/inactive state using Chakra color scheme (blue when on, gray when off)
 
 ### Polish items
+
 - Ensure gradient + frequency color + smooth rendering all compose correctly
 - Verify no visual artifacts at zoom boundaries (LOD switching)
 - Confirm old cache files degrade gracefully (no frequency data → single-color gradient)
 - Test with 20+ tracks for performance
 
 ### Verify
+
 - Beat grid toggle shows/hides beat lines
 - Toggle state independent from snap mode
 - All visual improvements work together

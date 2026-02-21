@@ -85,45 +85,45 @@ The tab is accessible once the project has at least one song. A badge or indicat
 
 ### Modified: Song (in project.json songs[])
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `crossfadeDuration` | `number \| undefined` | _(existing)_ Crossfade duration in seconds into the NEXT track |
-| `cuePoints` | `CuePoint[] \| undefined` | User-placed markers on the track timeline |
-| `bpm` | `number \| undefined` | Detected BPM. Cached after first detection. `undefined` = not yet analyzed |
-| `firstBeatOffset` | `number \| undefined` | Seconds from track start to first detected downbeat. Used to align beat grid |
-| `trimStart` | `number \| undefined` | Effective start time in seconds (derived from trim-start cue point). `undefined` = 0 |
-| `trimEnd` | `number \| undefined` | Effective end time in seconds (derived from trim-end cue point). `undefined` = full duration |
+| Field               | Type                      | Description                                                                                  |
+| ------------------- | ------------------------- | -------------------------------------------------------------------------------------------- |
+| `crossfadeDuration` | `number \| undefined`     | _(existing)_ Crossfade duration in seconds into the NEXT track                               |
+| `cuePoints`         | `CuePoint[] \| undefined` | User-placed markers on the track timeline                                                    |
+| `bpm`               | `number \| undefined`     | Detected BPM. Cached after first detection. `undefined` = not yet analyzed                   |
+| `firstBeatOffset`   | `number \| undefined`     | Seconds from track start to first detected downbeat. Used to align beat grid                 |
+| `trimStart`         | `number \| undefined`     | Effective start time in seconds (derived from trim-start cue point). `undefined` = 0         |
+| `trimEnd`           | `number \| undefined`     | Effective end time in seconds (derived from trim-end cue point). `undefined` = full duration |
 
 ### New: CuePoint
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string` | Unique ID (nanoid) |
-| `timestamp` | `number` | Position in seconds from track start |
-| `label` | `string` | User-provided name (e.g., "drop", "breakdown") |
-| `type` | `'marker' \| 'trim-start' \| 'trim-end'` | Purpose of the cue point. Only one trim-start and one trim-end allowed per song |
+| Field       | Type                                     | Description                                                                     |
+| ----------- | ---------------------------------------- | ------------------------------------------------------------------------------- |
+| `id`        | `string`                                 | Unique ID (nanoid)                                                              |
+| `timestamp` | `number`                                 | Position in seconds from track start                                            |
+| `label`     | `string`                                 | User-provided name (e.g., "drop", "breakdown")                                  |
+| `type`      | `'marker' \| 'trim-start' \| 'trim-end'` | Purpose of the cue point. Only one trim-start and one trim-end allowed per song |
 
 ### New: WaveformCache (persisted to disk)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `songId` | `string` | Reference to song |
-| `peaks` | `number[]` | Normalized amplitude peaks (0–1), downsampled to ~2000 points per track |
-| `duration` | `number` | Source file duration in seconds |
-| `sampleRate` | `number` | Source sample rate (for cache invalidation) |
-| `fileHash` | `string` | Quick hash of file (size + mtime) for cache invalidation |
+| Field        | Type       | Description                                                             |
+| ------------ | ---------- | ----------------------------------------------------------------------- |
+| `songId`     | `string`   | Reference to song                                                       |
+| `peaks`      | `number[]` | Normalized amplitude peaks (0–1), downsampled to ~2000 points per track |
+| `duration`   | `number`   | Source file duration in seconds                                         |
+| `sampleRate` | `number`   | Source sample rate (for cache invalidation)                             |
+| `fileHash`   | `string`   | Quick hash of file (size + mtime) for cache invalidation                |
 
 Stored as JSON files in `<project>/assets/waveforms/<songId>.json`. Lazy-loaded when Timeline tab opens.
 
 ### New: BpmCache (persisted to disk)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `songId` | `string` | Reference to song |
-| `bpm` | `number` | Detected BPM |
-| `firstBeatOffset` | `number` | Seconds to first downbeat |
-| `confidence` | `number` | Detection confidence (0–1) |
-| `fileHash` | `string` | For cache invalidation |
+| Field             | Type     | Description                |
+| ----------------- | -------- | -------------------------- |
+| `songId`          | `string` | Reference to song          |
+| `bpm`             | `number` | Detected BPM               |
+| `firstBeatOffset` | `number` | Seconds to first downbeat  |
+| `confidence`      | `number` | Detection confidence (0–1) |
+| `fileHash`        | `string` | For cache invalidation     |
 
 Stored alongside waveform cache: `<project>/assets/waveforms/<songId>.bpm.json`
 
@@ -140,14 +140,17 @@ Stored alongside waveform cache: `<project>/assets/waveforms/<songId>.bpm.json`
 Two viable approaches (to be evaluated during implementation):
 
 **Option A: FFmpeg + aubio** (if available)
+
 - Use `aubio tempo` CLI or the `aubio` npm package for beat tracking
 - Accurate but adds a dependency
 
 **Option B: Web Audio API / custom DSP**
+
 - Run onset detection + autocorrelation on the extracted PCM data in the main process
 - No extra dependency but less accurate for complex material
 
 **Option C: FFmpeg spectral analysis**
+
 - `ffmpeg -i <file> -af "aresample=44100,atempo=1" -f f32le pipe:1` + custom autocorrelation
 - Middle ground — uses existing FFmpeg infrastructure
 
@@ -200,12 +203,12 @@ Recommended: evaluate Option A first (aubio), fall back to Option C. Persist BPM
 
 ### IPC Channels (New)
 
-| Channel | Direction | Purpose |
-|---------|-----------|---------|
-| `mix:waveform:generate` | renderer → main | Request waveform peaks for a song. Returns cached data or extracts fresh |
+| Channel                       | Direction       | Purpose                                                                             |
+| ----------------------------- | --------------- | ----------------------------------------------------------------------------------- |
+| `mix:waveform:generate`       | renderer → main | Request waveform peaks for a song. Returns cached data or extracts fresh            |
 | `mix:waveform:generate-batch` | renderer → main | Request waveforms for all songs in project. Processes sequentially, streams results |
-| `mix:bpm:detect` | renderer → main | Request BPM detection for a song. Returns cached or runs analysis |
-| `mix:bpm:detect-batch` | renderer → main | Batch BPM detection for all songs |
+| `mix:bpm:detect`              | renderer → main | Request BPM detection for a song. Returns cached or runs analysis                   |
+| `mix:bpm:detect-batch`        | renderer → main | Batch BPM detection for all songs                                                   |
 
 Progress for batch operations can be pushed via `mix:waveform:progress` and `mix:bpm:progress`.
 

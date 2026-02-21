@@ -54,28 +54,28 @@ Users curate ordered tracklists (mixes) from various sources — torrents and lo
 
 ### Modified: Song (in project.json songs[])
 
-| Field | Type | Description |
-|-------|------|-------------|
+| Field               | Type                  | Description                                                                                                                    |
+| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | `crossfadeDuration` | `number \| undefined` | Crossfade duration in seconds into the NEXT track. `undefined` = use default (5s). Last song in mix ignores this. Range: 0–30. |
 
 ### New: MixExportConfig (in project.json mixMetadata)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `defaultCrossfadeDuration` | `number` | Default crossfade for new transitions (seconds). Default: 5 |
-| `normalization` | `boolean` | Whether to auto-normalize loudness. Default: true |
-| `outputFormat` | `'wav' \| 'flac' \| 'mp3'` | Last-used export format. Default: 'flac' |
-| `mp3Bitrate` | `128 \| 192 \| 256 \| 320` | MP3 bitrate when format is mp3. Default: 320 |
-| `generateCueSheet` | `boolean` | Whether to generate .cue file. Default: true |
+| Field                      | Type                       | Description                                                 |
+| -------------------------- | -------------------------- | ----------------------------------------------------------- |
+| `defaultCrossfadeDuration` | `number`                   | Default crossfade for new transitions (seconds). Default: 5 |
+| `normalization`            | `boolean`                  | Whether to auto-normalize loudness. Default: true           |
+| `outputFormat`             | `'wav' \| 'flac' \| 'mp3'` | Last-used export format. Default: 'flac'                    |
+| `mp3Bitrate`               | `128 \| 192 \| 256 \| 320` | MP3 bitrate when format is mp3. Default: 320                |
+| `generateCueSheet`         | `boolean`                  | Whether to generate .cue file. Default: true                |
 
 ### New: WaveformData (cached, not in project.json)
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `songId` | `string` | Reference to song |
-| `peaks` | `number[]` | Normalized amplitude peaks for rendering waveform (downsampled) |
-| `duration` | `number` | Duration in seconds |
-| `sampleRate` | `number` | Source sample rate used for computation |
+| Field        | Type       | Description                                                     |
+| ------------ | ---------- | --------------------------------------------------------------- |
+| `songId`     | `string`   | Reference to song                                               |
+| `peaks`      | `number[]` | Normalized amplitude peaks for rendering waveform (downsampled) |
+| `duration`   | `number`   | Duration in seconds                                             |
+| `sampleRate` | `number`   | Source sample rate used for computation                         |
 
 Waveform data is cached in-memory and/or in a temp directory. Recomputed if source file changes.
 
@@ -108,14 +108,14 @@ Waveform data is cached in-memory and/or in a temp directory. Recomputed if sour
 
 ### IPC Channels
 
-| Channel | Direction | Purpose |
-|---------|-----------|---------|
-| `mix:export:start` | renderer → main | Start rendering with config |
-| `mix:export:progress` | main → renderer | Progress updates (track, percentage, ETA) |
-| `mix:export:cancel` | renderer → main | Cancel in-progress render |
-| `mix:export:complete` | main → renderer | Render finished (success/error + output path) |
-| `mix:waveform:generate` | renderer → main | Request waveform data for a song |
-| `mix:waveform:data` | main → renderer | Return computed waveform peaks |
+| Channel                 | Direction       | Purpose                                       |
+| ----------------------- | --------------- | --------------------------------------------- |
+| `mix:export:start`      | renderer → main | Start rendering with config                   |
+| `mix:export:progress`   | main → renderer | Progress updates (track, percentage, ETA)     |
+| `mix:export:cancel`     | renderer → main | Cancel in-progress render                     |
+| `mix:export:complete`   | main → renderer | Render finished (success/error + output path) |
+| `mix:waveform:generate` | renderer → main | Request waveform data for a song              |
+| `mix:waveform:data`     | main → renderer | Return computed waveform peaks                |
 
 ## Edge Cases & Error States
 

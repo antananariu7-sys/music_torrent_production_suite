@@ -1,12 +1,15 @@
 # Feature: Waveform Interaction Improvements
 
 ## Overview
+
 Upgrade the timeline editing experience with drag-to-trim handles, draggable cue points, crossfade curve visualization, region selection, and crossfade preview playback — making the timeline feel like a real mix editor, not just a viewer.
 
 ## User Problem
+
 Currently, all timeline editing goes through popovers: cue points are placed via double-click + popover, trim boundaries via cue point type, and crossfade durations via click + slider. This is functional but indirect. Users expect to grab and drag elements directly on the waveform — that's how every DAW and DJ tool works. Additionally, there's no way to hear how a crossfade actually sounds without exporting the full mix.
 
 ## User Stories
+
 - As a DJ, I want to drag trim handles on the waveform edges to set start/end points quickly
 - As a user, I want to drag cue point markers to reposition them without reopening the popover
 - As a DJ, I want to see the actual crossfade curves (fade-in/fade-out) in the overlap zone
@@ -21,6 +24,7 @@ Currently, all timeline editing goes through popovers: cue points are placed via
 Add draggable handles at the left (trim-start) and right (trim-end) edges of each track's waveform. Dragging these handles adjusts the trim boundaries in real-time.
 
 **Visual design:**
+
 ```
            drag handle (left)                  drag handle (right)
                 ┃                                      ┃
@@ -37,6 +41,7 @@ Add draggable handles at the left (trim-start) and right (trim-end) edges of eac
 - If no trim is set yet, handles appear at the track's absolute start/end — dragging inward creates the trim
 
 **Constraints during drag:**
+
 - `trimStart` cannot pass `trimEnd` (minimum 1s gap)
 - `trimEnd` cannot go before `trimStart`
 - Neither can extend beyond the track's actual duration
@@ -47,6 +52,7 @@ Add draggable handles at the left (trim-start) and right (trim-end) edges of eac
 Make existing cue point markers draggable along the horizontal axis of their track.
 
 **Behavior:**
+
 - Hover on cue point marker → cursor changes to `grab`
 - Mouse down + move → marker follows cursor horizontally, vertical line moves with it
 - Snap-to-beat applies during drag if snap mode active
@@ -54,6 +60,7 @@ Make existing cue point markers draggable along the horizontal axis of their tra
 - If cue point is type `trim-start` or `trim-end`: updating its position also updates `trimStart`/`trimEnd` and the trim overlay re-renders
 
 **Constraints:**
+
 - `trim-start` cannot be dragged past `trim-end`
 - Markers cannot be dragged outside the track's time range
 - Click without drag still opens the cue point edit popover (distinguish via drag threshold: 3px movement)
@@ -63,6 +70,7 @@ Make existing cue point markers draggable along the horizontal axis of their tra
 Replace the flat semi-transparent overlap box with a visual representation of the actual crossfade curves (fade-out of track A, fade-in of track B).
 
 **Visual design:**
+
 ```
 Track A                    Track B
 ████████████████╲         ╱████████████████
@@ -78,6 +86,7 @@ Track A                    Track B
 - The overlap region background remains slightly highlighted to show it's interactive (clickable for the crossfade popover)
 
 **Implementation:**
+
 - Draw two `Path2D` curves in the overlap region of the canvas
 - Use `quadraticCurveTo` for S-curve appearance (equal-power crossfade)
 - Fill below/above with respective track colors at 20% opacity
@@ -88,6 +97,7 @@ Track A                    Track B
 Allow click-and-drag on the waveform to select a time range within a track.
 
 **Behavior:**
+
 1. Mouse down + horizontal drag on waveform → selection rectangle appears (highlighted region)
 2. On release: selection anchored. Shows a floating toolbar with actions:
    - **Trim to selection** — sets `trimStart` and `trimEnd` to the selected range
@@ -98,12 +108,14 @@ Allow click-and-drag on the waveform to select a time range within a track.
 5. Snap-to-beat applies to selection edges when snap mode active
 
 **Distinguishing from click-to-play and double-click-to-cue:**
+
 - **Click (no drag):** Play from clicked position
 - **Double-click:** Open cue point popover
 - **Click + drag > 5px:** Region selection
 - These are standard gesture patterns — no ambiguity
 
 **Selection constraints:**
+
 - Selection is per-track (can't span multiple tracks)
 - Only one active selection at a time
 
@@ -114,6 +126,7 @@ Allow users to hear how a crossfade sounds with both tracks mixed, without expor
 **Two modes:**
 
 #### Mode A: Quick Preview (Web Audio API)
+
 - Click a "Preview" button on the crossfade popover (or a play icon on the overlap zone)
 - Load both tracks into Web Audio API `AudioBufferSourceNode`s
 - Apply gain automation matching the crossfade curve (equal-power, linear, etc.)
@@ -121,6 +134,7 @@ Allow users to hear how a crossfade sounds with both tracks mixed, without expor
 - Real-time, no rendering step
 
 **Implementation:**
+
 ```
 AudioContext
 ├─ Source A (Track A) → GainNode A (fade-out automation) → Destination
@@ -132,12 +146,14 @@ AudioContext
 - Loads audio from disk via IPC (`audio.readFile`)
 
 #### Mode B: Rendered Preview (FFmpeg)
+
 - "Render preview" button in the crossfade popover
 - Uses the existing export pipeline's `FilterGraphBuilder` to render just the crossfade segment (Track A tail + Track B head) to a temp file
 - Plays the temp file via the standard AudioPlayer
 - More accurate (exact FFmpeg result) but takes a few seconds to render
 
 **UI for crossfade preview:**
+
 ```
 ┌─ Crossfade: Track A → Track B ──────────────┐
 │                                               │
@@ -161,17 +177,18 @@ Add a toggle in ZoomControls to show/hide the beat grid overlay.
 
 ### Modified: timelineStore
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `showBeatGrid` | `boolean` | **New.** Toggle beat grid visibility. Default: `true` |
-| `activeSelection` | `{ songId: string, start: number, end: number } \| null` | **New.** Currently selected time range |
-| `dragState` | `{ type: 'trim-start' \| 'trim-end' \| 'cue-point', songId: string, startX: number } \| null` | **New.** Active drag operation tracking |
+| Field             | Type                                                                                          | Description                                           |
+| ----------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `showBeatGrid`    | `boolean`                                                                                     | **New.** Toggle beat grid visibility. Default: `true` |
+| `activeSelection` | `{ songId: string, start: number, end: number } \| null`                                      | **New.** Currently selected time range                |
+| `dragState`       | `{ type: 'trim-start' \| 'trim-end' \| 'cue-point', songId: string, startX: number } \| null` | **New.** Active drag operation tracking               |
 
 ### Modified: Song (via crossfade popover — no new persistent fields)
 
 No new persistent fields. All interaction state is transient (in Zustand store).
 
 ## Edge Cases & Error States
+
 - **Drag near track edges:** Clamp handles to valid range (0 to duration). Prevent overshoot.
 - **Drag cue point past trim boundary:** For trim-type cue points, enforce ordering. For markers, allow free positioning within track bounds.
 - **Region selection on short tracks (< 3s):** Allow selection but minimum region size is 0.5s.
@@ -181,6 +198,7 @@ No new persistent fields. All interaction state is transient (in Zustand store).
 - **Rendered preview fails (FFmpeg error):** Show toast with error, suggest quick preview as fallback.
 
 ## Acceptance Criteria
+
 - [ ] Trim handles appear at track edges; dragging them updates trim boundaries in real-time
 - [ ] Trim handles snap to beats when snap mode is active
 - [ ] Cue point markers are draggable along the track timeline
@@ -196,6 +214,7 @@ No new persistent fields. All interaction state is transient (in Zustand store).
 - [ ] All drag operations respect snap-to-beat when enabled
 
 ## Out of Scope
+
 - Drag to reorder tracks (reordering stays in MixTab)
 - Vertical drag (volume automation)
 - Multi-track selection
@@ -203,6 +222,7 @@ No new persistent fields. All interaction state is transient (in Zustand store).
 - Custom crossfade curve types (future — currently uses whatever the export pipeline uses)
 
 ## Dependencies
+
 - Existing: AudioPlayer, audioPlayerStore, WaveformCanvas, CuePointMarker, TrimOverlay, CrossfadePopover
 - Existing: FilterGraphBuilder (for rendered preview)
 - Existing: audio IPC handlers (`audio.readFile` for Web Audio loading)

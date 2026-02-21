@@ -1,12 +1,15 @@
 # Feature: Waveform Performance Improvements
 
 ## Overview
+
 Optimize the timeline rendering pipeline for smooth performance with large projects (20+ tracks) and high zoom levels. Introduces React.memo boundaries, adaptive peak resolution, OffscreenCanvas pre-rendering, virtual track rendering, Web Workers for heavy computation, and WASM evaluation for DSP operations.
 
 ## User Problem
+
 The current timeline renders all tracks simultaneously with fixed 2000-point peaks and no component memoization. For typical 5–15 track projects this works well, but as projects grow and zoom levels increase, performance degrades: unnecessary re-renders cascade through the component tree, canvas drawing blocks the main thread, and peak data becomes too sparse for high-zoom detail.
 
 ## User Stories
+
 - As a user with 20+ track mixes, I want smooth scrolling and zooming without dropped frames
 - As a user, I want waveform generation and BPM detection to happen in the background without freezing the UI
 - As a user, I want high zoom levels to show more waveform detail, not just stretched-out sparse bars
@@ -19,27 +22,33 @@ Wrap frequently-rendered child components in `React.memo` with appropriate compa
 
 **Components to memoize:**
 
-| Component | Re-render trigger today | Memo comparison |
-|-----------|------------------------|-----------------|
-| `WaveformCanvas` | Any parent state change | `peaks`, `width`, `height`, `color`, `isSelected`, `currentTime` |
-| `BeatGrid` | Any parent state change | `bpm`, `firstBeatOffset`, `visibleRange`, `showBeatGrid` |
-| `TrimOverlay` | Any parent state change | `trimStart`, `trimEnd`, `trackWidth`, `pixelsPerSecond` |
-| `CuePointMarker` | Any parent state change | `cuePoint.id`, `cuePoint.timestamp`, `pixelsPerSecond` |
-| `TrackInfoOverlay` | Any parent state change | `format`, `bitrate`, `bpm` |
-| `CrossfadePopover` | Any parent state change | `songId`, `duration`, `isOpen` |
-| `Minimap` | Every scroll/zoom | `tracks` (by reference), `totalWidth`, `viewportLeft`, `viewportWidth` |
+| Component          | Re-render trigger today | Memo comparison                                                        |
+| ------------------ | ----------------------- | ---------------------------------------------------------------------- |
+| `WaveformCanvas`   | Any parent state change | `peaks`, `width`, `height`, `color`, `isSelected`, `currentTime`       |
+| `BeatGrid`         | Any parent state change | `bpm`, `firstBeatOffset`, `visibleRange`, `showBeatGrid`               |
+| `TrimOverlay`      | Any parent state change | `trimStart`, `trimEnd`, `trackWidth`, `pixelsPerSecond`                |
+| `CuePointMarker`   | Any parent state change | `cuePoint.id`, `cuePoint.timestamp`, `pixelsPerSecond`                 |
+| `TrackInfoOverlay` | Any parent state change | `format`, `bitrate`, `bpm`                                             |
+| `CrossfadePopover` | Any parent state change | `songId`, `duration`, `isOpen`                                         |
+| `Minimap`          | Every scroll/zoom       | `tracks` (by reference), `totalWidth`, `viewportLeft`, `viewportWidth` |
 
 **Implementation:**
+
 ```tsx
-const WaveformCanvas = React.memo(function WaveformCanvas(props: WaveformCanvasProps) {
-  // ... existing implementation
-}, (prev, next) => {
-  return prev.peaks === next.peaks
-    && prev.width === next.width
-    && prev.color === next.color
-    && prev.isSelected === next.isSelected
+const WaveformCanvas = React.memo(
+  function WaveformCanvas(props: WaveformCanvasProps) {
+    // ... existing implementation
+  },
+  (prev, next) => {
+    return (
+      prev.peaks === next.peaks &&
+      prev.width === next.width &&
+      prev.color === next.color &&
+      prev.isSelected === next.isSelected
+    )
     // ... shallow compare relevant props
-})
+  }
+)
 ```
 
 **Expected impact:** Significant reduction in canvas redraws during scroll/zoom (most re-renders are no-ops today).
@@ -65,14 +74,15 @@ Render:    Canvas width in pixels → compute visible time range
 
 **Peak LOD (Level of Detail):**
 
-| Zoom level | Peaks shown | Visual result |
-|-----------|-------------|---------------|
-| 1× (fit-to-view) | ~200-500 | Smooth broad shapes |
-| 5× | ~1000-2000 | Standard detail |
-| 15× | ~5000-8000 | Fine detail visible |
-| 50× | ~20000+ | Individual waveform cycles |
+| Zoom level       | Peaks shown | Visual result              |
+| ---------------- | ----------- | -------------------------- |
+| 1× (fit-to-view) | ~200-500    | Smooth broad shapes        |
+| 5×               | ~1000-2000  | Standard detail            |
+| 15×              | ~5000-8000  | Fine detail visible        |
+| 50×              | ~20000+     | Individual waveform cycles |
 
 **Downsampling algorithm (max-pooling):**
+
 ```ts
 function downsamplePeaks(peaks: Float32Array, targetCount: number): number[] {
   const windowSize = peaks.length / targetCount
@@ -93,6 +103,7 @@ function downsamplePeaks(peaks: Float32Array, targetCount: number): number[] {
 **Storage:** Store full-resolution peaks as a binary `Float32Array` file (`.peaks` extension) instead of JSON. Binary is ~4× smaller and ~10× faster to read/write than JSON arrays.
 
 **Cache file format:**
+
 - `<project>/assets/waveforms/<songId>.peaks` — Binary Float32Array (full-res)
 - `<project>/assets/waveforms/<songId>.meta.json` — Metadata: `{ duration, sampleRate, fileHash, peakCount, bands: { low, mid, high } }`
 
@@ -115,33 +126,43 @@ Pre-render waveforms to `OffscreenCanvas` or `ImageBitmap` and blit the result t
 ```
 
 **When to re-render the OffscreenCanvas:**
+
 - Zoom level changes (peaks change)
 - Track data changes (new waveform, cue points change)
 - Selection state changes (frequency coloring mode toggle)
 
 **When to only blit:**
+
 - Scroll (just change the `drawImage` source rectangle)
 - Playhead movement
 - Hover/highlight state
 
 **Implementation:**
+
 ```ts
 // Render once to offscreen
 const offscreen = new OffscreenCanvas(trackWidthPx, trackHeightPx)
 const offCtx = offscreen.getContext('2d')!
-drawWaveform(offCtx, peaks, /* ... */)
+drawWaveform(offCtx, peaks /* ... */)
 
 // Blit visible portion on every frame
 const visibleCanvas = canvasRef.current!
 const visCtx = visibleCanvas.getContext('2d')!
 visCtx.drawImage(
   offscreen,
-  scrollLeft, 0, viewportWidth, trackHeightPx,  // source rect
-  0, 0, viewportWidth, trackHeightPx             // dest rect
+  scrollLeft,
+  0,
+  viewportWidth,
+  trackHeightPx, // source rect
+  0,
+  0,
+  viewportWidth,
+  trackHeightPx // dest rect
 )
 ```
 
 **Canvas size limits:**
+
 - Browsers cap canvas dimensions (~32768px width on Chrome)
 - For very long tracks at high zoom, split into tiles (e.g., 4096px chunks)
 - Only render tiles that overlap the viewport + 1 tile buffer on each side
@@ -153,6 +174,7 @@ visCtx.drawImage(
 Only mount and render tracks that are visible in the viewport. Tracks outside the viewport are replaced with lightweight placeholder divs of the correct height.
 
 **Implementation using IntersectionObserver:**
+
 ```tsx
 function VirtualTrackContainer({ song, trackPosition, children }) {
   const [isVisible, setVisible] = useState(false)
@@ -161,14 +183,21 @@ function VirtualTrackContainer({ song, trackPosition, children }) {
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => setVisible(entry.isIntersecting),
-      { rootMargin: '200px 0px' }  // 200px buffer above/below
+      { rootMargin: '200px 0px' } // 200px buffer above/below
     )
     if (ref.current) observer.observe(ref.current)
     return () => observer.disconnect()
   }, [])
 
   return (
-    <div ref={ref} style={{ height: TRACK_HEIGHT, position: 'absolute', top: trackPosition.top }}>
+    <div
+      ref={ref}
+      style={{
+        height: TRACK_HEIGHT,
+        position: 'absolute',
+        top: trackPosition.top,
+      }}
+    >
       {isVisible ? children : null}
     </div>
   )
@@ -178,6 +207,7 @@ function VirtualTrackContainer({ song, trackPosition, children }) {
 **Note:** Since the timeline scrolls horizontally (not vertically), the IntersectionObserver approach is primarily useful for vertical overflow if the track list becomes tall. For horizontal virtualization, the OffscreenCanvas tiling approach (improvement #3) handles it.
 
 **Vertical virtualization matters when:**
+
 - 20+ tracks × 120px height = 2400px+ total height
 - If the timeline area has a fixed height with vertical scroll, only visible tracks need full rendering
 
@@ -187,14 +217,15 @@ Move CPU-intensive operations off the main thread to prevent UI freezes.
 
 **Operations to move to Web Workers:**
 
-| Operation | Current location | Worker approach |
-|-----------|-----------------|-----------------|
-| Peak downsampling | Render loop (main thread) | Dedicated worker: receives full-res peaks + target count, returns downsampled array |
-| Frequency band extraction | Main process (FFmpeg) | Keep in main process (FFmpeg is already async) |
-| Beat grid computation | `useMemo` (main thread) | Move to worker if > 1000 beats (long tracks at high zoom) |
-| Layout computation | `computeTrackPositions` (main thread) | Move to worker for 20+ tracks |
+| Operation                 | Current location                      | Worker approach                                                                     |
+| ------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------- |
+| Peak downsampling         | Render loop (main thread)             | Dedicated worker: receives full-res peaks + target count, returns downsampled array |
+| Frequency band extraction | Main process (FFmpeg)                 | Keep in main process (FFmpeg is already async)                                      |
+| Beat grid computation     | `useMemo` (main thread)               | Move to worker if > 1000 beats (long tracks at high zoom)                           |
+| Layout computation        | `computeTrackPositions` (main thread) | Move to worker for 20+ tracks                                                       |
 
 **Worker architecture:**
+
 ```
 Main thread                      Worker thread
 ───────────                      ─────────────
@@ -212,13 +243,17 @@ onmessage = (e) => {
 **Transfer semantics:** Use `Transferable` objects (`ArrayBuffer`) for zero-copy data passing between main thread and worker.
 
 **Worker lifecycle:**
+
 - Create a single persistent `WaveformWorker` on Timeline tab mount
 - Terminate on tab unmount
 - Handle concurrent requests via message ID correlation
 
 **Vite worker import:**
+
 ```ts
-const worker = new Worker(new URL('./waveform.worker.ts', import.meta.url), { type: 'module' })
+const worker = new Worker(new URL('./waveform.worker.ts', import.meta.url), {
+  type: 'module',
+})
 ```
 
 ### 6. WASM Evaluation for DSP Operations
@@ -227,14 +262,15 @@ Evaluate whether WebAssembly can accelerate the heaviest compute: peak extractio
 
 **Candidates for WASM:**
 
-| Operation | JS performance | WASM potential | Verdict |
-|-----------|---------------|----------------|---------|
-| Peak downsampling | Fast (~5ms for 100K samples) | 2-5× faster | Low priority — JS is fast enough |
-| Frequency band extraction (DFT) | Moderate (~50-200ms per track) | 10-20× faster with SIMD | **High priority** — most compute-heavy |
-| BPM onset detection | Moderate (~100-500ms) | 5-10× faster | **Medium priority** — runs once per track |
-| Autocorrelation | Moderate (~50-100ms) | 10× faster with SIMD | **Medium priority** |
+| Operation                       | JS performance                 | WASM potential          | Verdict                                   |
+| ------------------------------- | ------------------------------ | ----------------------- | ----------------------------------------- |
+| Peak downsampling               | Fast (~5ms for 100K samples)   | 2-5× faster             | Low priority — JS is fast enough          |
+| Frequency band extraction (DFT) | Moderate (~50-200ms per track) | 10-20× faster with SIMD | **High priority** — most compute-heavy    |
+| BPM onset detection             | Moderate (~100-500ms)          | 5-10× faster            | **Medium priority** — runs once per track |
+| Autocorrelation                 | Moderate (~50-100ms)           | 10× faster with SIMD    | **Medium priority**                       |
 
 **Recommended approach:**
+
 1. **Phase 1: Benchmark** — Measure actual JS performance for each operation on real tracks (5-min, 10-min, 30-min durations). Document baseline.
 2. **Phase 2: Evaluate libraries** — Check existing WASM audio DSP libraries:
    - `@aspect-build/aspect-wasm-audio` (FFT, spectral analysis)
@@ -243,13 +279,16 @@ Evaluate whether WebAssembly can accelerate the heaviest compute: peak extractio
 3. **Phase 3: Implement if justified** — If frequency band extraction takes > 100ms per track in JS, port the DFT/filter bank to WASM. Otherwise, JS + Web Worker is sufficient.
 
 **WASM integration pattern:**
+
 ```ts
 // Load WASM module once
 const wasmModule = await WebAssembly.instantiateStreaming(fetch('/dsp.wasm'))
 
 // Call from worker
 const result = wasmModule.instance.exports.computeFrequencyBands(
-  peaksPtr, peaksLen, sampleRate
+  peaksPtr,
+  peaksLen,
+  sampleRate
 )
 ```
 
@@ -257,16 +296,17 @@ const result = wasmModule.instance.exports.computeFrequencyBands(
 
 ## Implementation Priority
 
-| Priority | Improvement | Impact | Effort |
-|----------|-----------|--------|--------|
-| 1 | React.memo boundaries | High (eliminates wasted renders) | Low |
-| 2 | Adaptive peak resolution | High (zoom quality + performance) | Medium |
-| 3 | OffscreenCanvas pre-rendering | High (scroll performance) | Medium |
-| 4 | Web Workers | Medium (non-blocking compute) | Medium |
-| 5 | Virtual track rendering | Medium (20+ track support) | Low |
-| 6 | WASM evaluation | Low-Medium (only if needed) | High |
+| Priority | Improvement                   | Impact                            | Effort |
+| -------- | ----------------------------- | --------------------------------- | ------ |
+| 1        | React.memo boundaries         | High (eliminates wasted renders)  | Low    |
+| 2        | Adaptive peak resolution      | High (zoom quality + performance) | Medium |
+| 3        | OffscreenCanvas pre-rendering | High (scroll performance)         | Medium |
+| 4        | Web Workers                   | Medium (non-blocking compute)     | Medium |
+| 5        | Virtual track rendering       | Medium (20+ track support)        | Low    |
+| 6        | WASM evaluation               | Low-Medium (only if needed)       | High   |
 
 ## Acceptance Criteria
+
 - [ ] React.memo on all timeline child components — verified via React DevTools profiler (no unnecessary re-renders during scroll)
 - [ ] Waveform detail increases visibly when zooming from 1× to 20×
 - [ ] Zooming at 50× shows fine waveform detail (not blocky 2000-peak artifacts)
@@ -278,6 +318,7 @@ const result = wasmModule.instance.exports.computeFrequencyBands(
 - [ ] WASM evaluation documented with benchmark results and go/no-go decision
 
 ## Edge Cases
+
 - **OffscreenCanvas not supported:** Fall back to standard canvas rendering (OffscreenCanvas is supported in all modern Chromium/Electron versions, but have a fallback)
 - **Web Worker creation fails:** Fall back to main-thread computation with a console warning
 - **Binary peak file corruption:** Validate file size against expected byte count (`peakCount × 4 bytes`). If mismatch, regenerate.
@@ -285,12 +326,14 @@ const result = wasmModule.instance.exports.computeFrequencyBands(
 - **Transferable ArrayBuffer detached:** After `postMessage` with transfer, the source ArrayBuffer is no longer usable. Clone if needed before transfer.
 
 ## Out of Scope
+
 - GPU-accelerated rendering (WebGL/WebGPU for waveforms)
 - Streaming peak data (progressive loading during extraction)
 - Multi-threaded FFmpeg (FFmpeg already runs as a separate process)
 - Service Worker caching of peak data
 
 ## Dependencies
+
 - Existing: WaveformExtractor, BpmDetector, WaveformCanvas, TimelineLayout
 - Existing: Vite worker import support (`new Worker(new URL(...))`)
 - New: OffscreenCanvas API (Chromium 69+, well within Electron 40)
