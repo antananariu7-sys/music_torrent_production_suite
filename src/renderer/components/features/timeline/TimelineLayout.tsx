@@ -372,6 +372,7 @@ export function TimelineLayout({
 
                   {waveform ? (
                     <WaveformCanvas
+                      songId={song.id}
                       peaks={waveform.peaks}
                       peaksLow={waveform.peaksLow}
                       peaksMid={waveform.peaksMid}
