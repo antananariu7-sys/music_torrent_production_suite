@@ -1,5 +1,16 @@
 # Waveform Performance Improvements — Implementation Plan
 
+## Status: DONE
+
+Completed in v0.3.1–v0.3.3 across commits d537961..3460ab1.
+
+- **Phase 1** (React.memo): All timeline components wrapped, Playhead uses direct DOM updates, memoized computations, useShallow selectors
+- **Phase 2** (OffscreenCanvas): Tile cache with LRU (50 tiles, 4096px wide), DPR-aware rendering, zero-copy ImageBitmap blitting
+- **Phase 3** (Binary peaks): `.peaks` binary format (16-byte header + Float32Array), `.meta.json` sidecar, legacy JSON fallback, 17 tests passing
+- **Phase 4** (Web Worker): **Skipped** — tile cache reduced per-tile peak arrays to ~2000 points, making worker message overhead counterproductive
+- **Phase 5** (Virtual tracks): IntersectionObserver-based VirtualTrack with 500px horizontal buffer, only 2-3 tracks mounted at a time
+- **Bonus**: Canvas-based BeatGrid (replaced 600+ DOM elements), rebuild waveform button, full-page loading overlay
+
 ## Context
 
 The timeline waveform rendering works correctly but has no performance optimization. **Zero components use React.memo**, causing cascading re-renders on every store update. The Playhead reads `currentTime` at ~60fps and triggers the entire tree to re-render. No OffscreenCanvas, no Web Workers, no virtual rendering. Peak cache is JSON (slow parse). These issues compound with 20+ track projects.
