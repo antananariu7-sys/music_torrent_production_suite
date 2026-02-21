@@ -2,7 +2,7 @@
 
 ## Overview
 
-Optimize the timeline rendering pipeline for smooth performance with large projects (20+ tracks) and high zoom levels. Introduces React.memo boundaries, adaptive peak resolution, OffscreenCanvas pre-rendering, virtual track rendering, Web Workers for heavy computation, and WASM evaluation for DSP operations.
+Optimize the timeline rendering pipeline for smooth performance with large projects (20+ tracks) and high zoom levels. Introduces React.memo boundaries, adaptive peak resolution, OffscreenCanvas pre-rendering, virtual track rendering, and Web Workers for heavy computation.
 
 ## User Problem
 
@@ -258,52 +258,32 @@ const worker = new Worker(new URL('./waveform.worker.ts', import.meta.url), {
 
 ### 6. WASM Evaluation for DSP Operations
 
-Evaluate whether WebAssembly can accelerate the heaviest compute: peak extraction, frequency band analysis, and BPM detection.
+**Status: Evaluated — Decision: Skip WASM**
 
-**Candidates for WASM:**
+Benchmark conducted 2026-02-21 using AssemblyScript 0.27 → WASM (4.7KB binary). Full results in [done/wasm-benchmark-plan.md](done/wasm-benchmark-plan.md).
 
-| Operation                       | JS performance                 | WASM potential          | Verdict                                   |
-| ------------------------------- | ------------------------------ | ----------------------- | ----------------------------------------- |
-| Peak downsampling               | Fast (~5ms for 100K samples)   | 2-5× faster             | Low priority — JS is fast enough          |
-| Frequency band extraction (DFT) | Moderate (~50-200ms per track) | 10-20× faster with SIMD | **High priority** — most compute-heavy    |
-| BPM onset detection             | Moderate (~100-500ms)          | 5-10× faster            | **Medium priority** — runs once per track |
-| Autocorrelation                 | Moderate (~50-100ms)           | 10× faster with SIMD    | **Medium priority**                       |
+| Operation          | JS Median | WASM Median | Speedup |
+| ------------------ | --------- | ----------- | ------- |
+| Downsample 8K→200  | 0.007ms   | 0.007ms     | 0.9x    |
+| Downsample 32K→500 | 0.024ms   | 0.028ms     | 0.9x    |
+| Band energy 160K   | 1.752ms   | 0.578ms     | 3.0x    |
+| Band energy 480K   | 4.146ms   | 1.748ms     | 2.4x    |
+| BPM detection 700K | 1.686ms   | 1.083ms     | 1.6x    |
 
-**Recommended approach:**
+**Conclusion:** All JS operations are under 5ms. Max WASM speedup is 3.0x — below the 5x threshold to justify build complexity. Downsample (the renderer hot path) shows no gain due to memory copy overhead. Band energy and BPM run in the main process via FFmpeg, not in the render loop. WASM also cannot accelerate canvas rendering (Canvas 2D API calls must go through JS).
 
-1. **Phase 1: Benchmark** — Measure actual JS performance for each operation on real tracks (5-min, 10-min, 30-min durations). Document baseline.
-2. **Phase 2: Evaluate libraries** — Check existing WASM audio DSP libraries:
-   - `@aspect-build/aspect-wasm-audio` (FFT, spectral analysis)
-   - `aubio` (has WASM builds for beat tracking)
-   - Custom Rust → WASM via `wasm-pack` for tailored operations
-3. **Phase 3: Implement if justified** — If frequency band extraction takes > 100ms per track in JS, port the DFT/filter bank to WASM. Otherwise, JS + Web Worker is sufficient.
-
-**WASM integration pattern:**
-
-```ts
-// Load WASM module once
-const wasmModule = await WebAssembly.instantiateStreaming(fetch('/dsp.wasm'))
-
-// Call from worker
-const result = wasmModule.instance.exports.computeFrequencyBands(
-  peaksPtr,
-  peaksLen,
-  sampleRate
-)
-```
-
-**Decision gate:** Only invest in WASM if profiling shows that Web Workers alone can't keep the UI at 60fps during waveform generation. The cost of maintaining WASM build tooling (Rust toolchain, wasm-pack, CI changes) must be justified by measurable gains.
+**Decision: JS + Web Workers is sufficient.** Focus on React.memo, OffscreenCanvas, and Web Workers instead.
 
 ## Implementation Priority
 
-| Priority | Improvement                   | Impact                            | Effort |
-| -------- | ----------------------------- | --------------------------------- | ------ |
-| 1        | React.memo boundaries         | High (eliminates wasted renders)  | Low    |
-| 2        | Adaptive peak resolution      | High (zoom quality + performance) | Medium |
-| 3        | OffscreenCanvas pre-rendering | High (scroll performance)         | Medium |
-| 4        | Web Workers                   | Medium (non-blocking compute)     | Medium |
-| 5        | Virtual track rendering       | Medium (20+ track support)        | Low    |
-| 6        | WASM evaluation               | Low-Medium (only if needed)       | High   |
+| Priority | Improvement                   | Impact                                                  | Effort   |
+| -------- | ----------------------------- | ------------------------------------------------------- | -------- |
+| 1        | React.memo boundaries         | High (eliminates wasted renders)                        | Low      |
+| 2        | Adaptive peak resolution      | High (zoom quality + performance)                       | Medium   |
+| 3        | OffscreenCanvas pre-rendering | High (scroll performance)                               | Medium   |
+| 4        | Web Workers                   | Medium (non-blocking compute)                           | Medium   |
+| 5        | Virtual track rendering       | Medium (20+ track support)                              | Low      |
+| 6        | ~~WASM evaluation~~           | ~~Low-Medium~~ **Skipped** — benchmarked, not justified | ~~High~~ |
 
 ## Acceptance Criteria
 
@@ -315,7 +295,7 @@ const result = wasmModule.instance.exports.computeFrequencyBands(
 - [ ] Peak data stored in binary format (`.peaks` files) — smaller and faster than JSON
 - [ ] OffscreenCanvas used for waveform rendering — blit-only on scroll
 - [ ] Virtual rendering: 30-track project uses < 100MB renderer memory
-- [ ] WASM evaluation documented with benchmark results and go/no-go decision
+- [x] WASM evaluation documented with benchmark results and go/no-go decision — **Skipped** (all JS ops < 5ms, max 3x speedup)
 
 ## Edge Cases
 
@@ -337,4 +317,4 @@ const result = wasmModule.instance.exports.computeFrequencyBands(
 - Existing: WaveformExtractor, BpmDetector, WaveformCanvas, TimelineLayout
 - Existing: Vite worker import support (`new Worker(new URL(...))`)
 - New: OffscreenCanvas API (Chromium 69+, well within Electron 40)
-- Optional: Rust toolchain + wasm-pack (only if WASM evaluation is positive)
+- ~~Optional: Rust toolchain + wasm-pack~~ — WASM evaluation complete, not needed
