@@ -32,9 +32,10 @@ export function makeCacheKey(
   color: string,
   frequencyColorMode: boolean,
   waveformStyle: 'bars' | 'smooth',
-  peaksLength: number
+  peaksLength: number,
+  dpr: number
 ): string {
-  return `${songId}:${tileIndex}:${tileWidth}:${height}:${color}:${frequencyColorMode}:${waveformStyle}:${peaksLength}`
+  return `${songId}:${tileIndex}:${tileWidth}:${height}:${color}:${frequencyColorMode}:${waveformStyle}:${peaksLength}:${dpr}`
 }
 
 /** LRU tile cache — shared across all WaveformCanvas instances */
@@ -118,6 +119,7 @@ export function renderTile(
   color: string,
   waveformStyle: 'bars' | 'smooth',
   frequencyColorMode: boolean,
+  dpr: number,
   peaksLow?: number[],
   peaksMid?: number[],
   peaksHigh?: number[]
@@ -152,10 +154,10 @@ export function renderTile(
     ? downsampleArray(tilePeaksHigh, targetCount)
     : undefined
 
-  // Render on OffscreenCanvas (DPR=1 for offscreen tiles to save memory)
+  // Render on OffscreenCanvas at device DPR for crisp output
   // OffscreenCanvas requires positive integer dimensions
-  const canvasW = Math.ceil(tileWidth)
-  const canvasH = Math.ceil(height)
+  const canvasW = Math.ceil(tileWidth * dpr)
+  const canvasH = Math.ceil(height * dpr)
   if (canvasW <= 0 || canvasH <= 0) {
     // Return a 1x1 transparent bitmap as fallback
     const tiny = new OffscreenCanvas(1, 1)
@@ -163,6 +165,7 @@ export function renderTile(
   }
   const offscreen = new OffscreenCanvas(canvasW, canvasH)
   const ctx = offscreen.getContext('2d')!
+  ctx.scale(dpr, dpr)
   drawWaveform(
     ctx,
     lodPeaks,
@@ -192,6 +195,7 @@ export function getTilesForTrack(
   color: string,
   waveformStyle: 'bars' | 'smooth',
   frequencyColorMode: boolean,
+  dpr: number,
   peaksLow?: number[],
   peaksMid?: number[],
   peaksHigh?: number[]
@@ -212,7 +216,8 @@ export function getTilesForTrack(
       color,
       frequencyColorMode,
       waveformStyle,
-      peaks.length
+      peaks.length,
+      dpr
     )
 
     let tile = tileCache.get(key)
@@ -226,6 +231,7 @@ export function getTilesForTrack(
         color,
         waveformStyle,
         frequencyColorMode,
+        dpr,
         peaksLow,
         peaksMid,
         peaksHigh

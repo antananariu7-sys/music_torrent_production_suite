@@ -12,6 +12,7 @@ import { BeatGrid } from './BeatGrid'
 import { Playhead } from './Playhead'
 import { CrossfadePopover } from './CrossfadePopover'
 import { CuePointPopover } from './CuePointPopover'
+import { VirtualTrack } from './VirtualTrack'
 import type { Song } from '@shared/types/project.types'
 import type { WaveformData } from '@shared/types/waveform.types'
 
@@ -332,6 +333,7 @@ export function TimelineLayout({
     <>
       <Box
         ref={containerRef}
+        data-timeline-scroll
         overflowX="auto"
         bg="bg.surface"
         borderWidth="1px"
@@ -357,17 +359,21 @@ export function TimelineLayout({
             const cuePoints = song.cuePoints ?? []
 
             return (
-              <Box
+              <VirtualTrack
                 key={song.id}
-                position="absolute"
-                left={`${pos.left}px`}
-                top={0}
-                w={`${pos.width}px`}
-                onClick={(e) => handleTrackClick(e, song, pos.left, index)}
-                onDoubleClick={(e) => handleTrackDoubleClick(e, song, pos.left)}
+                left={pos.left}
+                width={pos.width}
+                height={TRACK_HEIGHT}
               >
-                {/* Waveform or placeholder */}
-                <Box position="relative">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => handleTrackClick(e, song, pos.left, index)}
+                  onDoubleClick={(e) =>
+                    handleTrackDoubleClick(e, song, pos.left)
+                  }
+                  style={{ position: 'relative' }}
+                >
                   <TrackInfoOverlay song={song} />
 
                   {waveform ? (
@@ -432,8 +438,8 @@ export function TimelineLayout({
                       />
                     )
                   })}
-                </Box>
-              </Box>
+                </div>
+              </VirtualTrack>
             )
           })}
 

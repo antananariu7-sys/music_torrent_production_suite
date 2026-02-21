@@ -44,11 +44,13 @@ export const WaveformCanvas = memo(
       const ctx = canvas.getContext('2d')
       if (!ctx) return
 
-      // Size canvas to CSS pixels (DPR=1 for tiles — saves memory)
-      canvas.width = width
-      canvas.height = height
+      const dpr = window.devicePixelRatio || 1
 
-      // Get pre-rendered tiles (cached or freshly rendered)
+      // Size canvas at device DPR for crisp rendering
+      canvas.width = Math.ceil(width * dpr)
+      canvas.height = Math.ceil(height * dpr)
+
+      // Get pre-rendered tiles (cached or freshly rendered, at matching DPR)
       const tiles = getTilesForTrack(
         songId,
         peaks,
@@ -57,17 +59,28 @@ export const WaveformCanvas = memo(
         color,
         waveformStyle,
         frequencyColorMode,
+        dpr,
         peaksLow,
         peaksMid,
         peaksHigh
       )
 
-      // Blit tiles onto visible canvas
-      ctx.clearRect(0, 0, width, height)
+      // Blit tiles onto visible canvas (1:1 pixel mapping — no scaling)
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
       for (const tile of tiles) {
-        const x = tile.index * TILE_WIDTH
-        const tileW = Math.min(TILE_WIDTH, width - x)
-        ctx.drawImage(tile.bitmap, 0, 0, tileW, height, x, 0, tileW, height)
+        const x = Math.round(tile.index * TILE_WIDTH * dpr)
+        const tileW = Math.min(Math.ceil(TILE_WIDTH * dpr), canvas.width - x)
+        ctx.drawImage(
+          tile.bitmap,
+          0,
+          0,
+          tileW,
+          canvas.height,
+          x,
+          0,
+          tileW,
+          canvas.height
+        )
       }
     }, [
       songId,
