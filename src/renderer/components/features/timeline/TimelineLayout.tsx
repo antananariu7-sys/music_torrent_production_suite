@@ -80,6 +80,7 @@ export function TimelineLayout({
 
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
   const waveformStyle = useTimelineStore((s) => s.waveformStyle)
+  const showBeatGrid = useTimelineStore((s) => s.showBeatGrid)
 
   const activeCrossfadePopover = useTimelineStore(
     (s) => s.activeCrossfadePopover
@@ -363,7 +364,7 @@ export function TimelineLayout({
                   )}
 
                   {/* Beat grid overlay */}
-                  {song.bpm != null && song.bpm > 0 && (
+                  {showBeatGrid && song.bpm != null && song.bpm > 0 && (
                     <BeatGrid
                       bpm={song.bpm}
                       firstBeatOffset={song.firstBeatOffset ?? 0}

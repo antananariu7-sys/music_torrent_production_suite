@@ -6,6 +6,7 @@ import {
   FiGrid,
   FiBarChart2,
   FiActivity,
+  FiMusic,
 } from 'react-icons/fi'
 import { useTimelineStore } from '@/store/timelineStore'
 
@@ -34,6 +35,8 @@ export function ZoomControls({
   )
   const waveformStyle = useTimelineStore((s) => s.waveformStyle)
   const toggleWaveformStyle = useTimelineStore((s) => s.toggleWaveformStyle)
+  const showBeatGrid = useTimelineStore((s) => s.showBeatGrid)
+  const toggleBeatGrid = useTimelineStore((s) => s.toggleBeatGrid)
 
   return (
     <HStack gap={3} align="center">
@@ -94,6 +97,19 @@ export function ZoomControls({
         color={snapMode === 'beat' ? 'text.primary' : 'text.muted'}
       >
         Snap
+      </Text>
+
+      <IconButton
+        aria-label="Toggle beat grid"
+        size="xs"
+        variant={showBeatGrid ? 'solid' : 'ghost'}
+        colorPalette={showBeatGrid ? 'purple' : 'gray'}
+        onClick={toggleBeatGrid}
+      >
+        <FiMusic />
+      </IconButton>
+      <Text fontSize="xs" color={showBeatGrid ? 'text.primary' : 'text.muted'}>
+        Beats
       </Text>
 
       <Box w="1px" h="16px" bg="border.base" mx={1} />
