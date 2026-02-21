@@ -9,7 +9,9 @@ import {
   FiActivity,
   FiMusic,
 } from 'react-icons/fi'
+import { useShallow } from 'zustand/react/shallow'
 import { useTimelineStore } from '@/store/timelineStore'
+import { MIN_ZOOM, MAX_ZOOM } from './TimelineLayout'
 
 interface ZoomControlsProps {
   totalDuration: number
@@ -24,19 +26,32 @@ function formatDuration(seconds: number): string {
 export const ZoomControls = memo(function ZoomControls({
   totalDuration,
 }: ZoomControlsProps): JSX.Element {
-  const zoomLevel = useTimelineStore((s) => s.zoomLevel)
+  // State values grouped with useShallow to prevent re-renders on unrelated store changes
+  const {
+    zoomLevel,
+    snapMode,
+    frequencyColorMode,
+    waveformStyle,
+    showBeatGrid,
+  } = useTimelineStore(
+    useShallow((s) => ({
+      zoomLevel: s.zoomLevel,
+      snapMode: s.snapMode,
+      frequencyColorMode: s.frequencyColorMode,
+      waveformStyle: s.waveformStyle,
+      showBeatGrid: s.showBeatGrid,
+    }))
+  )
+
+  // Action selectors are stable refs from create() — keep separate
   const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
   const zoomIn = useTimelineStore((s) => s.zoomIn)
   const zoomOut = useTimelineStore((s) => s.zoomOut)
-  const snapMode = useTimelineStore((s) => s.snapMode)
   const toggleSnapMode = useTimelineStore((s) => s.toggleSnapMode)
-  const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
   const toggleFrequencyColorMode = useTimelineStore(
     (s) => s.toggleFrequencyColorMode
   )
-  const waveformStyle = useTimelineStore((s) => s.waveformStyle)
   const toggleWaveformStyle = useTimelineStore((s) => s.toggleWaveformStyle)
-  const showBeatGrid = useTimelineStore((s) => s.showBeatGrid)
   const toggleBeatGrid = useTimelineStore((s) => s.toggleBeatGrid)
 
   return (
@@ -52,8 +67,8 @@ export const ZoomControls = memo(function ZoomControls({
 
       <input
         type="range"
-        min={1}
-        max={4}
+        min={MIN_ZOOM}
+        max={MAX_ZOOM}
         step={0.1}
         value={zoomLevel}
         onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
@@ -73,7 +88,7 @@ export const ZoomControls = memo(function ZoomControls({
         aria-label="Fit to view"
         size="xs"
         variant="ghost"
-        onClick={() => setZoomLevel(1)}
+        onClick={() => setZoomLevel(MIN_ZOOM)}
       >
         <FiMaximize2 />
       </IconButton>

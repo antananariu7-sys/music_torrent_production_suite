@@ -24,6 +24,10 @@ interface TimelineLayoutProps {
 /** Base pixels per second at zoom 1x */
 export const PX_PER_SEC = 10
 
+/** Zoom limits */
+export const MIN_ZOOM = 1
+export const MAX_ZOOM = 6
+
 /** Track height in pixels */
 const TRACK_HEIGHT = 240
 
@@ -212,7 +216,10 @@ export function TimelineLayout({
       const cursorXInTimeline = cursorXInViewport + el.scrollLeft
 
       const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15
-      const newZoom = Math.max(1, Math.min(4, currentZoom * zoomFactor))
+      const newZoom = Math.max(
+        MIN_ZOOM,
+        Math.min(MAX_ZOOM, currentZoom * zoomFactor)
+      )
 
       const cursorFraction =
         currentTotalWidth > 0 ? cursorXInTimeline / currentTotalWidth : 0
