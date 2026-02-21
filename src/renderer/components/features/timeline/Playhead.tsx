@@ -45,7 +45,7 @@ export function Playhead({
       left={`${x}px`}
       top={0}
       w="2px"
-      h={`${trackHeight + 14}px`}
+      h={`${trackHeight}px`}
       bg="#f97316"
       zIndex={10}
       pointerEvents="none"

@@ -318,7 +318,7 @@ export function TimelineLayout({
         {/* Track area */}
         <Box
           position="relative"
-          h={`${TRACK_HEIGHT + 30}px`}
+          h={`${TRACK_HEIGHT}px`}
           minW={`${totalWidth}px`}
         >
           {songs.map((song, index) => {
@@ -338,18 +338,6 @@ export function TimelineLayout({
                 onClick={(e) => handleTrackClick(e, song, pos.left, index)}
                 onDoubleClick={(e) => handleTrackDoubleClick(e, song, pos.left)}
               >
-                {/* Track label */}
-                <Text
-                  fontSize="2xs"
-                  color="text.muted"
-                  mb={0.5}
-                  truncate
-                  maxW={`${pos.width}px`}
-                  title={song.title}
-                >
-                  {song.title}
-                </Text>
-
                 {/* Waveform or placeholder */}
                 <Box position="relative">
                   <TrackInfoOverlay song={song} />
@@ -441,7 +429,7 @@ export function TimelineLayout({
                   key={`xfade-${song.id}`}
                   position="absolute"
                   left={`${overlapStart}px`}
-                  top="14px"
+                  top={0}
                   w={`${overlapWidth}px`}
                   h={`${TRACK_HEIGHT}px`}
                   bg="whiteAlpha.100"

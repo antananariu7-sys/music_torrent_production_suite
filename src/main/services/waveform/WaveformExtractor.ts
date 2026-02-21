@@ -10,11 +10,11 @@ import type {
 } from '@shared/types/waveform.types'
 import type { ProjectService } from '../ProjectService'
 
-/** Number of peaks in the downsampled waveform */
-const PEAK_COUNT = 2000
+/** Number of peaks in the downsampled waveform (high-res for zoom-adaptive LOD) */
+const PEAK_COUNT = 8000
 
-/** Sample rate for waveform extraction (low = fast, sufficient for visual) */
-const EXTRACT_SAMPLE_RATE = 8000
+/** Sample rate for waveform extraction (16kHz for high-res peaks and high-band fidelity) */
+const EXTRACT_SAMPLE_RATE = 16000
 
 /** Sample rate for frequency band extraction (needs >8kHz for high band) */
 const FREQ_SAMPLE_RATE = 16000
@@ -40,15 +40,25 @@ export class WaveformExtractor {
     const fileHash = await this.computeFileHash(filePath)
     const cachePath = this.getCachePath(songId)
 
-    // Check disk cache (also invalidate if missing frequency band data)
+    // Check disk cache (invalidate if missing frequency data or low-res peaks)
     const cached = await this.readCache(cachePath, fileHash)
-    if (cached && cached.peaksLow && cached.peaksMid && cached.peaksHigh) {
+    if (
+      cached &&
+      cached.peaksLow &&
+      cached.peaksMid &&
+      cached.peaksHigh &&
+      cached.peaks.length >= PEAK_COUNT
+    ) {
       console.log(`[WaveformExtractor] Cache hit for ${songId}`)
       return cached
     }
     if (cached) {
+      const reason =
+        cached.peaks.length < PEAK_COUNT
+          ? `low-res peaks (${cached.peaks.length}/${PEAK_COUNT})`
+          : 'missing frequency data'
       console.log(
-        `[WaveformExtractor] Cache missing frequency data for ${songId}, re-extracting`
+        `[WaveformExtractor] Cache ${reason} for ${songId}, re-extracting`
       )
     }
 

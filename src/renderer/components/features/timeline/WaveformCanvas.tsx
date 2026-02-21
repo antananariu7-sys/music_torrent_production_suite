@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useMemo } from 'react'
 import { Box } from '@chakra-ui/react'
 
 /** Convert a hex color to rgba with the given alpha */
@@ -290,6 +290,26 @@ function drawSmoothWaveform(
   }
 }
 
+/**
+ * Downsample a peaks array to targetCount using max-pooling.
+ * Used for zoom-adaptive LOD: fewer peaks at low zoom, more at high zoom.
+ */
+function downsampleArray(arr: number[], targetCount: number): number[] {
+  if (arr.length <= targetCount) return arr
+  const windowSize = arr.length / targetCount
+  const result = new Array(targetCount)
+  for (let i = 0; i < targetCount; i++) {
+    const start = Math.floor(i * windowSize)
+    const end = Math.floor((i + 1) * windowSize)
+    let max = 0
+    for (let j = start; j < end; j++) {
+      if (arr[j] > max) max = arr[j]
+    }
+    result[i] = max
+  }
+  return result
+}
+
 interface WaveformCanvasProps {
   peaks: number[]
   peaksLow?: number[]
@@ -321,9 +341,34 @@ export function WaveformCanvas({
 }: WaveformCanvasProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
+  // Zoom-adaptive LOD: downsample peaks to match visible pixel density
+  // Cap at canvas width (no point having more peaks than pixels)
+  const targetPeaks = useMemo(() => {
+    // Use ~1 peak per 2 CSS pixels for smooth look, capped at source length
+    const target = Math.min(peaks.length, Math.max(200, Math.ceil(width / 2)))
+    return target
+  }, [peaks.length, width])
+
+  const lodPeaks = useMemo(
+    () => downsampleArray(peaks, targetPeaks),
+    [peaks, targetPeaks]
+  )
+  const lodPeaksLow = useMemo(
+    () => (peaksLow ? downsampleArray(peaksLow, targetPeaks) : undefined),
+    [peaksLow, targetPeaks]
+  )
+  const lodPeaksMid = useMemo(
+    () => (peaksMid ? downsampleArray(peaksMid, targetPeaks) : undefined),
+    [peaksMid, targetPeaks]
+  )
+  const lodPeaksHigh = useMemo(
+    () => (peaksHigh ? downsampleArray(peaksHigh, targetPeaks) : undefined),
+    [peaksHigh, targetPeaks]
+  )
+
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || peaks.length === 0) return
+    if (!canvas || lodPeaks.length === 0) return
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
@@ -339,26 +384,30 @@ export function WaveformCanvas({
     // Draw mirrored waveform
     const centerY = height / 2
     const halfHeight = height / 2 - 2 // 2px padding
-    const barWidth = width / peaks.length
+    const barWidth = width / lodPeaks.length
     const minBarWidth = Math.max(1, barWidth)
 
     const hasFrequencyData =
       frequencyColorMode &&
-      peaksLow &&
-      peaksMid &&
-      peaksHigh &&
-      peaksLow.length === peaks.length
+      lodPeaksLow &&
+      lodPeaksMid &&
+      lodPeaksHigh &&
+      lodPeaksLow.length === lodPeaks.length
 
     if (waveformStyle === 'smooth') {
       // --- Smooth bezier curve rendering ---
       drawSmoothWaveform(
         ctx,
-        peaks,
+        lodPeaks,
         width,
         centerY,
         halfHeight,
         hasFrequencyData
-          ? { peaksLow: peaksLow!, peaksMid: peaksMid!, peaksHigh: peaksHigh! }
+          ? {
+              peaksLow: lodPeaksLow!,
+              peaksMid: lodPeaksMid!,
+              peaksHigh: lodPeaksHigh!,
+            }
           : null,
         hasFrequencyData ? null : color
       )
@@ -367,10 +416,10 @@ export function WaveformCanvas({
       if (hasFrequencyData) {
         drawFrequencyBars(
           ctx,
-          peaks,
-          peaksLow!,
-          peaksMid!,
-          peaksHigh!,
+          lodPeaks,
+          lodPeaksLow!,
+          lodPeaksMid!,
+          lodPeaksHigh!,
           barWidth,
           minBarWidth,
           centerY,
@@ -380,19 +429,19 @@ export function WaveformCanvas({
         )
       } else {
         ctx.fillStyle = createBarGradient(ctx, height, color)
-        for (let i = 0; i < peaks.length; i++) {
+        for (let i = 0; i < lodPeaks.length; i++) {
           const x = i * barWidth
-          const peakHeight = peaks[i] * halfHeight
+          const peakHeight = lodPeaks[i] * halfHeight
           if (peakHeight < 0.5) continue
           ctx.fillRect(x, centerY - peakHeight, minBarWidth, peakHeight * 2)
         }
       }
     }
   }, [
-    peaks,
-    peaksLow,
-    peaksMid,
-    peaksHigh,
+    lodPeaks,
+    lodPeaksLow,
+    lodPeaksMid,
+    lodPeaksHigh,
     frequencyColorMode,
     waveformStyle,
     width,
@@ -402,8 +451,8 @@ export function WaveformCanvas({
 
   return (
     <Box
-      borderWidth={isSelected ? '2px' : '1px'}
-      borderColor={isSelected ? 'blue.500' : 'border.base'}
+      borderWidth={isSelected ? '2px' : '0px'}
+      borderColor={isSelected ? 'blue.500' : 'transparent'}
       borderRadius="sm"
       overflow="hidden"
       cursor="pointer"
