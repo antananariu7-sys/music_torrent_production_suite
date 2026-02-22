@@ -29,14 +29,6 @@ interface TimelineState {
   frequencyColorMode: boolean
   showBeatGrid: boolean
 
-  // Drag interaction tracking
-  dragState: {
-    type: 'trim-start' | 'trim-end' | 'cue-point'
-    songId: string
-    startX: number
-    initialValue: number
-  } | null
-
   // Region selection
   activeSelection: {
     songId: string
@@ -73,8 +65,6 @@ interface TimelineState {
     cuePoint?: CuePoint
   ) => void
   closeCuePointPopover: () => void
-  setDragState: (state: TimelineState['dragState']) => void
-  clearDragState: () => void
   setActiveSelection: (sel: TimelineState['activeSelection']) => void
   clearActiveSelection: () => void
   toggleSnapMode: () => void
@@ -92,7 +82,6 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   scrollPosition: 0,
   viewportWidth: 0,
   snapMode: 'off',
-  dragState: null,
   activeSelection: null,
   frequencyColorMode: false,
   showBeatGrid: false,
@@ -143,14 +132,6 @@ export const useTimelineStore = create<TimelineState>((set) => ({
       activeCrossfadePopover: null,
     }),
   closeCuePointPopover: () => set({ activeCuePointPopover: null }),
-
-  setDragState: (dragState) =>
-    set({
-      dragState,
-      activeCrossfadePopover: null,
-      activeCuePointPopover: null,
-    }),
-  clearDragState: () => set({ dragState: null }),
 
   setActiveSelection: (activeSelection) =>
     set({

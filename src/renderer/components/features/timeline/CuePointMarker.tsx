@@ -99,6 +99,7 @@ export const CuePointMarker = memo(
 
     return (
       <Box
+        data-cue-marker
         position="absolute"
         left={`${x}px`}
         top={0}

@@ -29,7 +29,6 @@ describe('timelineStore', () => {
       scrollPosition: 0,
       viewportWidth: 0,
       snapMode: 'off',
-      dragState: null,
       frequencyColorMode: false,
       showBeatGrid: false,
       activeCrossfadePopover: null,
@@ -269,45 +268,6 @@ describe('timelineStore', () => {
       expect(state.isLoadingWaveforms).toBe(false)
       expect(state.loadingProgress).toBeNull()
       expect(state.selectedTrackId).toBeNull()
-    })
-  })
-
-  describe('dragState', () => {
-    it('should set drag state and close popovers', () => {
-      useTimelineStore.setState({
-        activeCrossfadePopover: { songId: 's1', position: { x: 0, y: 0 } },
-        activeCuePointPopover: {
-          songId: 's2',
-          timestamp: 10,
-          position: { x: 50, y: 50 },
-        },
-      })
-
-      const drag = {
-        type: 'trim-start' as const,
-        songId: 's1',
-        startX: 100,
-        initialValue: 5,
-      }
-      useTimelineStore.getState().setDragState(drag)
-
-      const state = useTimelineStore.getState()
-      expect(state.dragState).toEqual(drag)
-      expect(state.activeCrossfadePopover).toBeNull()
-      expect(state.activeCuePointPopover).toBeNull()
-    })
-
-    it('should clear drag state', () => {
-      useTimelineStore.getState().setDragState({
-        type: 'trim-end',
-        songId: 's1',
-        startX: 200,
-        initialValue: 30,
-      })
-
-      useTimelineStore.getState().clearDragState()
-
-      expect(useTimelineStore.getState().dragState).toBeNull()
     })
   })
 })

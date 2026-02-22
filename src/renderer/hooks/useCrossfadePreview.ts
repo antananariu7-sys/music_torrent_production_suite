@@ -23,7 +23,7 @@ const CURVE_SAMPLES = 128
 
 // ─── Gain curve generators ───────────────────────────────────────────
 
-function generateFadeOutCurve(
+export function generateFadeOutCurve(
   type: CrossfadeCurveType,
   samples: number
 ): Float32Array {
@@ -45,7 +45,7 @@ function generateFadeOutCurve(
   return curve
 }
 
-function generateFadeInCurve(
+export function generateFadeInCurve(
   type: CrossfadeCurveType,
   samples: number
 ): Float32Array {

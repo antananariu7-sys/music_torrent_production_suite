@@ -16,7 +16,7 @@ const CURVE_POINTS = 100
  * Compute fade-out (descending) and fade-in (ascending) gain values
  * for a given curve type at normalized position t (0..1).
  */
-function computeGains(
+export function computeGains(
   t: number,
   curveType: CrossfadeCurveType
 ): { fadeOut: number; fadeIn: number } {

@@ -15,6 +15,7 @@ import { CrossfadePopover } from './CrossfadePopover'
 import { CuePointPopover } from './CuePointPopover'
 import { VirtualTrack } from './VirtualTrack'
 import { RegionSelection } from './RegionSelection'
+import { useRegionSelection } from './hooks/useRegionSelection'
 import { snapToNearestBeat } from './utils/snapToBeat'
 import type { Song } from '@shared/types/project.types'
 import type { WaveformData } from '@shared/types/waveform.types'
@@ -506,144 +507,12 @@ export function TimelineLayout({
     [currentProject, setCurrentProject, songs]
   )
 
-  // --- Region selection drag state ---
-  const regionDragRef = useRef<{
-    songId: string
-    startX: number
-    startTime: number
-    trimStart: number
-    trimEnd: number
-    isDragging: boolean
-  } | null>(null)
-  const didRegionSelectRef = useRef(false)
-  const [pendingSelection, setPendingSelection] = useState<{
-    songId: string
-    startTime: number
-    endTime: number
-  } | null>(null)
-
-  const handleRegionPointerDown = useCallback(
-    (e: React.PointerEvent, song: Song, trackLeft: number) => {
-      // Only left button
-      if (e.button !== 0) return
-      // Don't start region select if event originated from an interactive child
-      const target = e.target as HTMLElement
-      if (
-        target.closest('[data-drag-handle]') ||
-        target.closest('[data-cue-marker]')
-      )
-        return
-
-      const el = containerRef.current
-      if (!el) return
-
-      const startX = e.clientX
-      const clickXInTrack =
-        e.clientX - el.getBoundingClientRect().left + el.scrollLeft - trackLeft
-      const trimStart = song.trimStart ?? 0
-      const trimEnd = song.trimEnd ?? song.duration ?? 0
-      const startTime = Math.max(
-        trimStart,
-        Math.min(trimEnd, clickXInTrack / pixelsPerSecond + trimStart)
-      )
-
-      regionDragRef.current = {
-        songId: song.id,
-        startX,
-        startTime,
-        trimStart,
-        trimEnd,
-        isDragging: false,
-      }
-
-      const div = e.currentTarget as HTMLElement
-      div.setPointerCapture(e.pointerId)
-      const prevUserSelect = document.body.style.userSelect
-      document.body.style.userSelect = 'none'
-
-      const handleMove = (ev: PointerEvent): void => {
-        const state = regionDragRef.current
-        if (!state) return
-        const deltaX = ev.clientX - state.startX
-        if (!state.isDragging && Math.abs(deltaX) < 5) return
-        state.isDragging = true
-
-        let endTime = state.startTime + deltaX / pixelsPerSecond
-        endTime = Math.max(state.trimStart, Math.min(state.trimEnd, endTime))
-
-        // Snap if active
-        const canSnap =
-          snapMode === 'beat' &&
-          song.bpm != null &&
-          song.bpm > 0 &&
-          song.firstBeatOffset != null
-        if (canSnap) {
-          endTime = snapToNearestBeat(endTime, song.bpm!, song.firstBeatOffset!)
-          endTime = Math.max(state.trimStart, Math.min(state.trimEnd, endTime))
-        }
-
-        const [s, en] =
-          state.startTime < endTime
-            ? [state.startTime, endTime]
-            : [endTime, state.startTime]
-
-        setPendingSelection({ songId: state.songId, startTime: s, endTime: en })
-      }
-
-      const handleUp = (ev: PointerEvent): void => {
-        const state = regionDragRef.current
-        div.releasePointerCapture(ev.pointerId)
-        div.removeEventListener('pointermove', handleMove)
-        div.removeEventListener('pointerup', handleUp)
-        document.body.style.userSelect = prevUserSelect
-
-        if (state?.isDragging) {
-          let endTime =
-            state.startTime + (ev.clientX - state.startX) / pixelsPerSecond
-          endTime = Math.max(state.trimStart, Math.min(state.trimEnd, endTime))
-
-          const canSnap =
-            snapMode === 'beat' &&
-            song.bpm != null &&
-            song.bpm > 0 &&
-            song.firstBeatOffset != null
-          if (canSnap) {
-            endTime = snapToNearestBeat(
-              endTime,
-              song.bpm!,
-              song.firstBeatOffset!
-            )
-            endTime = Math.max(
-              state.trimStart,
-              Math.min(state.trimEnd, endTime)
-            )
-          }
-
-          const [s, en] =
-            state.startTime < endTime
-              ? [state.startTime, endTime]
-              : [endTime, state.startTime]
-
-          // Enforce minimum 0.5s selection
-          if (en - s >= 0.5) {
-            setActiveSelection({
-              songId: state.songId,
-              startTime: s,
-              endTime: en,
-            })
-            didRegionSelectRef.current = true
-          }
-        }
-
-        setPendingSelection(null)
-        regionDragRef.current = null
-      }
-
-      div.addEventListener('pointermove', handleMove)
-      div.addEventListener('pointerup', handleUp)
-    },
-    [pixelsPerSecond, snapMode, setActiveSelection]
-  )
+  // --- Region selection (extracted hook) ---
+  const {
+    pendingSelection,
+    didRegionSelect: didRegionSelectRef,
+    handleRegionPointerDown,
+  } = useRegionSelection({ pixelsPerSecond, snapMode, containerRef })
 
   const handleTrimToSelection = useCallback(
     (songId: string, startTime: number, endTime: number) => {
