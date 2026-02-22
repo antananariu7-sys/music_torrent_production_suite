@@ -182,6 +182,8 @@ export function TimelineTab(): JSX.Element {
             positions={positions}
             totalWidth={totalWidth}
             trackColors={TRACK_COLORS}
+            songs={songs}
+            pixelsPerSecond={pixelsPerSecond}
           />
 
           <TimelineLayout

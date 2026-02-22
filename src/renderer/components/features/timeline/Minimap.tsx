@@ -1,7 +1,9 @@
 import { memo, useRef, useEffect, useCallback } from 'react'
 import { Box } from '@chakra-ui/react'
 import { useTimelineStore } from '@/store/timelineStore'
+import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import type { WaveformData } from '@shared/types/waveform.types'
+import type { Song } from '@shared/types/project.types'
 
 interface TrackPosition {
   songId: string
@@ -14,6 +16,8 @@ interface MinimapProps {
   positions: TrackPosition[]
   totalWidth: number
   trackColors: string[]
+  songs: Song[]
+  pixelsPerSecond: number
 }
 
 const MINIMAP_HEIGHT = 40
@@ -47,6 +51,8 @@ export const Minimap = memo(
     positions,
     totalWidth,
     trackColors,
+    songs,
+    pixelsPerSecond,
   }: MinimapProps): JSX.Element {
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
@@ -143,6 +149,31 @@ export const Minimap = memo(
 
       ctx.fillStyle = 'rgba(59, 130, 246, 0.1)'
       ctx.fillRect(vpLeft, 0, vpWidth, MINIMAP_HEIGHT)
+
+      // Draw playhead indicator
+      const { currentTrack, currentTime, isPlaying } =
+        useAudioPlayerStore.getState()
+
+      if (currentTrack && (isPlaying || currentTime > 0)) {
+        const trackIndex = songs.findIndex(
+          (s) =>
+            (s.localFilePath ?? s.externalFilePath) === currentTrack.filePath
+        )
+        if (trackIndex !== -1) {
+          const pos = positions[trackIndex]
+          const song = songs[trackIndex]
+          const x =
+            (pos.left +
+              (currentTime - (song.trimStart ?? 0)) * pixelsPerSecond) *
+            scale
+
+          if (x >= pos.left * scale && x <= (pos.left + pos.width) * scale) {
+            ctx.fillStyle = '#f97316'
+            ctx.globalAlpha = 1.0
+            ctx.fillRect(Math.round(x) - 1, 0, 2, MINIMAP_HEIGHT)
+          }
+        }
+      }
     }, [
       positions,
       waveforms,
@@ -150,10 +181,17 @@ export const Minimap = memo(
       trackColors,
       scrollPosition,
       viewportWidth,
+      songs,
+      pixelsPerSecond,
     ])
 
     useEffect(() => {
       drawMinimap()
+    }, [drawMinimap])
+
+    // Redraw on playback state changes (currentTime, isPlaying)
+    useEffect(() => {
+      return useAudioPlayerStore.subscribe(drawMinimap)
     }, [drawMinimap])
 
     const handleMouseEvent = useCallback(
@@ -224,5 +262,7 @@ export const Minimap = memo(
     prev.waveforms === next.waveforms &&
     prev.positions === next.positions &&
     prev.totalWidth === next.totalWidth &&
-    prev.trackColors === next.trackColors
+    prev.trackColors === next.trackColors &&
+    prev.songs === next.songs &&
+    prev.pixelsPerSecond === next.pixelsPerSecond
 )
