@@ -31,6 +31,7 @@ export function AudioPlayer(): JSX.Element | null {
   const currentIndex = useAudioPlayerStore((s) => s.currentIndex)
 
   const pendingSeekTime = useAudioPlayerStore((s) => s.pendingSeekTime)
+  const loopRegion = useAudioPlayerStore((s) => s.loopRegion)
   const previewMaxDuration = useAudioPlayerStore((s) => s.previewMaxDuration)
 
   const stopPreview = useStreamPreviewStore((s) => s.stopPreview)
@@ -166,13 +167,23 @@ export function AudioPlayer(): JSX.Element | null {
     clearPendingSeek()
   }, [pendingSeekTime, clearPendingSeek])
 
-  // Handle trimEnd auto-advance
+  // Handle loop region — seek back to start when reaching end
   useEffect(() => {
+    if (!loopRegion || !isPlaying || !audioRef.current) return
+    if (currentTime >= loopRegion.endTime) {
+      audioRef.current.currentTime = loopRegion.startTime
+      useAudioPlayerStore.getState().setCurrentTime(loopRegion.startTime)
+    }
+  }, [currentTime, loopRegion, isPlaying])
+
+  // Handle trimEnd auto-advance (skip when loop region is active)
+  useEffect(() => {
+    if (loopRegion) return
     if (!currentTrack?.trimEnd || !isPlaying) return
     if (currentTime >= currentTrack.trimEnd) {
       useAudioPlayerStore.getState().next()
     }
-  }, [currentTime, currentTrack, isPlaying])
+  }, [currentTime, currentTrack, isPlaying, loopRegion])
 
   // Auto-stop preview after max duration
   useEffect(() => {

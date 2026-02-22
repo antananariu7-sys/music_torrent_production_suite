@@ -37,6 +37,13 @@ interface TimelineState {
     initialValue: number
   } | null
 
+  // Region selection
+  activeSelection: {
+    songId: string
+    startTime: number
+    endTime: number
+  } | null
+
   // Editing popovers
   activeCrossfadePopover: { songId: string; position: PopoverPosition } | null
   activeCuePointPopover: {
@@ -68,6 +75,8 @@ interface TimelineState {
   closeCuePointPopover: () => void
   setDragState: (state: TimelineState['dragState']) => void
   clearDragState: () => void
+  setActiveSelection: (sel: TimelineState['activeSelection']) => void
+  clearActiveSelection: () => void
   toggleSnapMode: () => void
   toggleFrequencyColorMode: () => void
   toggleBeatGrid: () => void
@@ -84,6 +93,7 @@ export const useTimelineStore = create<TimelineState>((set) => ({
   viewportWidth: 0,
   snapMode: 'off',
   dragState: null,
+  activeSelection: null,
   frequencyColorMode: false,
   showBeatGrid: false,
   activeCrossfadePopover: null,
@@ -141,6 +151,14 @@ export const useTimelineStore = create<TimelineState>((set) => ({
       activeCuePointPopover: null,
     }),
   clearDragState: () => set({ dragState: null }),
+
+  setActiveSelection: (activeSelection) =>
+    set({
+      activeSelection,
+      activeCrossfadePopover: null,
+      activeCuePointPopover: null,
+    }),
+  clearActiveSelection: () => set({ activeSelection: null }),
 
   toggleSnapMode: () =>
     set((s) => ({ snapMode: s.snapMode === 'off' ? 'beat' : 'off' })),

@@ -22,6 +22,9 @@ interface AudioPlayerState {
   // Seek
   pendingSeekTime: number | null
 
+  // Loop region (for selection playback)
+  loopRegion: { startTime: number; endTime: number } | null
+
   // Preview
   previewMaxDuration: number
 
@@ -46,6 +49,8 @@ interface AudioPlayerState {
   setCurrentTime: (time: number) => void
   setDuration: (duration: number) => void
   clearPendingSeek: () => void
+  setLoopRegion: (region: { startTime: number; endTime: number }) => void
+  clearLoopRegion: () => void
   clearPlaylist: () => void
 }
 
@@ -56,6 +61,7 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
   duration: 0,
   volume: 0.7,
   pendingSeekTime: null,
+  loopRegion: null,
   previewMaxDuration: 60,
   playlist: [],
   currentIndex: -1,
@@ -67,6 +73,7 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
       currentIndex: 0,
       isPlaying: true,
       currentTime: 0,
+      loopRegion: null,
     })
   },
 
@@ -80,6 +87,7 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
       isPlaying: true,
       currentTime: seekTime ?? 0,
       pendingSeekTime: seekTime ?? null,
+      loopRegion: null,
     })
   },
 
@@ -156,6 +164,14 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
 
   clearPendingSeek: () => {
     set({ pendingSeekTime: null })
+  },
+
+  setLoopRegion: (region) => {
+    set({ loopRegion: region })
+  },
+
+  clearLoopRegion: () => {
+    set({ loopRegion: null })
   },
 
   clearPlaylist: () => {
