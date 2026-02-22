@@ -69,27 +69,11 @@ This is the same approach used by Rekordbox, Serato, and other DJ software.
 **Cache extension:**
 Add `peaksLow`, `peaksMid`, `peaksHigh` to `WaveformData`. Cache file grows slightly (~4× from ~16KB to ~64KB per track). Negligible.
 
-### 3. Smoother Waveform Rendering
+### 3. ~~Smoother Waveform Rendering~~ (Removed)
 
-Replace hard-edged rectangular bars with anti-aliased bezier curves for a softer, more organic look — similar to SoundCloud or Ableton's waveform style.
+> **Status: Implemented then removed** (commit `bb8fa24`). Smooth bezier curves were implemented (`10a0ab1`) but later removed in favor of bar-only rendering. The bezier mode added visual complexity without significant user value over the gradient bar mode, and removing it simplified the rendering pipeline.
 
-**Current:** Individual `fillRect()` bars
-**Proposed:** Two `Path2D` curves (top and bottom) connecting peak values with quadratic bezier interpolation, filled with gradient.
-
-```
-Current (bars):     Proposed (curves):
- █  ████  █         ╱‾╲ ╱‾‾‾‾╲ ╱╲
-████████████       ╱    ╲      ╲  ╲
- █  ████  █         ╲_╱ ╲____╱ ╲╱
-```
-
-**Implementation:**
-
-- Build a `Path2D` for the top envelope: `moveTo(0, centerY)` → for each peak, `quadraticCurveTo(controlX, peakY, nextX, nextPeakY)`
-- Mirror for bottom envelope
-- Fill the enclosed area with the gradient from improvement #1
-- Optionally add a thin stroke on the envelope edge (`1px`, lighter color) for definition
-- Keep bar rendering as a fallback/option for users who prefer the classic look
+Only bar-style rendering with gradient fills is used.
 
 ### 4. Zoom-Adaptive Detail (LOD — Level of Detail)
 
@@ -134,25 +118,25 @@ Add a toolbar control to show/hide the beat grid overlay, independent of BPM det
 
 ### Modified: timelineStore
 
-| Field           | Type                 | Description                                           |
-| --------------- | -------------------- | ----------------------------------------------------- |
-| `showBeatGrid`  | `boolean`            | **New.** Beat grid visibility toggle. Default: `true` |
-| `waveformStyle` | `'bars' \| 'smooth'` | **New.** Rendering mode. Default: `'smooth'`          |
+| Field               | Type                     | Description                                                                    |
+| ------------------- | ------------------------ | ------------------------------------------------------------------------------ |
+| `showBeatGrid`      | `boolean`                | **New.** Beat grid visibility toggle. Default: `true`                          |
+| ~~`waveformStyle`~~ | ~~`'bars' \| 'smooth'`~~ | **Removed.** Only bar rendering is used (smooth mode was removed in `bb8fa24`) |
 
 ## Edge Cases
 
 - **Frequency extraction fails:** Fall back to single-color gradient (no frequency data). Don't block waveform display.
 - **Very quiet tracks:** Frequency coloring may be unreliable for near-silent sections. Use mid-band color as default for peaks below a threshold.
 - **Cache migration:** Old cache files without frequency bands should still load — treat missing `peaksLow/Mid/High` as null, render in single-color gradient mode. Regenerate in background.
-- **Bezier rendering with very sparse peaks:** At extreme zoom-out (< 50 peaks visible), bezier curves may look too smooth/blobby. Fall back to bar rendering below a threshold.
+- ~~**Bezier rendering with very sparse peaks:**~~ No longer applicable (smooth mode removed).
 
 ## Acceptance Criteria
 
 - [x] Waveforms render with vertical gradient fills (bright at peaks, darker at center)
 - [x] Frequency-colored mode shows bass/mid/high distribution as warm-to-cool colors
-- [x] Smooth bezier curve rendering available as the default waveform style
-- [x] Bar-style rendering available as an alternative option
-- [x] Zoom in shows progressively more waveform detail (visible difference between 1× and 4×)
+- [x] ~~Smooth bezier curve rendering~~ — Implemented then removed (`bb8fa24`); bar mode only
+- [x] Bar-style rendering with gradient fills as the sole rendering mode
+- [x] Zoom in shows progressively more waveform detail (visible difference between 1× and 10×)
 - [x] Zoom out simplifies waveform to broad shapes without aliasing artifacts
 - [x] Beat grid toggle in toolbar shows/hides beat lines
 - [x] Old waveform cache files still load (graceful degradation)
@@ -162,9 +146,10 @@ Add a toolbar control to show/hide the beat grid overlay, independent of BPM det
 ## Implementation Notes
 
 - Frequency extraction uses FFmpeg `filter_complex` with 3 parallel bandpass filters directly in `WaveformExtractor.ts` (no separate `FrequencyAnalyzer.ts` module — simpler integration)
-- Max zoom capped at 4× (not 50× as originally speculated) for performance
+- Max zoom increased from 4× to 10× (`bb8fa24`)
 - Peak count: 8000 (from 2000), sample rate: 16kHz (from 8kHz)
-- `frequencyColorMode` toggle added to `timelineStore` alongside `waveformStyle` and `showBeatGrid`
+- `frequencyColorMode` and `showBeatGrid` toggles in `timelineStore` (`waveformStyle` removed with smooth mode)
+- Frequency tooltip shows band info on waveform hover (`bb8fa24`)
 - TimeRuler virtualized to fix white band artifact at high zoom
 
 ### Commits
@@ -176,7 +161,8 @@ Add a toolbar control to show/hide the beat grid overlay, independent of BPM det
 - `c831e40` — Beat grid visibility toggle
 - `9f74373` — TimeRuler canvas virtualization fix
 - `2718230` — Max zoom cap to 4×, version bump to 0.3.1
-- `1eae766` — WaveformExtractor test update for 8000 peaks
+- `a2dc071` — WaveformExtractor test update for 8000 peaks
+- `bb8fa24` — Remove smooth waveform mode, increase max zoom to 10×, add frequency tooltip
 
 ## Out of Scope
 

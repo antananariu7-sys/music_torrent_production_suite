@@ -13,7 +13,7 @@ A project-based music production suite with three integrated components:
 
 1. **Torrent Search** - RuTracker automation for finding music
 2. **Download Manager** - WebTorrent-based download and seeding
-3. **Music Mixer** - Audio mixing interface _(TBD)_
+3. **Music Mixer** - Audio mixing and waveform timeline editor
 
 **Target Platforms**: Windows 10/11, macOS 10.13+
 
@@ -25,45 +25,55 @@ A project-based music production suite with three integrated components:
 
 Core architecture and system design documents:
 
-| Document | Description |
-|----------|-------------|
-| [**01-overview.md**](docs/architecture/01-overview.md) | Application purpose, components, project structure |
-| [**02-process-architecture.md**](docs/architecture/02-process-architecture.md) | Main/Renderer/Preload process responsibilities |
-| [**03-ipc-communication.md**](docs/architecture/03-ipc-communication.md) | IPC channels, patterns, validation strategy |
-| [**04-web-automation.md**](docs/architecture/04-web-automation.md) | Puppeteer integration, RuTracker scraping flows |
-| [**05-security.md**](docs/architecture/05-security.md) | Security architecture, threats, credential storage |
-| [**06-directory-structure.md**](docs/architecture/06-directory-structure.md) | Complete file/folder organization |
-| [**07-data-models.md**](docs/architecture/07-data-models.md) | TypeScript interfaces for all data structures |
-| [**08-ui-architecture.md**](docs/architecture/08-ui-architecture.md) | React components, pages, styling strategy |
-| [**09-dependencies.md**](docs/architecture/09-dependencies.md) | NPM packages and dependency rationale |
-| [**10-development-plan.md**](docs/architecture/10-development-plan.md) | 6-phase development roadmap, ADRs |
-| [**11-risks-and-success.md**](docs/architecture/11-risks-and-success.md) | Technical risks, success criteria |
-| [**15-project-system.md**](docs/architecture/15-project-system.md) | Project-based workflow architecture |
-| [**16-mixer-component.md**](docs/architecture/16-mixer-component.md) | Mix Builder component architecture |
-| [**17-audio-mix-export.md**](docs/architecture/17-audio-mix-export.md) | Audio mix export pipeline architecture |
-| [**18-waveform-timeline.md**](docs/architecture/18-waveform-timeline.md) | Waveform timeline editor architecture |
-| [**refactoring-plan-project-launcher.md**](docs/architecture/refactoring-plan-project-launcher.md) | Project launcher refactoring plan |
-| [**transform-welcome-to-project.md**](docs/architecture/transform-welcome-to-project.md) | Welcome screen transformation plan |
+| Document                                                                                           | Description                                        |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| [**01-overview.md**](docs/architecture/01-overview.md)                                             | Application purpose, components, project structure |
+| [**02-process-architecture.md**](docs/architecture/02-process-architecture.md)                     | Main/Renderer/Preload process responsibilities     |
+| [**03-ipc-communication.md**](docs/architecture/03-ipc-communication.md)                           | IPC channels, patterns, validation strategy        |
+| [**04-web-automation.md**](docs/architecture/04-web-automation.md)                                 | Puppeteer integration, RuTracker scraping flows    |
+| [**05-security.md**](docs/architecture/05-security.md)                                             | Security architecture, threats, credential storage |
+| [**06-directory-structure.md**](docs/architecture/06-directory-structure.md)                       | Complete file/folder organization                  |
+| [**07-data-models.md**](docs/architecture/07-data-models.md)                                       | TypeScript interfaces for all data structures      |
+| [**08-ui-architecture.md**](docs/architecture/08-ui-architecture.md)                               | React components, pages, styling strategy          |
+| [**09-dependencies.md**](docs/architecture/09-dependencies.md)                                     | NPM packages and dependency rationale              |
+| [**10-development-plan.md**](docs/architecture/10-development-plan.md)                             | 6-phase development roadmap, ADRs                  |
+| [**11-risks-and-success.md**](docs/architecture/11-risks-and-success.md)                           | Technical risks, success criteria                  |
+| [**15-project-system.md**](docs/architecture/15-project-system.md)                                 | Project-based workflow architecture                |
+| [**16-mixer-component.md**](docs/architecture/16-mixer-component.md)                               | Mix Builder component architecture                 |
+| [**17-audio-mix-export.md**](docs/architecture/17-audio-mix-export.md)                             | Audio mix export pipeline architecture             |
+| [**18-waveform-timeline.md**](docs/architecture/18-waveform-timeline.md)                           | Waveform timeline editor architecture              |
+| [**refactoring-plan-project-launcher.md**](docs/architecture/refactoring-plan-project-launcher.md) | Project launcher refactoring plan                  |
+| [**transform-welcome-to-project.md**](docs/architecture/transform-welcome-to-project.md)           | Welcome screen transformation plan                 |
 
 ### Development Guides ([docs/guides/](docs/guides/))
 
 Practical implementation guides and best practices:
 
-| Document | Description |
-|----------|-------------|
-| [**development.md**](docs/guides/development.md) | Code quality, architecture patterns, security practices |
-| [**testing.md**](docs/guides/testing.md) | Testing standards, data-testid locators, test patterns |
-| [**rutracker-implementation.md**](docs/guides/rutracker-implementation.md) | RuTracker-specific implementation code examples |
-| [**enhanced-search.md**](docs/guides/enhanced-search.md) | Enhanced search features, filters, MusicBrainz integration |
-| [**smart-search-integration.md**](docs/guides/smart-search-integration.md) | Smart Search workflow, components, and integration guide |
-| [**chakra-ui-style-guide.md**](docs/guides/chakra-ui-style-guide.md) | Chakra UI v3 styling standards and patterns |
+| Document                                                                   | Description                                                |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [**development.md**](docs/guides/development.md)                           | Code quality, architecture patterns, security practices    |
+| [**testing.md**](docs/guides/testing.md)                                   | Testing standards, data-testid locators, test patterns     |
+| [**rutracker-implementation.md**](docs/guides/rutracker-implementation.md) | RuTracker-specific implementation code examples            |
+| [**enhanced-search.md**](docs/guides/enhanced-search.md)                   | Enhanced search features, filters, MusicBrainz integration |
+| [**smart-search-integration.md**](docs/guides/smart-search-integration.md) | Smart Search workflow, components, and integration guide   |
+| [**chakra-ui-style-guide.md**](docs/guides/chakra-ui-style-guide.md)       | Chakra UI v3 styling standards and patterns                |
+
+### Feature Specifications ([docs/features/](docs/features/))
+
+Feature specs and implementation plans:
+
+| Document                                                                                       | Description                                                                                  |
+| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| [**done/**](docs/features/done/)                                                               | Completed feature specs (waveform timeline, visual/perf improvements, mix export, installer) |
+| [**waveform-interaction-improvements.md**](docs/features/waveform-interaction-improvements.md) | Planned: drag-to-trim, draggable cue points, crossfade preview                               |
+| [**unit-test-coverage-plan.md**](docs/features/unit-test-coverage-plan.md)                     | Unit test coverage plan                                                                      |
 
 ### API Reference ([docs/api/](docs/api/))
 
 API documentation and quick references:
 
-| Document | Description |
-|----------|-------------|
+| Document                                                        | Description                             |
+| --------------------------------------------------------------- | --------------------------------------- |
 | [**search-api-reference.md**](docs/api/search-api-reference.md) | Quick reference for enhanced search API |
 
 ---
@@ -134,11 +144,13 @@ For coding standards, commit message format, and development best practices, see
 ### Completed Features
 
 ✅ **Authentication System**
+
 - RuTracker login with CAPTCHA support
 - Session persistence across app restarts
 - Background session validation (5-minute interval)
 
 ✅ **Search Engine**
+
 - Single-query search with advanced filters
 - Format filtering (MP3, FLAC, WAV, etc.)
 - Quality filtering (seeders, file size)
@@ -146,6 +158,7 @@ For coding standards, commit message format, and development best practices, see
 - MusicBrainz album discovery integration
 
 ✅ **Smart Search Workflow**
+
 - Automatic search term classification (artist/album/song)
 - Multi-step guided workflow with dialogs
 - Album selection from MusicBrainz results
@@ -153,6 +166,7 @@ For coding standards, commit message format, and development best practices, see
 - Search history persistence (per-project, max 50 entries)
 
 ✅ **Torrent Management**
+
 - Direct torrent file downloads
 - Magnet link extraction and support
 - Download history tracking
@@ -160,28 +174,33 @@ For coding standards, commit message format, and development best practices, see
 - Auto-open in torrent client option
 
 ✅ **Torrent Collection System**
+
 - Per-project torrent collections
 - Collect torrents from search results
 - Persistent storage (`torrent-collection.json`)
 - Duplicate prevention by torrent ID
 
 ✅ **Project System**
+
 - Project creation and management
 - Project-scoped data (search history, torrent collections)
 - Recent projects list
 - Project metadata and statistics
 
 ✅ **UI Architecture**
+
 - Tabbed ProjectOverview interface (Search, Torrent, Mix)
 - Chakra UI v3 component library
 - Dark theme with studio aesthetic
 - Responsive layout
 
 ✅ **Testing Infrastructure**
+
 - Comprehensive unit tests for services
 - Test coverage for RuTracker and MusicBrainz services
 
 ✅ **WebTorrent Download Queue**
+
 - In-app torrent downloading via WebTorrent (lazy-loaded ESM)
 - FIFO download queue with configurable concurrency (1-10, default 3)
 - Real-time progress broadcasting (1s interval) with speed, ETA, peer stats
@@ -193,6 +212,7 @@ For coding standards, commit message format, and development best practices, see
 - Hierarchical file tree view with folder support in DownloadQueueItem
 
 ✅ **Audio Player**
+
 - Fixed bottom audio player for in-app music playback
 - Reads audio files through IPC (`audio:read-file`) as base64 data URLs for security
 - Click-to-play integration with DownloadQueueItem for completed audio files
@@ -203,36 +223,53 @@ For coding standards, commit message format, and development best practices, see
 - Progress bar with seek functionality
 - Supported formats: MP3, FLAC, WAV, M4A, AAC, OGG, Opus, WMA, AIFF, APE
 
-### In Progress
+✅ **Mix Builder**
 
-🚧 **Mix Tab** - Audio mixing interface (placeholder)
+- Drag-and-drop track ordering
+- Crossfade duration configuration per track pair
+- Mix metadata (title, artist)
+
+✅ **Audio Mix Export**
+
+- FFmpeg rendering pipeline with crossfades
+- Loudness normalization (EBU R128)
+- .cue sheet generation
+- Export progress tracking
+
+✅ **Waveform Timeline Editor**
+
+- Canvas-based waveform rendering with gradient fills
+- 3-band frequency coloring (bass/mid/high)
+- BPM detection with beat grid overlay
+- Cue points (marker, trim-start, trim-end)
+- Zoom (1-10x), scroll, minimap navigation
+- Click-to-play with moving playhead
+- OffscreenCanvas tile cache for scroll performance
+- Binary peak cache (.peaks + .meta.json)
+- VirtualTrack virtualization (IntersectionObserver)
+- DPR-aware rendering for crisp canvases
+- Rebuild waveforms with full-page loading overlay
 
 ### Planned
 
-📋 **Music Mixer** - Full audio mixing capabilities
+📋 **Waveform Interaction Improvements** - Drag-to-trim, draggable cue points, crossfade preview
 📋 **E2E Testing** - Playwright test automation
 
 ---
 
 ## 📝 Document Status
 
-- **Version**: 2.4
-- **Last Updated**: 2026-02-17
+- **Version**: 2.5
+- **Last Updated**: 2026-02-22
 - **Status**: Architecture documentation reviewed and updated to match implementation
 - **Recent Updates**:
+  - Waveform timeline editor fully implemented with performance optimizations
+  - Binary peak cache format (.peaks + .meta.json) replaced JSON cache
+  - OffscreenCanvas tile cache, VirtualTrack virtualization, DPR-aware rendering
+  - Smooth waveform mode removed (bar mode only), MAX_ZOOM increased to 10
+  - Frequency tooltip on waveform hover, rebuild waveforms button
   - Documentation audit: all architecture docs verified against actual codebase
-  - RuTrackerSearchService refactored from 910 to 316 lines (split into `rutracker/` subdirectory)
-  - Result grouping, MusicBrainz retry with backoff, torrent page parser implemented
-  - TorrentMetadataService with IPC integration added
-  - ProjectLauncher refactoring completed (split into subcomponents)
-  - Welcome page transformed to ProjectOverview with tabbed interface (Search/Torrent/Mix)
-  - Fixed IPC communication docs: all 50+ channels documented with correct signatures
-  - Fixed directory structure: reflects actual PascalCase services, 2 pages, feature-based components
-  - Fixed data models: all type definitions match actual `src/shared/types/`
-  - Fixed security docs: credential storage accurately described
-  - Fixed dependency versions to match package.json
-  - Fixed guide docs: correct API namespaces (`window.api.search.start()`, etc.)
-- **Next Steps**: Audio library with metadata extraction, then Phase 4 (Mixer)
+- **Next Steps**: Waveform interaction improvements (drag-to-trim, crossfade preview)
 
 ---
 

@@ -86,7 +86,10 @@ interface WaveformData {
 }
 ```
 
-Stored as: `<projectDir>/assets/waveforms/<songId>.json`
+Stored as binary format:
+
+- `<projectDir>/assets/waveforms/<songId>.peaks` — Binary file with 16-byte header (magic "PEKS", version, peak count, flags) + Float32Array peaks data + optional frequency band arrays
+- `<projectDir>/assets/waveforms/<songId>.meta.json` — Metadata: `{ duration, sampleRate, fileHash, peakCount }`
 
 ### 2.4 BpmData (disk cache)
 
@@ -132,6 +135,7 @@ Add to `src/shared/constants.ts`:
 // Waveform extraction
 WAVEFORM_GENERATE:       'waveform:generate',        // R→M request-response
 WAVEFORM_GENERATE_BATCH: 'waveform:generate-batch',  // R→M request-response
+WAVEFORM_REBUILD_BATCH:  'waveform:rebuild-batch',   // R→M request-response (invalidate cache + regenerate)
 WAVEFORM_PROGRESS:       'waveform:progress',         // M→R push event
 
 // BPM detection
@@ -156,8 +160,9 @@ BPM_PROGRESS:            'bpm:progress',              // M→R push event
 ```typescript
 // src/preload/index.ts — new namespaces
 waveform: {
-  generate: (songId: string, filePath: string) => Promise<ApiResponse<WaveformData>>,
-  generateBatch: (projectId: string) => Promise<ApiResponse<WaveformData[]>>,
+  generate: (request: WaveformRequest) => Promise<ApiResponse<WaveformData>>,
+  generateBatch: (request: WaveformBatchRequest) => Promise<ApiResponse<WaveformData[]>>,
+  rebuildBatch: (request: WaveformBatchRequest) => Promise<ApiResponse<WaveformData[]>>,
   onProgress: (callback: (progress: WaveformProgress) => void) => (() => void),
 },
 bpm: {
@@ -261,14 +266,17 @@ ffmpeg -i <file> -filter_complex "
 - Same downsample + normalize pipeline per band
 - Results stored as optional `peaksLow`, `peaksMid`, `peaksHigh` arrays
 
-**Disk cache**:
+**Disk cache (binary format)**:
 
-- Path: `<projectDir>/assets/waveforms/<songId>.json`
+- Peak file: `<projectDir>/assets/waveforms/<songId>.peaks` — Binary with 16-byte header (magic 0x50454B53 "PEKS", version, peak count, flags) + Float32Array data
+- Metadata: `<projectDir>/assets/waveforms/<songId>.meta.json`
 - Cache key: `"${stat.size}-${stat.mtimeMs}"`
 - On generate: check cache → return if hash matches → extract if miss → write → return
 - On batch: iterate sequentially, emit progress per track
+- On rebuild: invalidate disk cache → re-extract all tracks
+- Fallback: Legacy `.json` format supported for migration
 
-**Performance**: ~1–2s per track at 8kHz mono. 20-track project ≈ 30s total (batch, sequential).
+**Performance**: ~1–2s per track at 16kHz mono. 20-track project ≈ 30s total (batch, sequential).
 
 ### 4.3 BpmDetector
 
@@ -361,21 +369,24 @@ TimelineTab (tab shell)
 ```
 src/renderer/
 ├── components/features/timeline/
-│   ├── WaveformCanvas.tsx          <canvas> rendering: peaks, beat grid, trim overlay, cue markers
+│   ├── WaveformCanvas.tsx          <canvas> rendering: tile blitting, frequency coloring
+│   ├── waveformDrawing.ts          Pure canvas drawing functions (drawWaveform, downsampleArray)
+│   ├── waveformTileCache.ts        LRU OffscreenCanvas tile cache (4096px tiles, max 50)
 │   ├── TimelineLayout.tsx          Track positioning, scroll container, crossfade zones
+│   ├── VirtualTrack.tsx            IntersectionObserver-based virtual scrolling
 │   ├── TrackInfoOverlay.tsx        Format badge + metadata tooltip
 │   ├── TrackDetailPanel.tsx        Selected track details + cue point list
 │   ├── Minimap.tsx                 Full-mix overview canvas + viewport rectangle
+│   ├── Playhead.tsx                Animated playback position indicator
 │   ├── TimeRuler.tsx               Adaptive time tick marks
-│   ├── ZoomControls.tsx            Zoom slider + snap toggle
+│   ├── ZoomControls.tsx            Zoom buttons + keyboard shortcuts
 │   ├── CrossfadePopover.tsx        Crossfade duration editor
 │   ├── CuePointMarker.tsx          Visual marker (line + flag)
 │   ├── CuePointPopover.tsx         Create/edit cue point form
 │   ├── TrimOverlay.tsx             Gray overlay outside trim bounds
-│   └── BeatGrid.tsx                Beat line rendering
+│   └── BeatGrid.tsx                Canvas-based beat line rendering
 ├── hooks/
-│   ├── useWaveformData.ts          Batch waveform loading + progress
-│   └── useBpmData.ts              Batch BPM detection + progress
+│   └── useWaveformData.ts          Batch waveform loading + progress + rebuild
 ├── store/
 │   └── timelineStore.ts            Timeline UI state (Zustand)
 └── pages/ProjectOverview/
@@ -392,19 +403,19 @@ interface TimelineState {
   selectedTrackId: string | null
 
   // Zoom & scroll
-  zoomLevel: number // 1 (fit-to-view) to 4
-  scrollLeft: number // pixels
+  zoomLevel: number // 1 (fit-to-view) to 10
+  scrollPosition: number // pixels
   viewportWidth: number // pixels
 
   // Snap & visual preferences
   snapMode: 'off' | 'beat'
-  waveformStyle: 'bars' | 'smooth' // rendering mode (default: 'smooth')
   frequencyColorMode: boolean // 3-band frequency coloring toggle
   showBeatGrid: boolean // beat grid visibility (independent of snap)
 
   // Caches
-  waveformCache: Map<string, WaveformData>
-  bpmCache: Map<string, BpmData>
+  waveformCache: Record<string, WaveformData>
+  isLoadingWaveforms: boolean
+  loadingProgress: { current: number; total: number } | null
 
   // Popovers
   activeCrossfadePopover: { songId: string; position: number } | null
@@ -444,9 +455,7 @@ interface TimelineState {
 
 - **One `<canvas>` per track** (not one giant canvas) — simplifies hit detection, individual updates, avoids browser canvas size limits
 - Each WaveformCanvas receives: `peaks`, `width` (duration × pixelsPerSecond × zoom), `height` (80px), `color`, `isSelected`
-- **Two rendering modes** (togglable via toolbar):
-  - **Smooth** (default): `Path2D` with `quadraticCurveTo()` bezier curves for organic look
-  - **Bars**: Classic `fillRect()` bar rendering
+- **Bar rendering**: Classic `fillRect()` bar rendering with gradient fills
 - **Gradient fills**: Vertical `createLinearGradient` — bright at peaks (100% alpha), darker at center (40% alpha)
 - **Frequency coloring** (optional toggle): 3-band energy (bass/mid/high) colors bars red/green/cyan based on dominant frequency
 - **LOD downsampling**: 8000 peaks stored, max-pooled down at render time based on `canvasWidth × 2` — zoom-adaptive detail
@@ -482,7 +491,7 @@ function computeTrackPositions(
 
 - `pixelsPerSecond = basePixelsPerSecond * zoomLevel`
 - `basePixelsPerSecond` computed so that `totalMixDuration * basePixelsPerSecond = containerWidth` (fit-to-view)
-- `zoomLevel` range: 1 (fit-to-view) to 4 (capped for performance)
+- `zoomLevel` range: 1 (fit-to-view) to 10 (MAX_ZOOM constant)
 - Ctrl+scroll: zoom toward cursor position (adjust scrollLeft to keep mouse point stable)
 
 ### 5.7 Playback integration
@@ -615,17 +624,19 @@ File: `src/main/services/mixExport/MixExportService.ts`
 | -------------------- | ----- | -------------------------------------------- |
 | Single track (5 min) | ~1–2s | FFmpeg 16kHz mono → downsample to 8000 peaks |
 | 20-track batch       | ~30s  | Sequential, progress per track               |
-| Cache hit            | <50ms | JSON read from disk                          |
+| Cache hit            | <50ms | Binary .peaks + .meta.json read from disk    |
 
 ### 7.2 Canvas rendering
 
-| Optimization   | Strategy                                                                      |
-| -------------- | ----------------------------------------------------------------------------- |
-| Lazy rendering | Only render canvases within viewport + 1 screen buffer (IntersectionObserver) |
-| Minimap        | Separate lower-resolution peak set (~100 peaks per track)                     |
-| Beat grid      | Only compute beats in visible range; memoize per track                        |
-| Zoom extremes  | At very low zoom (many beats/pixel), skip beat lines, show subtle pattern     |
-| Canvas limits  | Cap at ~32k px width per canvas; show warning if exceeded                     |
+| Optimization  | Strategy                                                                     |
+| ------------- | ---------------------------------------------------------------------------- |
+| Tile cache    | OffscreenCanvas tiles (4096px, LRU max 50) — blit-only on scroll, no redraw  |
+| VirtualTrack  | IntersectionObserver-based virtualization, 500px horizontal buffer           |
+| DPR-aware     | Device pixel ratio scaling for crisp canvas rendering on HiDPI displays      |
+| React.memo    | Memoized child components with shallow prop comparison                       |
+| Minimap       | Separate lower-resolution peak set (~100 peaks per track)                    |
+| Beat grid     | Canvas-based rendering, only visible range computed, skip when < 3px density |
+| Canvas limits | Tiled at 4096px chunks; stays under Chrome's 32768px canvas limit            |
 
 ### 7.3 Memory
 
@@ -908,8 +919,8 @@ type TabValue = 'search' | 'torrent' | 'mix' | 'timeline'
 
 **Status**: Accepted
 **Context**: Waveform extraction takes 1–2s per track. Users re-open projects frequently.
-**Decision**: Cache waveform JSON in `<projectDir>/assets/waveforms/<songId>.json` with file hash invalidation.
-**Consequences**: Near-instant timeline loading on subsequent visits. Cache invalidated automatically when source file changes (size + mtime hash). Disk space: ~50 KB per track × 20 tracks = ~1 MB per project (negligible).
+**Decision**: Cache waveform data in binary format (`<songId>.peaks` + `<songId>.meta.json`) in `<projectDir>/assets/waveforms/` with file hash invalidation.
+**Consequences**: Near-instant timeline loading on subsequent visits. Binary format is ~4× smaller and ~10× faster to read/write than JSON. Cache invalidated automatically when source file changes (size + mtime hash). Disk space: ~35 KB per track × 20 tracks = ~700 KB per project (negligible).
 
 ### ADR-020: Trim fields on Song, not only in CuePoints
 
@@ -937,7 +948,7 @@ type TabValue = 'search' | 'torrent' | 'mix' | 'timeline'
 | BPM detection accuracy on complex material   | Medium | Medium     | Confidence threshold; hide beat grid for low confidence; manual BPM entry (future) |
 | Canvas performance with 20+ tracks           | Medium | Low        | Lazy rendering via IntersectionObserver; minimap uses low-res data                 |
 | FFmpeg process leak on app quit during batch | High   | Low        | `cleanup()` called from `cleanupServices()`; kills active child process            |
-| Canvas size limit exceeded at extreme zoom   | Low    | Low        | Zoom capped at 4×; TimeRuler virtualized                                           |
+| Canvas size limit exceeded at extreme zoom   | Low    | Low        | Zoom capped at 10×; OffscreenCanvas tiles at 4096px; TimeRuler virtualized         |
 | Trim + crossfade interaction edge cases      | Medium | Medium     | Comprehensive tests in Stage 9; auto-clamp with warnings                           |
 
 ---

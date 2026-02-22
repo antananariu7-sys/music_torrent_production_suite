@@ -8,14 +8,15 @@ A project-based music production suite with three integrated components:
 
 1. **Torrent Search** - RuTracker automation for finding music
 2. **Download Manager** - WebTorrent-based download and seeding
-3. **Music Mixer** - Audio mixing interface _(Architecture TBD)_
+3. **Music Mixer** - Audio mixing and waveform timeline editor
 
 ## Features
 
 - **Project Management**: Create, save, and load music production projects
 - **Bulk Torrent Search**: Find multiple music tracks simultaneously
 - **Torrent Management**: In-app WebTorrent download queue with real-time progress, speed limits, and seeding controls
-- **Music Mixing**: Mix and edit downloaded audio files _(Component 3 - TBD)_
+- **Waveform Timeline**: Visual mix arrangement with canvas waveforms, frequency coloring, beat grids, cue points, and crossfade editing
+- **Audio Mix Export**: FFmpeg-based mix rendering with crossfades, loudness normalization, and .cue sheet generation
 - **Authenticated Sessions**: Secure RuTracker login with credential storage
 - **Real-time Monitoring**: Progress tracking for searches, downloads, and processing
 - **Cross-platform Support**: Works on Windows and macOS
@@ -124,7 +125,9 @@ src/
 │   ├── index.tsx            # React entry with ChakraProvider
 │   ├── App.tsx              # Root component
 │   ├── pages/               # Page components
-│   │   └── Welcome.tsx      # Welcome/landing page
+│   │   ├── ProjectLauncher/ # Project selection and creation
+│   │   ├── ProjectOverview/ # Main project view with tabs (Search/Torrent/Mix/Timeline)
+│   │   └── Settings/        # Application settings
 │   ├── components/          # UI components
 │   ├── theme/               # Chakra UI theme
 │   │   └── index.ts         # Custom theme (dark mode, brand colors)
@@ -290,17 +293,22 @@ MIT
 
 ## Status
 
-**Current Phase**: Component 2 (Torrent Manager) core complete
+**Current Version**: 0.3.4
+**Current Phase**: Component 3 (Mix Builder + Waveform Timeline) core complete
 
 **Completed**:
 
-- Project management system
+- Project management system (create, save, load projects)
 - RuTracker authentication with session persistence
 - Smart search with MusicBrainz integration
 - Torrent collection system (per-project)
 - WebTorrent download queue with real-time progress
+- Audio player with playlist playback
+- Mix Builder with drag-and-drop track ordering and crossfade settings
+- Audio mix export (FFmpeg rendering, crossfades, loudness normalization, .cue sheets)
+- Waveform timeline editor with canvas rendering, frequency coloring, beat grid, cue points, zoom/scroll, minimap
+- Performance optimizations: OffscreenCanvas tile cache, binary peak cache, VirtualTrack virtualization, React.memo boundaries
 
 **Next Steps**:
 
-- Audio library with metadata extraction
-- Music mixer interface (Component 3)
+- Waveform interaction improvements (drag-to-trim, draggable cue points, crossfade preview)
