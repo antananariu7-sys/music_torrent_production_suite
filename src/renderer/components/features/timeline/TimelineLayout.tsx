@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Box, Text, VStack, Spinner } from '@chakra-ui/react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useProjectStore } from '@/store/useProjectStore'
@@ -8,6 +8,7 @@ import { TrackInfoOverlay } from './TrackInfoOverlay'
 import { TimeRuler } from './TimeRuler'
 import { CuePointMarker } from './CuePointMarker'
 import { TrimOverlay } from './TrimOverlay'
+import { CrossfadeCurveCanvas } from './CrossfadeCurveCanvas'
 import { BeatGrid } from './BeatGrid'
 import { Playhead } from './Playhead'
 import { CrossfadePopover } from './CrossfadePopover'
@@ -74,6 +75,7 @@ export function TimelineLayout({
   const zoomRef = useRef({ zoomLevel: 1, totalWidth: 0 })
 
   const currentProject = useProjectStore((s) => s.currentProject)
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
 
   const zoomLevel = useTimelineStore((s) => s.zoomLevel)
   const scrollPosition = useTimelineStore((s) => s.scrollPosition)
@@ -83,6 +85,7 @@ export function TimelineLayout({
   const setViewportWidth = useTimelineStore((s) => s.setViewportWidth)
   const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
 
+  const snapMode = useTimelineStore((s) => s.snapMode)
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
   const showBeatGrid = useTimelineStore((s) => s.showBeatGrid)
 
@@ -320,6 +323,169 @@ export function TimelineLayout({
     [pixelsPerSecond, songs, songToTrack, setSelectedTrack]
   )
 
+  // --- Trim drag preview state ---
+  const [previewTrims, setPreviewTrims] = useState<
+    Record<string, { trimStart?: number; trimEnd?: number }>
+  >({})
+  const previewTrimsRef = useRef(previewTrims)
+  previewTrimsRef.current = previewTrims
+
+  const trimPersistRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (trimPersistRef.current) clearTimeout(trimPersistRef.current)
+    }
+  }, [])
+
+  const handleTrimStartDrag = useCallback(
+    (songId: string, newTimestamp: number) => {
+      setPreviewTrims((prev) => ({
+        ...prev,
+        [songId]: { ...prev[songId], trimStart: newTimestamp },
+      }))
+    },
+    []
+  )
+
+  const handleTrimEndDrag = useCallback(
+    (songId: string, newTimestamp: number) => {
+      setPreviewTrims((prev) => ({
+        ...prev,
+        [songId]: { ...prev[songId], trimEnd: newTimestamp },
+      }))
+    },
+    []
+  )
+
+  const handleTrimDragEnd = useCallback(
+    (songId: string) => {
+      const preview = previewTrimsRef.current[songId]
+      if (!preview || !currentProject) return
+
+      // Clear preview state
+      setPreviewTrims((prev) => {
+        const next = { ...prev }
+        delete next[songId]
+        return next
+      })
+
+      // Debounced persistence
+      if (trimPersistRef.current) clearTimeout(trimPersistRef.current)
+      const updates: Partial<{ trimStart: number; trimEnd: number }> = {}
+      if (preview.trimStart !== undefined) updates.trimStart = preview.trimStart
+      if (preview.trimEnd !== undefined) updates.trimEnd = preview.trimEnd
+
+      trimPersistRef.current = setTimeout(async () => {
+        const response = await window.api.mix.updateSong({
+          projectId: currentProject.id,
+          songId,
+          updates,
+        })
+        if (response.success && response.data) {
+          setCurrentProject(response.data)
+        }
+      }, 300)
+    },
+    [currentProject, setCurrentProject]
+  )
+
+  // --- Cue point drag preview state ---
+  // Maps songId → cuePointId → preview timestamp
+  const [previewCuePoints, setPreviewCuePoints] = useState<
+    Record<string, Record<string, number>>
+  >({})
+
+  const cuePersistRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    return () => {
+      if (cuePersistRef.current) clearTimeout(cuePersistRef.current)
+    }
+  }, [])
+
+  const handleCuePointDrag = useCallback(
+    (
+      songId: string,
+      cuePoint: import('@shared/types/waveform.types').CuePoint,
+      newTimestamp: number
+    ) => {
+      setPreviewCuePoints((prev) => ({
+        ...prev,
+        [songId]: { ...prev[songId], [cuePoint.id]: newTimestamp },
+      }))
+
+      // If trim-type, also update trim preview
+      if (cuePoint.type === 'trim-start') {
+        handleTrimStartDrag(songId, newTimestamp)
+      } else if (cuePoint.type === 'trim-end') {
+        handleTrimEndDrag(songId, newTimestamp)
+      }
+    },
+    [handleTrimStartDrag, handleTrimEndDrag]
+  )
+
+  const handleCuePointDragEnd = useCallback(
+    (
+      songId: string,
+      cuePoint: import('@shared/types/waveform.types').CuePoint,
+      newTimestamp: number
+    ) => {
+      // Clear cue point preview
+      setPreviewCuePoints((prev) => {
+        const next = { ...prev }
+        if (next[songId]) {
+          const songCues = { ...next[songId] }
+          delete songCues[cuePoint.id]
+          if (Object.keys(songCues).length === 0) {
+            delete next[songId]
+          } else {
+            next[songId] = songCues
+          }
+        }
+        return next
+      })
+
+      // Clear trim preview if trim-type
+      if (cuePoint.type === 'trim-start' || cuePoint.type === 'trim-end') {
+        setPreviewTrims((prev) => {
+          const next = { ...prev }
+          delete next[songId]
+          return next
+        })
+      }
+
+      if (!currentProject) return
+
+      // Build updated cue points + trim fields
+      const song = songs.find((s) => s.id === songId)
+      if (!song) return
+
+      const updatedCuePoints = (song.cuePoints ?? []).map((cp) =>
+        cp.id === cuePoint.id ? { ...cp, timestamp: newTimestamp } : cp
+      )
+
+      const updates: Partial<Song> = { cuePoints: updatedCuePoints }
+      // Sync trim fields for trim-type cue points
+      if (cuePoint.type === 'trim-start') {
+        updates.trimStart = newTimestamp
+      } else if (cuePoint.type === 'trim-end') {
+        updates.trimEnd = newTimestamp
+      }
+
+      if (cuePersistRef.current) clearTimeout(cuePersistRef.current)
+      cuePersistRef.current = setTimeout(async () => {
+        const response = await window.api.mix.updateSong({
+          projectId: currentProject.id,
+          songId,
+          updates,
+        })
+        if (response.success && response.data) {
+          setCurrentProject(response.data)
+        }
+      }, 300)
+    },
+    [currentProject, setCurrentProject, songs]
+  )
+
   // Get data for active popovers
   const crossfadeSong = activeCrossfadePopover
     ? songs.find((s) => s.id === activeCrossfadePopover.songId)
@@ -407,22 +573,30 @@ export function TimelineLayout({
                     />
                   )}
 
-                  {/* Trim overlay */}
-                  {(song.trimStart != null || song.trimEnd != null) && (
-                    <TrimOverlay
-                      trimStart={song.trimStart}
-                      trimEnd={song.trimEnd}
-                      trackWidth={pos.width}
-                      trackHeight={TRACK_HEIGHT}
-                      pixelsPerSecond={pixelsPerSecond}
-                      songDuration={song.duration ?? 0}
-                    />
-                  )}
+                  {/* Trim overlay + handles */}
+                  <TrimOverlay
+                    trimStart={
+                      previewTrims[song.id]?.trimStart ?? song.trimStart
+                    }
+                    trimEnd={previewTrims[song.id]?.trimEnd ?? song.trimEnd}
+                    trackWidth={pos.width}
+                    trackHeight={TRACK_HEIGHT}
+                    pixelsPerSecond={pixelsPerSecond}
+                    songDuration={song.duration ?? 0}
+                    onTrimStartDrag={(ts) => handleTrimStartDrag(song.id, ts)}
+                    onTrimEndDrag={(ts) => handleTrimEndDrag(song.id, ts)}
+                    onTrimDragEnd={() => handleTrimDragEnd(song.id)}
+                    snapMode={snapMode}
+                    bpm={song.bpm}
+                    firstBeatOffset={song.firstBeatOffset}
+                  />
 
                   {/* Cue point markers */}
                   {cuePoints.map((cp) => {
+                    const previewTs = previewCuePoints[song.id]?.[cp.id]
+                    const effectiveTs = previewTs ?? cp.timestamp
                     const cpX =
-                      (cp.timestamp - (song.trimStart ?? 0)) * pixelsPerSecond
+                      (effectiveTs - (song.trimStart ?? 0)) * pixelsPerSecond
                     if (cpX < 0 || cpX > pos.width) return null
                     return (
                       <CuePointMarker
@@ -430,9 +604,21 @@ export function TimelineLayout({
                         cuePoint={cp}
                         x={cpX}
                         trackHeight={TRACK_HEIGHT}
+                        pixelsPerSecond={pixelsPerSecond}
                         onClick={(clickedCp) =>
                           handleCuePointClick(song.id, pos.left, cpX, clickedCp)
                         }
+                        onDrag={(draggedCp, ts) =>
+                          handleCuePointDrag(song.id, draggedCp, ts)
+                        }
+                        onDragEnd={(draggedCp, ts) =>
+                          handleCuePointDragEnd(song.id, draggedCp, ts)
+                        }
+                        snapMode={snapMode}
+                        bpm={song.bpm}
+                        firstBeatOffset={song.firstBeatOffset}
+                        minTimestamp={song.trimStart ?? 0}
+                        maxTimestamp={song.trimEnd ?? song.duration ?? 0}
                       />
                     )
                   })}
@@ -460,12 +646,18 @@ export function TimelineLayout({
                   top={0}
                   w={`${overlapWidth}px`}
                   h={`${TRACK_HEIGHT}px`}
-                  bg="whiteAlpha.100"
-                  borderRadius="sm"
                   cursor="pointer"
                   onClick={(e) => handleCrossfadeClick(e, song.id)}
                   title="Click to edit crossfade"
-                />
+                >
+                  <CrossfadeCurveCanvas
+                    width={overlapWidth}
+                    height={TRACK_HEIGHT}
+                    curveType={song.crossfadeCurveType ?? 'linear'}
+                    colorA={TRACK_COLORS[index % TRACK_COLORS.length]}
+                    colorB={TRACK_COLORS[(index + 1) % TRACK_COLORS.length]}
+                  />
+                </Box>
               )
             })}
 
@@ -485,6 +677,7 @@ export function TimelineLayout({
           songId={crossfadeSong.id}
           projectId={currentProject.id}
           currentValue={crossfadeSong.crossfadeDuration ?? defaultCrossfade}
+          currentCurveType={crossfadeSong.crossfadeCurveType ?? 'linear'}
           position={activeCrossfadePopover.position}
           onClose={closeCrossfadePopover}
         />
