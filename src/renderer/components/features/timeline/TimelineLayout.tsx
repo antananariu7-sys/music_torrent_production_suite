@@ -27,7 +27,7 @@ export const PX_PER_SEC = 10
 
 /** Zoom limits */
 export const MIN_ZOOM = 1
-export const MAX_ZOOM = 6
+export const MAX_ZOOM = 10
 
 /** Track height in pixels */
 const TRACK_HEIGHT = 240
@@ -84,7 +84,6 @@ export function TimelineLayout({
   const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
 
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
-  const waveformStyle = useTimelineStore((s) => s.waveformStyle)
   const showBeatGrid = useTimelineStore((s) => s.showBeatGrid)
 
   const activeCrossfadePopover = useTimelineStore(
@@ -384,7 +383,6 @@ export function TimelineLayout({
                       peaksMid={waveform.peaksMid}
                       peaksHigh={waveform.peaksHigh}
                       frequencyColorMode={frequencyColorMode}
-                      waveformStyle={waveformStyle}
                       width={pos.width}
                       height={TRACK_HEIGHT}
                       color={color}

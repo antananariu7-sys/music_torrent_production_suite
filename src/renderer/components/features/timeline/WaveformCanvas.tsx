@@ -9,7 +9,6 @@ interface WaveformCanvasProps {
   peaksMid?: number[]
   peaksHigh?: number[]
   frequencyColorMode?: boolean
-  waveformStyle?: 'bars' | 'smooth'
   width: number
   height?: number
   color?: string
@@ -29,7 +28,6 @@ export const WaveformCanvas = memo(
     peaksMid,
     peaksHigh,
     frequencyColorMode = false,
-    waveformStyle = 'smooth',
     width,
     height = 80,
     color = '#3b82f6',
@@ -57,7 +55,6 @@ export const WaveformCanvas = memo(
         width,
         height,
         color,
-        waveformStyle,
         frequencyColorMode,
         dpr,
         peaksLow,
@@ -89,7 +86,6 @@ export const WaveformCanvas = memo(
       peaksMid,
       peaksHigh,
       frequencyColorMode,
-      waveformStyle,
       width,
       height,
       color,
@@ -122,7 +118,6 @@ export const WaveformCanvas = memo(
     prev.peaksMid === next.peaksMid &&
     prev.peaksHigh === next.peaksHigh &&
     prev.frequencyColorMode === next.frequencyColorMode &&
-    prev.waveformStyle === next.waveformStyle &&
     prev.width === next.width &&
     prev.height === next.height &&
     prev.color === next.color &&

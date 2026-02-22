@@ -31,11 +31,10 @@ export function makeCacheKey(
   height: number,
   color: string,
   frequencyColorMode: boolean,
-  waveformStyle: 'bars' | 'smooth',
   peaksLength: number,
   dpr: number
 ): string {
-  return `${songId}:${tileIndex}:${tileWidth}:${height}:${color}:${frequencyColorMode}:${waveformStyle}:${peaksLength}:${dpr}`
+  return `${songId}:${tileIndex}:${tileWidth}:${height}:${color}:${frequencyColorMode}:${peaksLength}:${dpr}`
 }
 
 /** LRU tile cache — shared across all WaveformCanvas instances */
@@ -106,7 +105,6 @@ export const tileCache = new TileCache()
  * @param totalWidth - Total track width in CSS pixels
  * @param height - Tile height in CSS pixels
  * @param color - Waveform color
- * @param waveformStyle - 'bars' | 'smooth'
  * @param frequencyColorMode - Whether to use frequency band coloring
  * @param peaksLow/Mid/High - Optional frequency band peaks
  */
@@ -117,7 +115,6 @@ export function renderTile(
   totalWidth: number,
   height: number,
   color: string,
-  waveformStyle: 'bars' | 'smooth',
   frequencyColorMode: boolean,
   dpr: number,
   peaksLow?: number[],
@@ -172,7 +169,6 @@ export function renderTile(
     tileWidth,
     height,
     color,
-    waveformStyle,
     frequencyColorMode,
     lodLow,
     lodMid,
@@ -193,7 +189,6 @@ export function getTilesForTrack(
   totalWidth: number,
   height: number,
   color: string,
-  waveformStyle: 'bars' | 'smooth',
   frequencyColorMode: boolean,
   dpr: number,
   peaksLow?: number[],
@@ -215,7 +210,6 @@ export function getTilesForTrack(
       height,
       color,
       frequencyColorMode,
-      waveformStyle,
       peaks.length,
       dpr
     )
@@ -229,7 +223,6 @@ export function getTilesForTrack(
         totalWidth,
         height,
         color,
-        waveformStyle,
         frequencyColorMode,
         dpr,
         peaksLow,

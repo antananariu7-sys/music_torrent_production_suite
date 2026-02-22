@@ -113,185 +113,6 @@ export function drawFrequencyBars(
   }
 }
 
-/** Build a smooth bezier envelope path from peaks */
-export function buildEnvelopePath(
-  peaks: number[],
-  width: number,
-  centerY: number,
-  halfHeight: number,
-  direction: 1 | -1
-): Path2D {
-  const path = new Path2D()
-  const step = width / peaks.length
-
-  // Start at center
-  path.moveTo(0, centerY)
-
-  // First point
-  const firstPeak = peaks[0] * halfHeight * direction
-  path.lineTo(0, centerY - firstPeak)
-
-  // Quadratic bezier through each peak
-  for (let i = 1; i < peaks.length; i++) {
-    const x = i * step
-    const peakY = centerY - peaks[i] * halfHeight * direction
-    const prevX = (i - 1) * step
-    const cpX = (prevX + x) / 2
-    path.quadraticCurveTo(
-      cpX,
-      centerY - peaks[i - 1] * halfHeight * direction,
-      x,
-      peakY
-    )
-  }
-
-  // Close back to center
-  path.lineTo(width, centerY)
-
-  return path
-}
-
-/** Draw smooth bezier waveform with optional frequency coloring */
-export function drawSmoothWaveform(
-  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  peaks: number[],
-  width: number,
-  centerY: number,
-  halfHeight: number,
-  freqData: {
-    peaksLow: number[]
-    peaksMid: number[]
-    peaksHigh: number[]
-  } | null,
-  singleColor: string | null
-): void {
-  const canvasHeight = centerY * 2
-
-  if (freqData) {
-    // Frequency-colored smooth: draw segments by dominant band
-    const step = width / peaks.length
-
-    // Build the combined envelope shape (top + bottom mirrored)
-    const topPath = buildEnvelopePath(peaks, width, centerY, halfHeight, 1)
-    const bottomPath = buildEnvelopePath(peaks, width, centerY, halfHeight, -1)
-
-    // Create a combined fill path for the full waveform shape
-    const fullShape = new Path2D()
-    // Top envelope (left to right)
-    fullShape.moveTo(0, centerY)
-    const firstPeakTop = peaks[0] * halfHeight
-    fullShape.lineTo(0, centerY - firstPeakTop)
-    for (let i = 1; i < peaks.length; i++) {
-      const x = i * step
-      const peakY = centerY - peaks[i] * halfHeight
-      const prevX = (i - 1) * step
-      const cpX = (prevX + x) / 2
-      fullShape.quadraticCurveTo(
-        cpX,
-        centerY - peaks[i - 1] * halfHeight,
-        x,
-        peakY
-      )
-    }
-    // Right edge down to bottom envelope
-    fullShape.lineTo(width, centerY)
-    // Bottom envelope (right to left)
-    const lastPeakBot = peaks[peaks.length - 1] * halfHeight
-    fullShape.lineTo(width, centerY + lastPeakBot)
-    for (let i = peaks.length - 2; i >= 0; i--) {
-      const x = i * step
-      const peakY = centerY + peaks[i] * halfHeight
-      const nextX = (i + 1) * step
-      const cpX = (nextX + x) / 2
-      fullShape.quadraticCurveTo(
-        cpX,
-        centerY + peaks[i + 1] * halfHeight,
-        x,
-        peakY
-      )
-    }
-    fullShape.lineTo(0, centerY)
-    fullShape.closePath()
-
-    // Draw band-colored vertical strips clipped to the waveform shape
-    ctx.save()
-    ctx.clip(fullShape)
-
-    // Group consecutive peaks by band for fewer draw calls
-    let segStart = 0
-    let currentBand = getDominantBand(
-      0,
-      peaks[0],
-      freqData.peaksLow,
-      freqData.peaksMid,
-      freqData.peaksHigh
-    )
-
-    const drawSegment = (start: number, end: number, band: string) => {
-      const bandColor =
-        band === 'low'
-          ? BAND_COLORS.low
-          : band === 'mid'
-            ? BAND_COLORS.mid
-            : band === 'high'
-              ? BAND_COLORS.high
-              : null
-      if (!bandColor) return
-      const gradient = createBarGradient(ctx, canvasHeight, bandColor)
-      ctx.fillStyle = gradient
-      const x0 = start * step
-      const x1 = Math.min((end + 1) * step, width)
-      ctx.fillRect(x0, 0, x1 - x0, canvasHeight)
-    }
-
-    for (let i = 1; i < peaks.length; i++) {
-      const band = getDominantBand(
-        i,
-        peaks[i],
-        freqData.peaksLow,
-        freqData.peaksMid,
-        freqData.peaksHigh
-      )
-      if (band !== currentBand) {
-        drawSegment(segStart, i - 1, currentBand)
-        segStart = i
-        currentBand = band
-      }
-    }
-    drawSegment(segStart, peaks.length - 1, currentBand)
-
-    ctx.restore()
-
-    // Thin edge stroke for definition
-    ctx.strokeStyle = colorWithAlpha('#ffffff', 0.15)
-    ctx.lineWidth = 1
-    ctx.stroke(topPath)
-    ctx.stroke(bottomPath)
-  } else {
-    // Single-color smooth waveform
-    const gradient = createBarGradient(
-      ctx,
-      canvasHeight,
-      singleColor ?? '#3b82f6'
-    )
-
-    // Build top and bottom envelope paths
-    const topPath = buildEnvelopePath(peaks, width, centerY, halfHeight, 1)
-    const bottomPath = buildEnvelopePath(peaks, width, centerY, halfHeight, -1)
-
-    // Fill top half
-    ctx.fillStyle = gradient
-    ctx.fill(topPath)
-    ctx.fill(bottomPath)
-
-    // Thin edge stroke for definition
-    ctx.strokeStyle = colorWithAlpha(singleColor ?? '#3b82f6', 0.3)
-    ctx.lineWidth = 1
-    ctx.stroke(topPath)
-    ctx.stroke(bottomPath)
-  }
-}
-
 /**
  * Downsample a peaks array to targetCount using max-pooling.
  * Used for zoom-adaptive LOD: fewer peaks at low zoom, more at high zoom.
@@ -322,7 +143,6 @@ export function drawWaveform(
   width: number,
   height: number,
   color: string,
-  waveformStyle: 'bars' | 'smooth',
   frequencyColorMode: boolean,
   peaksLow?: number[],
   peaksMid?: number[],
@@ -342,41 +162,27 @@ export function drawWaveform(
     peaksHigh != null &&
     peaksLow.length === peaks.length
 
-  if (waveformStyle === 'smooth') {
-    drawSmoothWaveform(
+  if (hasFrequencyData) {
+    drawFrequencyBars(
       ctx,
       peaks,
-      width,
+      peaksLow!,
+      peaksMid!,
+      peaksHigh!,
+      barWidth,
+      minBarWidth,
       centerY,
       halfHeight,
-      hasFrequencyData
-        ? { peaksLow: peaksLow!, peaksMid: peaksMid!, peaksHigh: peaksHigh! }
-        : null,
-      hasFrequencyData ? null : color
+      height,
+      color
     )
   } else {
-    if (hasFrequencyData) {
-      drawFrequencyBars(
-        ctx,
-        peaks,
-        peaksLow!,
-        peaksMid!,
-        peaksHigh!,
-        barWidth,
-        minBarWidth,
-        centerY,
-        halfHeight,
-        height,
-        color
-      )
-    } else {
-      ctx.fillStyle = createBarGradient(ctx, height, color)
-      for (let i = 0; i < peaks.length; i++) {
-        const x = i * barWidth
-        const peakHeight = peaks[i] * halfHeight
-        if (peakHeight < 0.5) continue
-        ctx.fillRect(x, centerY - peakHeight, minBarWidth, peakHeight * 2)
-      }
+    ctx.fillStyle = createBarGradient(ctx, height, color)
+    for (let i = 0; i < peaks.length; i++) {
+      const x = i * barWidth
+      const peakHeight = peaks[i] * halfHeight
+      if (peakHeight < 0.5) continue
+      ctx.fillRect(x, centerY - peakHeight, minBarWidth, peakHeight * 2)
     }
   }
 }

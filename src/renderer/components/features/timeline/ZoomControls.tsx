@@ -6,7 +6,6 @@ import {
   FiMaximize2,
   FiGrid,
   FiBarChart2,
-  FiActivity,
   FiMusic,
 } from 'react-icons/fi'
 import { useShallow } from 'zustand/react/shallow'
@@ -27,21 +26,15 @@ export const ZoomControls = memo(function ZoomControls({
   totalDuration,
 }: ZoomControlsProps): JSX.Element {
   // State values grouped with useShallow to prevent re-renders on unrelated store changes
-  const {
-    zoomLevel,
-    snapMode,
-    frequencyColorMode,
-    waveformStyle,
-    showBeatGrid,
-  } = useTimelineStore(
-    useShallow((s) => ({
-      zoomLevel: s.zoomLevel,
-      snapMode: s.snapMode,
-      frequencyColorMode: s.frequencyColorMode,
-      waveformStyle: s.waveformStyle,
-      showBeatGrid: s.showBeatGrid,
-    }))
-  )
+  const { zoomLevel, snapMode, frequencyColorMode, showBeatGrid } =
+    useTimelineStore(
+      useShallow((s) => ({
+        zoomLevel: s.zoomLevel,
+        snapMode: s.snapMode,
+        frequencyColorMode: s.frequencyColorMode,
+        showBeatGrid: s.showBeatGrid,
+      }))
+    )
 
   // Action selectors are stable refs from create() — keep separate
   const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
@@ -51,7 +44,6 @@ export const ZoomControls = memo(function ZoomControls({
   const toggleFrequencyColorMode = useTimelineStore(
     (s) => s.toggleFrequencyColorMode
   )
-  const toggleWaveformStyle = useTimelineStore((s) => s.toggleWaveformStyle)
   const toggleBeatGrid = useTimelineStore((s) => s.toggleBeatGrid)
 
   return (
@@ -130,39 +122,26 @@ export const ZoomControls = memo(function ZoomControls({
 
       <Box w="1px" h="16px" bg="border.base" mx={1} />
 
-      <IconButton
-        aria-label="Toggle frequency color mode"
-        size="xs"
-        variant={frequencyColorMode ? 'solid' : 'ghost'}
-        colorPalette={frequencyColorMode ? 'teal' : 'gray'}
-        onClick={toggleFrequencyColorMode}
+      <HStack
+        gap={1}
+        title="Frequency color mode&#10;Red = Low bass (<250 Hz)&#10;Green = Mid (250 Hz – 4 kHz)&#10;Blue = High treble (>4 kHz)"
       >
-        <FiBarChart2 />
-      </IconButton>
-      <Text
-        fontSize="xs"
-        color={frequencyColorMode ? 'text.primary' : 'text.muted'}
-      >
-        Frequency
-      </Text>
-
-      <Box w="1px" h="16px" bg="border.base" mx={1} />
-
-      <IconButton
-        aria-label="Toggle waveform style"
-        size="xs"
-        variant={waveformStyle === 'smooth' ? 'solid' : 'ghost'}
-        colorPalette={waveformStyle === 'smooth' ? 'blue' : 'gray'}
-        onClick={toggleWaveformStyle}
-      >
-        <FiActivity />
-      </IconButton>
-      <Text
-        fontSize="xs"
-        color={waveformStyle === 'smooth' ? 'text.primary' : 'text.muted'}
-      >
-        Smooth
-      </Text>
+        <IconButton
+          aria-label="Toggle frequency color mode"
+          size="xs"
+          variant={frequencyColorMode ? 'solid' : 'ghost'}
+          colorPalette={frequencyColorMode ? 'teal' : 'gray'}
+          onClick={toggleFrequencyColorMode}
+        >
+          <FiBarChart2 />
+        </IconButton>
+        <Text
+          fontSize="xs"
+          color={frequencyColorMode ? 'text.primary' : 'text.muted'}
+        >
+          Frequency
+        </Text>
+      </HStack>
 
       {totalDuration > 0 && (
         <Text fontSize="xs" color="text.muted" ml="auto">
