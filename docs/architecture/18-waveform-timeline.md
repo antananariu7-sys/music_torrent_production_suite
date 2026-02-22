@@ -2,11 +2,13 @@
 
 > Interactive waveform timeline editor: visual mix arrangement with real audio waveforms, BPM-synced beat grids, editable crossfade zones, cue points with trim boundaries, and integrated playback.
 
-**Status**: Implemented (core + visual improvements)
+**Status**: Implemented (core + visual improvements + interaction improvements)
 **Depends on**: Component 3 (Mix Builder, doc 16), Audio Mix Export (doc 17), ProjectService, AudioPlayer
 **Feature spec**: [docs/features/done/waveform-timeline.md](../features/done/waveform-timeline.md)
 **Implementation plan**: [docs/features/done/waveform-timeline-plan.md](../features/done/waveform-timeline-plan.md)
 **Visual improvements spec**: [docs/features/done/waveform-visual-improvements.md](../features/done/waveform-visual-improvements.md)
+**Interaction improvements spec**: [docs/features/done/waveform-interaction-improvements.md](../features/done/waveform-interaction-improvements.md)
+**Interaction improvements plan**: [docs/features/done/waveform-interaction-implementation.md](../features/done/waveform-interaction-implementation.md)
 
 ---
 
@@ -19,15 +21,18 @@ Phase 2 of the audio mix export feature. The export pipeline (FFmpeg rendering, 
 - **Waveform visualization**: Real audio peak extraction via FFmpeg, cached to disk, rendered on `<canvas>`
 - **BPM detection**: Onset detection + autocorrelation, beat grid overlay, snap-to-beat
 - **Timeline editing**: Crossfade zone click-to-edit, double-click cue point placement, trim boundaries
-- **Playback integration**: Click-to-play on timeline, moving playhead, auto-advance
-- **Export integration**: `atrim` filter for trims, cue point INDEX entries in .cue sheet
+- **Direct manipulation**: Draggable trim handles, draggable cue point markers, region selection with floating toolbar
+- **Crossfade curves**: Visual fade-in/fade-out curves in overlap zones, configurable curve types (linear, equal-power, s-curve)
+- **Crossfade preview**: Web Audio API preview of crossfade with both tracks mixed, matching export curve type
+- **Playback integration**: Click-to-play on timeline, moving playhead, auto-advance, region loop playback
+- **Export integration**: `atrim` filter for trims, cue point INDEX entries in .cue sheet, per-crossfade curve type support
 - **Navigation**: Zoom, scroll, minimap, time ruler
 
 ### Scope boundaries
 
-**In scope**: Waveform display, BPM detection, beat grid, cue points, trim, crossfade editing, playback, export integration.
+**In scope**: Waveform display, BPM detection, beat grid, cue points, trim (draggable handles), crossfade editing (curve types + preview), region selection, playback, export integration.
 
-**Out of scope**: Real-time crossfade preview (two simultaneous audio streams), EQ/effects, tempo adjustment/time-stretching, waveform editing (cut/split/reverse), automatic beat-sync.
+**Out of scope**: EQ/effects, tempo adjustment/time-stretching, waveform editing (cut/split/reverse), automatic beat-sync, undo/redo for drag operations, multi-track selection.
 
 ---
 
@@ -45,6 +50,7 @@ interface Song {
   firstBeatOffset?: number // Seconds to first downbeat (cached)
   trimStart?: number // Effective start (derived from trim-start cue point)
   trimEnd?: number // Effective end (derived from trim-end cue point)
+  crossfadeCurveType?: CrossfadeCurveType // 'linear' | 'equal-power' | 's-curve' (default: 'linear')
 }
 ```
 
@@ -349,16 +355,18 @@ bpmDetector.cleanup()
 ```
 TimelineTab (tab shell)
 ├── Minimap                         Simplified waveform overview + viewport rect
-├── ZoomControls                    [−] slider [+], snap toggle, duration display
+├── ZoomControls                    [−] slider [+], snap toggle, beat grid toggle, duration display
 ├── TimeRuler                       Tick marks + time labels (adapts to zoom)
 ├── TimelineLayout (scrollable)     Positions tracks + scroll container
 │   └── per track:
 │       ├── WaveformCanvas          <canvas> with mirrored bars
 │       │   ├── BeatGrid            Beat lines (thin + downbeats)
-│       │   ├── TrimOverlay         Gray overlay outside trim bounds
-│       │   └── CuePointMarker[]    Colored vertical lines + labels
+│       │   ├── TrimOverlay         Gray overlay + draggable TrimHandle at edges
+│       │   ├── CuePointMarker[]    Draggable colored vertical lines + labels
+│       │   └── RegionSelection     Blue highlight + floating toolbar (trim/play/clear)
 │       ├── TrackInfoOverlay        Format badge + hover tooltip
-│       ├── CrossfadePopover        Slider (0–30s) on overlap zone click
+│       ├── CrossfadeCurveCanvas    Fade-in/fade-out curves in overlap zones
+│       ├── CrossfadePopover        Duration slider + curve type selector + preview button
 │       └── CuePointPopover         Name + type + delete on double-click
 ├── Playhead                        Animated vertical line (absolutely positioned div)
 └── TrackDetailPanel                Bottom panel: selected track metadata + cue list
@@ -380,13 +388,22 @@ src/renderer/
 │   ├── Playhead.tsx                Animated playback position indicator
 │   ├── TimeRuler.tsx               Adaptive time tick marks
 │   ├── ZoomControls.tsx            Zoom buttons + keyboard shortcuts
-│   ├── CrossfadePopover.tsx        Crossfade duration editor
-│   ├── CuePointMarker.tsx          Visual marker (line + flag)
+│   ├── CrossfadePopover.tsx        Duration slider + curve type selector + preview
+│   ├── CrossfadeCurveCanvas.tsx    Canvas rendering of fade-in/fade-out curves
+│   ├── CuePointMarker.tsx          Draggable visual marker (line + flag)
 │   ├── CuePointPopover.tsx         Create/edit cue point form
-│   ├── TrimOverlay.tsx             Gray overlay outside trim bounds
-│   └── BeatGrid.tsx                Canvas-based beat line rendering
+│   ├── TrimOverlay.tsx             Gray overlay + draggable trim handles
+│   ├── TrimHandle.tsx              8px draggable handle at trim boundaries
+│   ├── RegionSelection.tsx         Blue highlight + floating toolbar + edge handles
+│   ├── BeatGrid.tsx                Canvas-based beat line rendering
+│   ├── hooks/
+│   │   ├── useDragInteraction.ts   Shared pointer-capture drag hook (threshold gating)
+│   │   └── useRegionSelection.ts   Drag-to-select gesture hook
+│   └── utils/
+│       └── snapToBeat.ts           Snap timestamp to nearest beat
 ├── hooks/
-│   └── useWaveformData.ts          Batch waveform loading + progress + rebuild
+│   ├── useWaveformData.ts          Batch waveform loading + progress + rebuild
+│   └── useCrossfadePreview.ts      Web Audio API crossfade preview
 ├── store/
 │   └── timelineStore.ts            Timeline UI state (Zustand)
 └── pages/ProjectOverview/
@@ -412,42 +429,51 @@ interface TimelineState {
   frequencyColorMode: boolean // 3-band frequency coloring toggle
   showBeatGrid: boolean // beat grid visibility (independent of snap)
 
+  // Region selection
+  activeSelection: {
+    songId: string
+    startTime: number
+    endTime: number
+  } | null
+
   // Caches
   waveformCache: Record<string, WaveformData>
   isLoadingWaveforms: boolean
   loadingProgress: { current: number; total: number } | null
 
   // Popovers
-  activeCrossfadePopover: { songId: string; position: number } | null
+  activeCrossfadePopover: { songId: string; position: PopoverPosition } | null
   activeCuePointPopover: {
     songId: string
     timestamp: number
-    existing?: CuePoint
+    cuePoint?: CuePoint
+    position: PopoverPosition
   } | null
-
-  // Playback
-  isPlaybackActive: boolean
-  playheadPosition: number // pixels
 
   // Actions
   setSelectedTrack: (id: string | null) => void
-  setZoom: (level: number) => void
+  setZoomLevel: (level: number) => void
   zoomIn: () => void
   zoomOut: () => void
-  fitToView: () => void
-  setScroll: (px: number) => void
+  setScrollPosition: (px: number) => void
   setViewportWidth: (px: number) => void
   toggleSnapMode: () => void
-  setWaveformData: (songId: string, data: WaveformData) => void
-  setBpmData: (songId: string, data: BpmData) => void
-  openCrossfadePopover: (songId: string, position: number) => void
+  toggleFrequencyColorMode: () => void
+  toggleBeatGrid: () => void
+  setWaveform: (songId: string, data: WaveformData) => void
+  setWaveforms: (data: WaveformData[]) => void
+  setActiveSelection: (sel: TimelineState['activeSelection']) => void
+  clearActiveSelection: () => void
+  openCrossfadePopover: (songId: string, position: PopoverPosition) => void
   closeCrossfadePopover: () => void
   openCuePointPopover: (
     songId: string,
     timestamp: number,
-    existing?: CuePoint
+    position: PopoverPosition,
+    cuePoint?: CuePoint
   ) => void
   closeCuePointPopover: () => void
+  clearCache: () => void
 }
 ```
 
@@ -499,12 +525,15 @@ function computeTrackPositions(
 **AudioPlayer store changes** (`src/renderer/store/audioPlayerStore.ts`):
 
 ```typescript
-// Add to interface:
+// Added fields:
 pendingSeekTime: number | null
+loopRegion: { startTime: number; endTime: number } | null  // for region selection playback
 
-// Add action:
-seekTo: (track: Track, time: number) => void  // sets currentTrack, pendingSeekTime, isPlaying
+// Added actions:
+seekTo: (track: Track, time: number) => void
 clearPendingSeek: () => void
+setLoopRegion: (region: { startTime: number; endTime: number }) => void
+clearLoopRegion: () => void
 ```
 
 **Click-to-play flow**:
@@ -527,17 +556,24 @@ clearPendingSeek: () => void
 
 File: `src/main/services/mixExport/FilterGraphBuilder.ts`
 
-Add `trimStart?` and `trimEnd?` to `TrackInfo` interface:
+Add `trimStart?`, `trimEnd?`, and `crossfadeCurveType?` to `TrackInfo` interface:
 
 ```typescript
 export interface TrackInfo {
   index: number
   loudnorm?: LoudnormAnalysis
   crossfadeDuration: number
-  trimStart?: number // NEW
-  trimEnd?: number // NEW
+  trimStart?: number
+  trimEnd?: number
+  crossfadeCurveType?: CrossfadeCurveType // curve shape for acrossfade
 }
 ```
+
+Curve type maps to FFmpeg `acrossfade` parameters via `getCurveParam()`:
+
+- `linear` → `c1=tri:c2=tri`
+- `equal-power` → `c1=qsin:c2=qsin`
+- `s-curve` → `c1=hsin:c2=hsin`
 
 In the per-track filter block, insert `atrim` + `asetpts` before loudnorm:
 
@@ -956,9 +992,9 @@ type TabValue = 'search' | 'torrent' | 'mix' | 'timeline'
 ## 13. Open Questions
 
 - **BPM detection library upgrade**: If custom autocorrelation proves insufficient accuracy, evaluate `aubio` npm package as a drop-in replacement in BpmDetector
-- **Crossfade curve preview**: Should overlap zones visualize fade curves (triangular, equal-power)? Visual nicety, not blocking
+- ~~**Crossfade curve preview**~~: ✅ Implemented — `CrossfadeCurveCanvas` renders fade curves (linear, equal-power, s-curve) in overlap zones
 - **Manual BPM adjustment**: Tap-to-correct or grid offset nudge — deferred to a later phase
-- **Crossfade audio preview**: True crossfade playback requires simultaneous two-track playback with volume automation — deferred
+- ~~**Crossfade audio preview**~~: ✅ Implemented — `useCrossfadePreview` hook plays both tracks via Web Audio API with gain curve automation
 
 ---
 
