@@ -8,7 +8,10 @@ import type {
   SearchProgressEvent,
 } from '@shared/types/search.types'
 import type { AuthService } from './AuthService'
-import { PageScraper, type SessionCookie } from './rutracker/scrapers/PageScraper'
+import {
+  PageScraper,
+  type SessionCookie,
+} from './rutracker/scrapers/PageScraper'
 import { ResultParser } from './rutracker/scrapers/ResultParser'
 import { PaginationHandler } from './rutracker/scrapers/PaginationHandler'
 import { SearchFiltersApplier } from './rutracker/filters/SearchFilters'
@@ -25,8 +28,11 @@ interface BrowserOptions {
  * Handles search operations on RuTracker using Puppeteer.
  * Reuses session from AuthService for authenticated searches.
  */
+const MAX_VIEWING_BROWSERS = 3
+
 export class RuTrackerSearchService {
   private browser: Browser | null = null
+  private viewingBrowsers: Set<Browser> = new Set()
   private browserOptions: BrowserOptions
   private pageScraper: PageScraper
   private resultParser: ResultParser
@@ -38,7 +44,7 @@ export class RuTrackerSearchService {
     options: Partial<BrowserOptions> = {}
   ) {
     // Use DEBUG_BROWSER env var if no explicit option provided
-    const headless = options.headless ?? (process.env.DEBUG_BROWSER !== 'true')
+    const headless = options.headless ?? process.env.DEBUG_BROWSER !== 'true'
     this.browserOptions = {
       headless,
     }
@@ -86,14 +92,18 @@ export class RuTrackerSearchService {
       const result = execSync('where chrome', { encoding: 'utf-8' })
       const chromePath = result.trim().split('\n')[0]
       if (existsSync(chromePath)) {
-        console.log(`[RuTrackerSearchService] Found Chrome via 'where': ${chromePath}`)
+        console.log(
+          `[RuTrackerSearchService] Found Chrome via 'where': ${chromePath}`
+        )
         return chromePath
       }
     } catch (error) {
       // Ignore error
     }
 
-    throw new Error('Chrome/Chromium executable not found. Please install Google Chrome.')
+    throw new Error(
+      'Chrome/Chromium executable not found. Please install Google Chrome.'
+    )
   }
 
   /**
@@ -105,7 +115,9 @@ export class RuTrackerSearchService {
     }
 
     const executablePath = this.findChromePath()
-    console.log(`[RuTrackerSearchService] Launching browser (headless: ${this.browserOptions.headless})`)
+    console.log(
+      `[RuTrackerSearchService] Launching browser (headless: ${this.browserOptions.headless})`
+    )
 
     this.browser = await puppeteer.launch({
       executablePath,
@@ -122,14 +134,18 @@ export class RuTrackerSearchService {
   }
 
   /**
-   * Close browser instance
+   * Close search browser and all viewing browser instances
    */
   async closeBrowser(): Promise<void> {
     if (this.browser) {
       await this.browser.close()
       this.browser = null
-      console.log('[RuTrackerSearchService] Browser closed')
     }
+    for (const b of this.viewingBrowsers) {
+      await b.close().catch(() => {})
+    }
+    this.viewingBrowsers.clear()
+    console.log('[RuTrackerSearchService] All browsers closed')
   }
 
   /**
@@ -146,7 +162,9 @@ export class RuTrackerSearchService {
    * @param url - RuTracker URL to open
    * @returns Success status
    */
-  async openUrlWithSession(url: string): Promise<{ success: boolean; error?: string }> {
+  async openUrlWithSession(
+    url: string
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       // Check if user is logged in
       const authState = this.authService.getAuthStatus()
@@ -161,12 +179,23 @@ export class RuTrackerSearchService {
 
       // Get session cookies from AuthService
       const sessionCookies = this.getSessionCookies()
-      console.log(`[RuTrackerSearchService] Got ${sessionCookies.length} session cookies`)
+      console.log(
+        `[RuTrackerSearchService] Got ${sessionCookies.length} session cookies`
+      )
 
       // Launch a separate browser instance for viewing (not reusing this.browser)
       // This prevents interfering with the search browser instance
       const executablePath = this.findChromePath()
-      console.log('[RuTrackerSearchService] Launching separate browser instance for viewing')
+      console.log(
+        '[RuTrackerSearchService] Launching separate browser instance for viewing'
+      )
+
+      // Close oldest viewing browser if at limit
+      if (this.viewingBrowsers.size >= MAX_VIEWING_BROWSERS) {
+        const oldest = this.viewingBrowsers.values().next().value!
+        await oldest.close().catch(() => {})
+        this.viewingBrowsers.delete(oldest)
+      }
 
       const viewingBrowser = await puppeteer.launch({
         executablePath,
@@ -179,15 +208,24 @@ export class RuTrackerSearchService {
         ],
       })
 
-      const page = await this.pageScraper.createPageWithCookies(viewingBrowser, sessionCookies)
+      // Track instance and auto-cleanup when user closes the window
+      this.viewingBrowsers.add(viewingBrowser)
+      viewingBrowser.on('disconnected', () => {
+        this.viewingBrowsers.delete(viewingBrowser)
+      })
+
+      const page = await this.pageScraper.createPageWithCookies(
+        viewingBrowser,
+        sessionCookies
+      )
 
       // Navigate to the requested URL
       await this.pageScraper.navigateToUrl(page, url)
 
-      console.log('[RuTrackerSearchService] ✅ URL opened successfully with session')
-      console.log('[RuTrackerSearchService] Browser left open for user interaction')
+      console.log(
+        '[RuTrackerSearchService] URL opened successfully with session'
+      )
 
-      // Don't close the browser - leave it open for user to interact
       return {
         success: true,
       }
@@ -223,11 +261,16 @@ export class RuTrackerSearchService {
 
       // Get session cookies from AuthService
       const sessionCookies = this.getSessionCookies()
-      console.log(`[RuTrackerSearchService] Got ${sessionCookies.length} session cookies from AuthService`)
+      console.log(
+        `[RuTrackerSearchService] Got ${sessionCookies.length} session cookies from AuthService`
+      )
 
       // Initialize browser
       const browser = await this.initBrowser()
-      page = await this.pageScraper.createPageWithCookies(browser, sessionCookies)
+      page = await this.pageScraper.createPageWithCookies(
+        browser,
+        sessionCookies
+      )
 
       // Navigate to search URL
       const searchUrl = buildSearchUrl(request.query, 1)
@@ -237,7 +280,9 @@ export class RuTrackerSearchService {
       console.log('[RuTrackerSearchService] Parsing search results')
       let results = await this.resultParser.parseSearchResults(page)
 
-      console.log(`[RuTrackerSearchService] Found ${results.length} raw results`)
+      console.log(
+        `[RuTrackerSearchService] Found ${results.length} raw results`
+      )
 
       // Store total results before filtering
       const totalResults = results.length
@@ -247,9 +292,14 @@ export class RuTrackerSearchService {
 
       // Apply filters if provided
       if (request.filters) {
-        console.log('[RuTrackerSearchService] Applying filters:', request.filters)
+        console.log(
+          '[RuTrackerSearchService] Applying filters:',
+          request.filters
+        )
         results = this.filtersApplier.applyFilters(results, request.filters)
-        console.log(`[RuTrackerSearchService] ${results.length} results after filtering`)
+        console.log(
+          `[RuTrackerSearchService] ${results.length} results after filtering`
+        )
       }
 
       // Apply sorting if provided
@@ -258,13 +308,18 @@ export class RuTrackerSearchService {
         results = this.filtersApplier.applySorting(results, request.sort)
       } else {
         // Default: sort by relevance score (descending)
-        results = this.filtersApplier.applySorting(results, { by: 'relevance', order: 'desc' })
+        results = this.filtersApplier.applySorting(results, {
+          by: 'relevance',
+          order: 'desc',
+        })
       }
 
       // Limit results if maxResults is specified
       if (request.maxResults && request.maxResults > 0) {
         results = results.slice(0, request.maxResults)
-        console.log(`[RuTrackerSearchService] Limited to ${request.maxResults} results`)
+        console.log(
+          `[RuTrackerSearchService] Limited to ${request.maxResults} results`
+        )
       }
 
       return {
@@ -312,7 +367,9 @@ export class RuTrackerSearchService {
         }
       }
 
-      console.log(`[RuTrackerSearchService] Progressive search for: "${request.query}"`)
+      console.log(
+        `[RuTrackerSearchService] Progressive search for: "${request.query}"`
+      )
 
       // Get session cookies from AuthService
       const sessionCookies = this.getSessionCookies()
@@ -333,7 +390,9 @@ export class RuTrackerSearchService {
         onProgress
       )
 
-      console.log(`[RuTrackerSearchService] Progressive search complete: ${allResults.length} total results`)
+      console.log(
+        `[RuTrackerSearchService] Progressive search complete: ${allResults.length} total results`
+      )
 
       return {
         success: true,
@@ -343,7 +402,10 @@ export class RuTrackerSearchService {
         totalResults: allResults.length,
       }
     } catch (error) {
-      console.error('[RuTrackerSearchService] Progressive search failed:', error)
+      console.error(
+        '[RuTrackerSearchService] Progressive search failed:',
+        error
+      )
 
       // Report error in progress
       onProgress?.({

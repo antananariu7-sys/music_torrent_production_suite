@@ -473,7 +473,7 @@ const api = {
   audio: {
     readFile: (
       filePath: string
-    ): Promise<{ success: boolean; dataUrl?: string; error?: string }> =>
+    ): Promise<{ success: boolean; url?: string; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.AUDIO_READ_FILE, filePath),
 
     readMetadata: (

@@ -3,16 +3,20 @@ import { join } from 'path'
 import { APP_CONFIG } from '../shared/constants'
 
 export function createWindow(): BrowserWindow {
-  // Set Content Security Policy headers to allow cover art images from HTTPS sources and audio data URLs
+  // Set Content Security Policy headers.
+  // Strip any existing CSP headers first (Vite dev server may send lowercase
+  // 'content-security-policy' which conflicts with our title-case key).
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    callback({
-      responseHeaders: {
-        ...details.responseHeaders,
-        'Content-Security-Policy': [
-          "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data:",
-        ],
-      },
-    })
+    const headers = { ...details.responseHeaders }
+    for (const key of Object.keys(headers)) {
+      if (key.toLowerCase() === 'content-security-policy') {
+        delete headers[key]
+      }
+    }
+    headers['Content-Security-Policy'] = [
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data: audio:",
+    ]
+    callback({ responseHeaders: headers })
   })
 
   const window = new BrowserWindow({

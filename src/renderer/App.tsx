@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Box, Spinner, VStack, Text } from '@chakra-ui/react'
 import type { AppInfo } from '@shared/types/app.types'
-import ProjectLauncher from '@/pages/ProjectLauncher'
-import ProjectOverview from '@/pages/ProjectOverview'
-import Settings from '@/pages/Settings'
+
+const ProjectLauncher = lazy(() => import('@/pages/ProjectLauncher'))
+const ProjectOverview = lazy(() => import('@/pages/ProjectOverview'))
+const Settings = lazy(() => import('@/pages/Settings'))
 import { Toaster } from '@/components/ui/toaster'
 import { AudioPlayer } from '@/components/common/AudioPlayer'
 import { useThemeStore } from '@/store/useThemeStore'
@@ -46,7 +47,10 @@ function AppContent() {
         // Sync auth state from main process (handles session restoration)
         const authResponse = await window.api.auth.getStatus()
         if (authResponse.success && authResponse.data) {
-          console.log('[App] Syncing auth state from main process:', authResponse.data)
+          console.log(
+            '[App] Syncing auth state from main process:',
+            authResponse.data
+          )
           setAuthState(authResponse.data)
 
           if (authResponse.data.isSessionRestored) {
@@ -65,7 +69,13 @@ function AppContent() {
 
   if (loading) {
     return (
-      <Box minH="100vh" display="flex" alignItems="center" justifyContent="center" bg="bg.canvas">
+      <Box
+        minH="100vh"
+        display="flex"
+        alignItems="center"
+        justifyContent="center"
+        bg="bg.canvas"
+      >
         <VStack gap={4}>
           <Spinner size="xl" color="brand.500" />
           <Text fontSize="xl" color="text.secondary">
@@ -77,18 +87,37 @@ function AppContent() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={<ProjectLauncher appInfo={appInfo} />} />
-      <Route path="/project" element={<ProjectOverview appInfo={appInfo} />} />
-      <Route path="/settings" element={<Settings appInfo={appInfo} />} />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense
+      fallback={
+        <Box
+          minH="100vh"
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+          bg="bg.canvas"
+        >
+          <Spinner size="xl" color="brand.500" />
+        </Box>
+      }
+    >
+      <Routes>
+        <Route path="/" element={<ProjectLauncher appInfo={appInfo} />} />
+        <Route
+          path="/project"
+          element={<ProjectOverview appInfo={appInfo} />}
+        />
+        <Route path="/settings" element={<Settings appInfo={appInfo} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   )
 }
 
 function App() {
   return (
-    <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <HashRouter
+      future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
+    >
       <AppContent />
       <Toaster />
       <AudioPlayer />

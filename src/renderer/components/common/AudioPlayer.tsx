@@ -1,5 +1,21 @@
-import { Box, HStack, VStack, Text, IconButton, Icon, Badge } from '@chakra-ui/react'
-import { FiPlay, FiPause, FiSkipBack, FiSkipForward, FiVolume2, FiVolumeX, FiX } from 'react-icons/fi'
+import {
+  Box,
+  HStack,
+  VStack,
+  Text,
+  IconButton,
+  Icon,
+  Badge,
+} from '@chakra-ui/react'
+import {
+  FiPlay,
+  FiPause,
+  FiSkipBack,
+  FiSkipForward,
+  FiVolume2,
+  FiVolumeX,
+  FiX,
+} from 'react-icons/fi'
 import { useEffect, useRef, useState } from 'react'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import { useStreamPreviewStore } from '@/store/streamPreviewStore'
@@ -45,6 +61,11 @@ export function AudioPlayer(): JSX.Element | null {
       // Suppress time updates while loading a new track to prevent
       // the playhead from flashing to 0 when audio source changes
       if (isLoadingRef.current) return
+      // Guard against stale timeupdate events from the old audio source.
+      // Between next()/previous() updating the store and the useEffect
+      // loading the new source, the old audio may still fire timeupdate.
+      const track = useAudioPlayerStore.getState().currentTrack
+      if (track && track.filePath !== loadedFilePathRef.current) return
       setCurrentTime(audio.currentTime)
     }
 
@@ -101,68 +122,46 @@ export function AudioPlayer(): JSX.Element | null {
     loadedFilePathRef.current = currentTrack.filePath
     audioRef.current.pause()
 
-    const loadAudio = async () => {
-      if (!audioRef.current || !currentTrack) return
+    // Preview tracks carry a data URL; local files use the custom audio:// protocol
+    // which streams directly — no IPC data transfer needed
+    const src = currentTrack.filePath.startsWith('data:')
+      ? currentTrack.filePath
+      : `audio://play?path=${encodeURIComponent(currentTrack.filePath)}`
 
-      try {
-        let dataUrl: string
+    audioRef.current.src = src
+    audioRef.current.load()
 
-        // Preview tracks already carry a data URL — skip the IPC read
-        if (currentTrack.filePath.startsWith('data:')) {
-          dataUrl = currentTrack.filePath
-        } else {
-          // Read audio file through IPC
-          const response = await window.api.audio.readFile(currentTrack.filePath)
-
-          if (!response.success || !response.dataUrl) {
-            console.error('Failed to load audio file:', response.error)
-            isLoadingRef.current = false
-            loadedFilePathRef.current = ''
-            return
-          }
-
-          dataUrl = response.dataUrl
-        }
-
-        if (!audioRef.current) {
-          isLoadingRef.current = false
-          return
-        }
-
-        audioRef.current.src = dataUrl
-        audioRef.current.load()
-
-        // Wait for audio to be ready before playing
-        audioRef.current.oncanplay = () => {
-          const state = useAudioPlayerStore.getState()
-          // Apply pending seek if present
-          if (audioRef.current && state.pendingSeekTime != null) {
-            audioRef.current.currentTime = state.pendingSeekTime
-            state.clearPendingSeek()
-          }
-          if (audioRef.current && state.isPlaying) {
-            audioRef.current.play().catch((err) => {
-              console.error('Failed to play audio:', err)
-            })
-          }
-          if (audioRef.current) {
-            audioRef.current.oncanplay = null
-          }
-          isLoadingRef.current = false
-        }
-      } catch (error) {
-        console.error('Error loading audio:', error)
-        isLoadingRef.current = false
-        loadedFilePathRef.current = ''
+    // Wait for audio to be ready before playing
+    audioRef.current.oncanplay = () => {
+      const state = useAudioPlayerStore.getState()
+      if (audioRef.current && state.pendingSeekTime != null) {
+        audioRef.current.currentTime = state.pendingSeekTime
+        state.clearPendingSeek()
       }
+      if (audioRef.current && state.isPlaying) {
+        audioRef.current.play().catch((err) => {
+          console.error('Failed to play audio:', err)
+        })
+      }
+      if (audioRef.current) {
+        audioRef.current.oncanplay = null
+      }
+      isLoadingRef.current = false
     }
 
-    loadAudio()
+    // Handle load errors (file not found, unsupported format, etc.)
+    audioRef.current.onerror = () => {
+      console.error('[AudioPlayer] Failed to load:', currentTrack.filePath)
+      isLoadingRef.current = false
+      loadedFilePathRef.current = ''
+      if (audioRef.current) audioRef.current.onerror = null
+    }
   }, [currentTrack])
 
   // Handle pending seek from external callers (e.g., Timeline click)
   useEffect(() => {
-    if (!audioRef.current || pendingSeekTime == null || isLoadingRef.current) return
+    if (!audioRef.current || pendingSeekTime == null || isLoadingRef.current)
+      return
     audioRef.current.currentTime = pendingSeekTime
     clearPendingSeek()
   }, [pendingSeekTime, clearPendingSeek])
@@ -301,7 +300,12 @@ export function AudioPlayer(): JSX.Element | null {
           <HStack flex="1" minW={0}>
             <VStack align="start" gap={0} minW={0}>
               <HStack gap={2}>
-                <Text fontSize="sm" fontWeight="medium" color="text.primary" lineClamp={1}>
+                <Text
+                  fontSize="sm"
+                  fontWeight="medium"
+                  color="text.primary"
+                  lineClamp={1}
+                >
                   {currentTrack.name}
                 </Text>
                 {isPreview && (
@@ -367,7 +371,10 @@ export function AudioPlayer(): JSX.Element | null {
               onClick={toggleMute}
               title={isMuted ? 'Unmute' : 'Mute'}
             >
-              <Icon as={isMuted || volume === 0 ? FiVolumeX : FiVolume2} boxSize={4} />
+              <Icon
+                as={isMuted || volume === 0 ? FiVolumeX : FiVolume2}
+                boxSize={4}
+              />
             </IconButton>
             <Box w="100px">
               <Slider

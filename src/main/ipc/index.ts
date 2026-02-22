@@ -95,6 +95,7 @@ export function registerIpcHandlers(): void {
 export async function cleanupServices(): Promise<void> {
   console.log('Cleaning up services...')
   await authService.cleanup()
+  await searchService.closeBrowser()
   await torrentService.closeBrowser()
   await webtorrentService.destroy()
   await discographySearchService.closeBrowser()

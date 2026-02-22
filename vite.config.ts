@@ -10,6 +10,19 @@ export default defineConfig({
     outDir: resolve(__dirname, 'dist/renderer'),
     emptyOutDir: true,
     target: 'esnext',
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-ui': [
+            '@chakra-ui/react',
+            '@emotion/react',
+            '@emotion/styled',
+          ],
+          'vendor-state': ['zustand'],
+        },
+      },
+    },
   },
   esbuild: {
     target: 'esnext',

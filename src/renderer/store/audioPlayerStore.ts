@@ -4,6 +4,7 @@ export interface Track {
   filePath: string
   name: string
   duration?: number
+  trimStart?: number
   trimEnd?: number
   isPreview?: boolean
 }
@@ -30,7 +31,11 @@ interface AudioPlayerState {
 
   // Actions
   playTrack: (track: Track) => void
-  playPlaylist: (tracks: Track[], startIndex?: number, seekTime?: number) => void
+  playPlaylist: (
+    tracks: Track[],
+    startIndex?: number,
+    seekTime?: number
+  ) => void
   play: () => void
   pause: () => void
   togglePlayPause: () => void
@@ -97,53 +102,47 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
 
   next: () => {
     const { playlist, currentIndex } = get()
-    console.log('[AudioPlayer] Next clicked:', {
-      currentIndex,
-      playlistLength: playlist.length,
-      hasNext: currentIndex < playlist.length - 1
-    })
 
     if (currentIndex < playlist.length - 1) {
       const nextIndex = currentIndex + 1
-      console.log('[AudioPlayer] Moving to next track:', nextIndex, playlist[nextIndex]?.name)
+      const nextTrack = playlist[nextIndex]
+      const startTime = nextTrack.trimStart ?? 0
       set({
         currentIndex: nextIndex,
-        currentTrack: playlist[nextIndex],
-        currentTime: 0,
+        currentTrack: nextTrack,
+        currentTime: startTime,
+        pendingSeekTime: startTime > 0 ? startTime : null,
         isPlaying: true,
       })
-    } else {
-      console.log('[AudioPlayer] No next track available')
     }
   },
 
   previous: () => {
     const { playlist, currentIndex, currentTime } = get()
-    console.log('[AudioPlayer] Previous clicked:', {
-      currentIndex,
-      currentTime,
-      playlistLength: playlist.length
-    })
 
     // If more than 3 seconds into track, restart current track
-    if (currentTime > 3) {
-      console.log('[AudioPlayer] Restarting current track')
-      set({ currentTime: 0 })
+    const currentTrack = playlist[currentIndex]
+    const currentStart = currentTrack?.trimStart ?? 0
+    if (currentTime - currentStart > 3) {
+      set({
+        currentTime: currentStart,
+        pendingSeekTime: currentStart > 0 ? currentStart : null,
+      })
       return
     }
 
     // Otherwise go to previous track
     if (currentIndex > 0) {
       const prevIndex = currentIndex - 1
-      console.log('[AudioPlayer] Moving to previous track:', prevIndex, playlist[prevIndex]?.name)
+      const prevTrack = playlist[prevIndex]
+      const startTime = prevTrack.trimStart ?? 0
       set({
         currentIndex: prevIndex,
-        currentTrack: playlist[prevIndex],
-        currentTime: 0,
+        currentTrack: prevTrack,
+        currentTime: startTime,
+        pendingSeekTime: startTime > 0 ? startTime : null,
         isPlaying: true,
       })
-    } else {
-      console.log('[AudioPlayer] No previous track available')
     }
   },
 

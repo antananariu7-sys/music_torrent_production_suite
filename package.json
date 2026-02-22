@@ -16,7 +16,7 @@
     "dev:renderer": "vite",
     "start:dev": "wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .",
     "start:debug": "wait-on http://localhost:5173 && cross-env NODE_ENV=development DEBUG_BROWSER=true electron .",
-    "build": "yarn build:renderer && yarn build:main && yarn build:preload",
+    "build": "concurrently \"yarn build:renderer\" \"yarn build:main\" \"yarn build:preload\"",
     "build:renderer": "vite build",
     "build:main": "node scripts/build-main.mjs",
     "build:preload": "node scripts/build-preload.mjs",

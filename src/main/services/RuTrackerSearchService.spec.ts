@@ -20,7 +20,8 @@ const mockPage = {
 
 const mockBrowser = {
   newPage: jest.fn(),
-  close: jest.fn(),
+  close: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
+  on: jest.fn(),
 }
 
 // Mock puppeteer-core before importing the service
@@ -61,7 +62,9 @@ describe('RuTrackerSearchService', () => {
     jest.clearAllMocks()
 
     // Setup puppeteer mock
-    ;(puppeteer.launch as jest.Mock<typeof puppeteer.launch>).mockResolvedValue(mockBrowser as any)
+    ;(puppeteer.launch as jest.Mock<typeof puppeteer.launch>).mockResolvedValue(
+      mockBrowser as any
+    )
     ;(mockBrowser.newPage as jest.Mock<any>).mockResolvedValue(mockPage as any)
 
     // Setup default mock implementations
@@ -150,7 +153,9 @@ describe('RuTrackerSearchService', () => {
     ]
 
     beforeEach(() => {
-      (mockPage.evaluate as jest.Mock<any>).mockResolvedValue(mockRawResults as any)
+      ;(mockPage.evaluate as jest.Mock<any>).mockResolvedValue(
+        mockRawResults as any
+      )
     })
 
     it('should perform search successfully', async () => {
@@ -177,7 +182,7 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should return error if user is not logged in', async () => {
-      (mockAuthService.getAuthStatus as jest.Mock<any>).mockReturnValue({
+      ;(mockAuthService.getAuthStatus as jest.Mock<any>).mockReturnValue({
         isLoggedIn: false,
       })
 
@@ -271,7 +276,7 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should handle empty search results', async () => {
-      (mockPage.evaluate as jest.Mock<any>).mockResolvedValue([] as any)
+      ;(mockPage.evaluate as jest.Mock<any>).mockResolvedValue([] as any)
 
       const response = await searchService.search(mockSearchRequest)
 
@@ -306,7 +311,7 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should return error if user is not logged in', async () => {
-      (mockAuthService.getAuthStatus as jest.Mock<any>).mockReturnValue({
+      ;(mockAuthService.getAuthStatus as jest.Mock<any>).mockReturnValue({
         isLoggedIn: false,
       })
 
@@ -456,7 +461,7 @@ describe('RuTrackerSearchService', () => {
 
   describe('error handling', () => {
     it('should handle browser launch failure', async () => {
-      (puppeteer.launch as jest.Mock<any>).mockRejectedValueOnce(
+      ;(puppeteer.launch as jest.Mock<any>).mockRejectedValueOnce(
         new Error('Chrome not found') as any
       )
 
@@ -468,7 +473,7 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should handle page navigation timeout', async () => {
-      (mockPage.goto as jest.Mock<any>).mockRejectedValue(
+      ;(mockPage.goto as jest.Mock<any>).mockRejectedValue(
         new Error('Navigation timeout') as any
       )
 
@@ -480,7 +485,7 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should handle selector timeout', async () => {
-      (mockPage.goto as jest.Mock<any>).mockResolvedValue(null as any)
+      ;(mockPage.goto as jest.Mock<any>).mockResolvedValue(null as any)
       ;(mockPage.waitForSelector as jest.Mock<any>).mockRejectedValue(
         new Error('Timeout waiting for selector') as any
       )
@@ -493,8 +498,10 @@ describe('RuTrackerSearchService', () => {
     })
 
     it('should handle page evaluation error', async () => {
-      (mockPage.goto as jest.Mock<any>).mockResolvedValue(null as any)
-      ;(mockPage.waitForSelector as jest.Mock<any>).mockResolvedValue(null as any)
+      ;(mockPage.goto as jest.Mock<any>).mockResolvedValue(null as any)
+      ;(mockPage.waitForSelector as jest.Mock<any>).mockResolvedValue(
+        null as any
+      )
       ;(mockPage.evaluate as jest.Mock<any>).mockRejectedValue(
         new Error('Evaluation failed') as any
       )

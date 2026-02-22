@@ -293,6 +293,7 @@ export function TimelineLayout({
       filePath: song.localFilePath ?? song.externalFilePath ?? '',
       name: song.title,
       duration: song.duration,
+      trimStart: song.trimStart,
       trimEnd: song.trimEnd,
     }),
     []
