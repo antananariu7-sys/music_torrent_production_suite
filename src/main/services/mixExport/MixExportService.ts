@@ -212,6 +212,7 @@ export class MixExportService {
       index: i,
       loudnorm: loudnormResults[i],
       crossfadeDuration: crossfades[i],
+      crossfadeCurveType: song.crossfadeCurveType,
       trimStart: song.trimStart,
       trimEnd: song.trimEnd,
     }))

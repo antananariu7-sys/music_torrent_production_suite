@@ -1,11 +1,28 @@
-import type { LoudnormAnalysis, MixExportMetadata } from '@shared/types/mixExport.types'
+import type {
+  LoudnormAnalysis,
+  MixExportMetadata,
+} from '@shared/types/mixExport.types'
+import type { CrossfadeCurveType } from '@shared/types/project.types'
 
 export interface TrackInfo {
   index: number
   loudnorm?: LoudnormAnalysis
-  crossfadeDuration: number  // seconds into next track (0 for last track)
-  trimStart?: number         // seconds — trim beginning of track
-  trimEnd?: number           // seconds — trim end of track
+  crossfadeDuration: number // seconds into next track (0 for last track)
+  crossfadeCurveType?: CrossfadeCurveType // curve shape for acrossfade
+  trimStart?: number // seconds — trim beginning of track
+  trimEnd?: number // seconds — trim end of track
+}
+
+/** Map CrossfadeCurveType to FFmpeg acrossfade curve parameters */
+function getCurveParam(type: CrossfadeCurveType = 'linear'): string {
+  switch (type) {
+    case 'linear':
+      return 'c1=tri:c2=tri'
+    case 'equal-power':
+      return 'c1=qsin:c2=qsin'
+    case 's-curve':
+      return 'c1=hsin:c2=hsin'
+  }
 }
 
 /**
@@ -16,7 +33,10 @@ export interface TrackInfo {
  * @param normalization - Whether to apply EBU R128 loudness normalization
  * @returns The -filter_complex string value
  */
-export function buildFilterGraph(tracks: TrackInfo[], normalization: boolean): string {
+export function buildFilterGraph(
+  tracks: TrackInfo[],
+  normalization: boolean
+): string {
   if (tracks.length === 0) {
     throw new Error('Cannot build filter graph with zero tracks')
   }
@@ -48,9 +68,9 @@ export function buildFilterGraph(tracks: TrackInfo[], normalization: boolean): s
       const ln = track.loudnorm
       chainParts.push(
         `loudnorm=I=-14:TP=-1:LRA=11` +
-        `:measured_I=${ln.input_i}:measured_TP=${ln.input_tp}` +
-        `:measured_LRA=${ln.input_lra}:measured_thresh=${ln.input_thresh}` +
-        `:linear=true`
+          `:measured_I=${ln.input_i}:measured_TP=${ln.input_tp}` +
+          `:measured_LRA=${ln.input_lra}:measured_thresh=${ln.input_thresh}` +
+          `:linear=true`
       )
     } else {
       chainParts.push('acopy')
@@ -79,7 +99,7 @@ export function buildFilterGraph(tracks: TrackInfo[], normalization: boolean): s
 
     if (crossfade > 0) {
       filters.push(
-        `${currentLabel}${nextLabel}acrossfade=d=${crossfade}:c1=tri:c2=tri${outputLabel}`
+        `${currentLabel}${nextLabel}acrossfade=d=${crossfade}:${getCurveParam(tracks[i].crossfadeCurveType)}${outputLabel}`
       )
     } else {
       // Zero crossfade — concatenate without overlap
@@ -103,7 +123,7 @@ export function buildRenderArgs(
   outputPath: string,
   format: 'wav' | 'flac' | 'mp3',
   mp3Bitrate?: number,
-  metadata?: MixExportMetadata,
+  metadata?: MixExportMetadata
 ): string[] {
   const args: string[] = []
 

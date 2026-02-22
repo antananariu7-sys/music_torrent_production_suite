@@ -1,6 +1,8 @@
 // Project-related types
 import type { CuePoint } from './waveform.types'
 
+export type CrossfadeCurveType = 'linear' | 'equal-power' | 's-curve'
+
 /**
  * Main project data structure
  */
@@ -10,10 +12,10 @@ export interface Project {
   description?: string
   createdAt: Date
   updatedAt: Date
-  projectDirectory: string          // Root directory for project
-  songs: Song[]                      // Array of songs in the mix
-  mixMetadata: MixMetadata          // Metadata about the mix
-  isActive: boolean                 // Whether project is currently open
+  projectDirectory: string // Root directory for project
+  songs: Song[] // Array of songs in the mix
+  mixMetadata: MixMetadata // Metadata about the mix
+  isActive: boolean // Whether project is currently open
 }
 
 /**
@@ -24,23 +26,24 @@ export interface Song {
   title: string
   artist?: string
   album?: string
-  duration?: number                 // Duration in seconds
-  format?: string                   // mp3, flac, wav, etc.
-  bitrate?: number                  // Bitrate in kbps
-  sampleRate?: number               // Sample rate in Hz
-  fileSize?: number                 // File size in bytes
-  downloadId?: string               // Reference to download (if from Component 2)
-  externalFilePath?: string         // Path to external file (if not downloaded)
-  localFilePath?: string            // Path in project assets/ directory
+  duration?: number // Duration in seconds
+  format?: string // mp3, flac, wav, etc.
+  bitrate?: number // Bitrate in kbps
+  sampleRate?: number // Sample rate in Hz
+  fileSize?: number // File size in bytes
+  downloadId?: string // Reference to download (if from Component 2)
+  externalFilePath?: string // Path to external file (if not downloaded)
+  localFilePath?: string // Path in project assets/ directory
   addedAt: Date
-  order: number                     // Order in the mix
-  metadata?: AudioMetadata          // Extended audio metadata
-  crossfadeDuration?: number        // Seconds into NEXT track. undefined = use default. Range: 0–30.
-  cuePoints?: CuePoint[]            // User-placed markers on the track timeline
-  bpm?: number                      // Detected BPM, cached after first detection
-  firstBeatOffset?: number          // Seconds from track start to first detected downbeat
-  trimStart?: number                // Effective start time (derived from trim-start cue point)
-  trimEnd?: number                  // Effective end time (derived from trim-end cue point)
+  order: number // Order in the mix
+  metadata?: AudioMetadata // Extended audio metadata
+  crossfadeDuration?: number // Seconds into NEXT track. undefined = use default. Range: 0–30.
+  crossfadeCurveType?: CrossfadeCurveType // Crossfade curve shape. Default: 'linear'
+  cuePoints?: CuePoint[] // User-placed markers on the track timeline
+  bpm?: number // Detected BPM, cached after first detection
+  firstBeatOffset?: number // Seconds from track start to first detected downbeat
+  trimStart?: number // Effective start time (derived from trim-start cue point)
+  trimEnd?: number // Effective end time (derived from trim-end cue point)
 }
 
 /**
@@ -49,31 +52,31 @@ export interface Song {
 export interface MixMetadata {
   title?: string
   description?: string
-  coverImagePath?: string           // Path to cover image in assets/covers/
+  coverImagePath?: string // Path to cover image in assets/covers/
   tags: string[]
   genre?: string
-  estimatedDuration?: number        // Sum of all song durations
-  createdBy?: string                // User who created the mix
-  exportConfig?: import('./mixExport.types').MixExportConfig  // Persistent export preferences
+  estimatedDuration?: number // Sum of all song durations
+  createdBy?: string // User who created the mix
+  exportConfig?: import('./mixExport.types').MixExportConfig // Persistent export preferences
 }
 
 /**
  * Audio metadata extracted from files
  */
 export interface AudioMetadata {
-  duration?: number                 // Duration in seconds
-  format?: string                   // mp3, flac, wav, ogg, etc.
-  bitrate?: number                  // Bitrate in kbps
-  sampleRate?: number               // Sample rate in Hz
-  fileSize?: number                 // File size in bytes
-  artist?: string                   // Artist from ID3 tags
-  title?: string                    // Title from ID3 tags
-  album?: string                    // Album from ID3 tags
-  year?: number                     // Release year
-  genre?: string                    // Genre from ID3 tags
-  trackNumber?: number              // Track number
-  channels?: number                 // Number of audio channels
-  codec?: string                    // Audio codec
+  duration?: number // Duration in seconds
+  format?: string // mp3, flac, wav, ogg, etc.
+  bitrate?: number // Bitrate in kbps
+  sampleRate?: number // Sample rate in Hz
+  fileSize?: number // File size in bytes
+  artist?: string // Artist from ID3 tags
+  title?: string // Title from ID3 tags
+  album?: string // Album from ID3 tags
+  year?: number // Release year
+  genre?: string // Genre from ID3 tags
+  trackNumber?: number // Track number
+  channels?: number // Number of audio channels
+  codec?: string // Audio codec
 }
 
 /**
@@ -93,11 +96,11 @@ export interface RecentProject {
  */
 export interface ProjectStats {
   totalSongs: number
-  totalDuration: number             // Sum of all song durations in seconds
-  totalSize: number                 // Total file size in bytes
-  downloadedSongs: number           // Songs from Component 2
-  externalSongs: number             // Songs from external files
-  formatBreakdown: Record<string, number>  // Count by format (mp3: 5, flac: 3)
+  totalDuration: number // Sum of all song durations in seconds
+  totalSize: number // Total file size in bytes
+  downloadedSongs: number // Songs from Component 2
+  externalSongs: number // Songs from external files
+  formatBreakdown: Record<string, number> // Count by format (mp3: 5, flac: 3)
 }
 
 /**
@@ -106,8 +109,8 @@ export interface ProjectStats {
 export interface ProjectLock {
   projectId: string
   lockedBy: {
-    pid: number                     // Process ID
-    hostname: string                // Machine name
+    pid: number // Process ID
+    hostname: string // Machine name
   }
   lockedAt: Date
 }
@@ -117,7 +120,7 @@ export interface ProjectLock {
  */
 export interface CreateProjectRequest {
   name: string
-  location: string                  // Parent directory where project will be created
+  location: string // Parent directory where project will be created
   description?: string
 }
 
@@ -127,9 +130,9 @@ export interface CreateProjectRequest {
 export interface AddSongRequest {
   projectId: string
   title: string
-  downloadId?: string               // If from Component 2
-  externalFilePath?: string         // If external file
-  localFilePath?: string            // Destination path in project assets/
+  downloadId?: string // If from Component 2
+  externalFilePath?: string // If external file
+  localFilePath?: string // Destination path in project assets/
   order: number
   metadata?: Partial<AudioMetadata>
 }
@@ -140,9 +143,9 @@ export interface AddSongRequest {
  */
 export interface AddSongFromFileRequest {
   projectId: string
-  sourcePath: string                // Full path to source audio file
-  title?: string                    // Optional title override (falls back to metadata/filename)
-  order: number                     // Position in the mix (append: songs.length)
+  sourcePath: string // Full path to source audio file
+  title?: string // Optional title override (falls back to metadata/filename)
+  order: number // Position in the mix (append: songs.length)
 }
 
 /**

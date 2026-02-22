@@ -1,23 +1,34 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Box, VStack, HStack, Text, Input, Button } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
+import type { CrossfadeCurveType } from '@shared/types/project.types'
 
 interface CrossfadePopoverProps {
   songId: string
   projectId: string
   currentValue: number
+  currentCurveType: CrossfadeCurveType
   position: { x: number; y: number }
   onClose: () => void
 }
+
+const CURVE_OPTIONS: { value: CrossfadeCurveType; label: string }[] = [
+  { value: 'linear', label: 'Linear' },
+  { value: 'equal-power', label: 'Equal Power' },
+  { value: 's-curve', label: 'S-Curve' },
+]
 
 export function CrossfadePopover({
   songId,
   projectId,
   currentValue,
+  currentCurveType,
   position,
   onClose,
 }: CrossfadePopoverProps): JSX.Element {
   const [value, setValue] = useState(currentValue)
+  const [curveType, setCurveType] =
+    useState<CrossfadeCurveType>(currentCurveType)
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -41,7 +52,10 @@ export function CrossfadePopover({
   // Click outside to close
   useEffect(() => {
     function handleClick(e: MouseEvent): void {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         onClose()
       }
     }
@@ -55,14 +69,17 @@ export function CrossfadePopover({
     }
   }, [onClose])
 
-  const persistValue = useCallback(
-    (newValue: number) => {
+  const persistUpdates = useCallback(
+    (updates: {
+      crossfadeDuration?: number
+      crossfadeCurveType?: CrossfadeCurveType
+    }) => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(async () => {
         const response = await window.api.mix.updateSong({
           projectId,
           songId,
-          updates: { crossfadeDuration: newValue },
+          updates,
         })
         if (response.success && response.data) {
           setCurrentProject(response.data)
@@ -75,7 +92,7 @@ export function CrossfadePopover({
   function handleSliderChange(e: React.ChangeEvent<HTMLInputElement>): void {
     const newValue = parseFloat(e.target.value)
     setValue(newValue)
-    persistValue(newValue)
+    persistUpdates({ crossfadeDuration: newValue })
   }
 
   function handleInputChange(e: React.ChangeEvent<HTMLInputElement>): void {
@@ -83,12 +100,18 @@ export function CrossfadePopover({
     if (isNaN(raw)) return
     const clamped = Math.min(30, Math.max(0, raw))
     setValue(clamped)
-    persistValue(clamped)
+    persistUpdates({ crossfadeDuration: clamped })
+  }
+
+  function handleCurveChange(newCurve: CrossfadeCurveType): void {
+    setCurveType(newCurve)
+    persistUpdates({ crossfadeCurveType: newCurve })
   }
 
   function handleReset(): void {
     setValue(5)
-    persistValue(5)
+    setCurveType('linear')
+    persistUpdates({ crossfadeDuration: 5, crossfadeCurveType: 'linear' })
   }
 
   return (
@@ -104,7 +127,7 @@ export function CrossfadePopover({
       borderRadius="md"
       p={3}
       shadow="lg"
-      minW="200px"
+      minW="220px"
     >
       <VStack align="stretch" gap={2}>
         <Text fontSize="xs" fontWeight="semibold" color="text.primary">
@@ -134,7 +157,28 @@ export function CrossfadePopover({
             fontFamily="monospace"
             onChange={handleInputChange}
           />
-          <Text fontSize="xs" color="text.muted">seconds</Text>
+          <Text fontSize="xs" color="text.muted">
+            seconds
+          </Text>
+        </HStack>
+
+        {/* Curve type selector */}
+        <Text fontSize="xs" fontWeight="semibold" color="text.primary">
+          Curve
+        </Text>
+        <HStack gap={1}>
+          {CURVE_OPTIONS.map((opt) => (
+            <Button
+              key={opt.value}
+              size="xs"
+              variant={curveType === opt.value ? 'solid' : 'outline'}
+              colorPalette={curveType === opt.value ? 'blue' : undefined}
+              flex={1}
+              onClick={() => handleCurveChange(opt.value)}
+            >
+              {opt.label}
+            </Button>
+          ))}
         </HStack>
 
         <HStack justify="space-between">

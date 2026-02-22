@@ -1,4 +1,8 @@
-import { buildFilterGraph, buildRenderArgs, type TrackInfo } from './FilterGraphBuilder'
+import {
+  buildFilterGraph,
+  buildRenderArgs,
+  type TrackInfo,
+} from './FilterGraphBuilder'
 import type { LoudnormAnalysis } from '@shared/types/mixExport.types'
 
 const mockLoudnorm: LoudnormAnalysis = {
@@ -99,7 +103,9 @@ describe('buildFilterGraph', () => {
 
     const graph = buildFilterGraph(tracks, true)
 
-    expect(graph).toContain('[0:a]atrim=start=30,asetpts=PTS-STARTPTS,loudnorm=')
+    expect(graph).toContain(
+      '[0:a]atrim=start=30,asetpts=PTS-STARTPTS,loudnorm='
+    )
     expect(graph).toContain('[1:a]loudnorm=')
   })
 
@@ -116,13 +122,21 @@ describe('buildFilterGraph', () => {
 
   it('inserts atrim with both trimStart and trimEnd', () => {
     const tracks: TrackInfo[] = [
-      { index: 0, loudnorm: mockLoudnorm, crossfadeDuration: 5, trimStart: 30, trimEnd: 420 },
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 5,
+        trimStart: 30,
+        trimEnd: 420,
+      },
       { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
     ]
 
     const graph = buildFilterGraph(tracks, true)
 
-    expect(graph).toContain('[0:a]atrim=start=30:end=420,asetpts=PTS-STARTPTS,loudnorm=')
+    expect(graph).toContain(
+      '[0:a]atrim=start=30:end=420,asetpts=PTS-STARTPTS,loudnorm='
+    )
   })
 
   it('inserts atrim before acopy when normalization is off', () => {
@@ -132,7 +146,9 @@ describe('buildFilterGraph', () => {
 
     const graph = buildFilterGraph(tracks, false)
 
-    expect(graph).toContain('[0:a]atrim=start=10:end=200,asetpts=PTS-STARTPTS,acopy[out]')
+    expect(graph).toContain(
+      '[0:a]atrim=start=10:end=200,asetpts=PTS-STARTPTS,acopy[out]'
+    )
   })
 
   it('handles trim on some tracks but not others', () => {
@@ -144,9 +160,77 @@ describe('buildFilterGraph', () => {
 
     const graph = buildFilterGraph(tracks, true)
 
-    expect(graph).toContain('[0:a]atrim=start=15,asetpts=PTS-STARTPTS,loudnorm=')
+    expect(graph).toContain(
+      '[0:a]atrim=start=15,asetpts=PTS-STARTPTS,loudnorm='
+    )
     expect(graph).toContain('[1:a]loudnorm=')
     expect(graph).toContain('[2:a]atrim=end=300,asetpts=PTS-STARTPTS,loudnorm=')
+  })
+
+  it('uses equal-power curve params when crossfadeCurveType is equal-power', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 5,
+        crossfadeCurveType: 'equal-power',
+      },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).toContain('acrossfade=d=5:c1=qsin:c2=qsin[out]')
+  })
+
+  it('uses s-curve params when crossfadeCurveType is s-curve', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 3,
+        crossfadeCurveType: 's-curve',
+      },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).toContain('acrossfade=d=3:c1=hsin:c2=hsin[out]')
+  })
+
+  it('defaults to linear (tri) when crossfadeCurveType is undefined', () => {
+    const tracks: TrackInfo[] = [
+      { index: 0, loudnorm: mockLoudnorm, crossfadeDuration: 5 },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).toContain('acrossfade=d=5:c1=tri:c2=tri[out]')
+  })
+
+  it('handles mixed curve types across multiple crossfades', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 5,
+        crossfadeCurveType: 'equal-power',
+      },
+      {
+        index: 1,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 3,
+        crossfadeCurveType: 's-curve',
+      },
+      { index: 2, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).toContain('acrossfade=d=5:c1=qsin:c2=qsin[f0]')
+    expect(graph).toContain('acrossfade=d=3:c1=hsin:c2=hsin[out]')
   })
 
   it('handles 5 tracks correctly', () => {
@@ -171,7 +255,7 @@ describe('buildRenderArgs', () => {
       ['a.flac', 'b.mp3'],
       '[0:a]acopy[out]',
       '/out/mix.wav',
-      'wav',
+      'wav'
     )
 
     expect(args).toContain('-i')
@@ -204,14 +288,21 @@ describe('buildRenderArgs', () => {
   })
 
   it('includes all metadata flags when metadata is provided', () => {
-    const args = buildRenderArgs(['a.wav'], 'graph', '/out/mix.flac', 'flac', undefined, {
-      title: 'My Mix',
-      artist: 'DJ Test',
-      album: 'Best Of',
-      genre: 'Electronic',
-      year: '2026',
-      comment: 'A great mix',
-    })
+    const args = buildRenderArgs(
+      ['a.wav'],
+      'graph',
+      '/out/mix.flac',
+      'flac',
+      undefined,
+      {
+        title: 'My Mix',
+        artist: 'DJ Test',
+        album: 'Best Of',
+        genre: 'Electronic',
+        year: '2026',
+        comment: 'A great mix',
+      }
+    )
 
     expect(args).toContain('-metadata')
     expect(args).toContain('title=My Mix')
@@ -223,10 +314,17 @@ describe('buildRenderArgs', () => {
   })
 
   it('includes only populated metadata fields', () => {
-    const args = buildRenderArgs(['a.wav'], 'graph', '/out/mix.flac', 'flac', undefined, {
-      title: 'My Mix',
-      artist: 'DJ Test',
-    })
+    const args = buildRenderArgs(
+      ['a.wav'],
+      'graph',
+      '/out/mix.flac',
+      'flac',
+      undefined,
+      {
+        title: 'My Mix',
+        artist: 'DJ Test',
+      }
+    )
 
     expect(args).toContain('title=My Mix')
     expect(args).toContain('artist=DJ Test')
@@ -238,7 +336,10 @@ describe('buildRenderArgs', () => {
 
   it('omits metadata flags when metadata is undefined', () => {
     const args = buildRenderArgs(['a.wav'], 'graph', '/out/mix.flac', 'flac')
-    const metadataIndices = args.reduce<number[]>((acc, a, i) => a === '-metadata' ? [...acc, i] : acc, [])
+    const metadataIndices = args.reduce<number[]>(
+      (acc, a, i) => (a === '-metadata' ? [...acc, i] : acc),
+      []
+    )
     expect(metadataIndices).toHaveLength(0)
   })
 })
