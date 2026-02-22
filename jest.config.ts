@@ -9,16 +9,13 @@ const config: Config = {
   testMatch: [
     '<rootDir>/src/main/services/**/*.{test,spec}.{ts,tsx}',
     '<rootDir>/src/renderer/**/utils.{test,spec}.{ts,tsx}',
+    '<rootDir>/src/renderer/**/utils/*.{test,spec}.{ts,tsx}',
+    '<rootDir>/src/renderer/**/hooks/*.{test,spec}.{ts,tsx}',
     '<rootDir>/src/renderer/store/**/*.{test,spec}.{ts,tsx}',
   ],
 
   // Files to ignore
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    '/dist/',
-    '/build/',
-    '/.claude/',
-  ],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/build/', '/.claude/'],
 
   // Module resolution
   moduleNameMapper: {
@@ -32,20 +29,27 @@ const config: Config = {
     '!src/main/services/**/*.{test,spec}.{ts,tsx}',
     'src/renderer/**/utils.{ts,tsx}',
     '!src/renderer/**/utils.{test,spec}.{ts,tsx}',
+    'src/renderer/**/utils/*.{ts,tsx}',
+    '!src/renderer/**/utils/*.{test,spec}.{ts,tsx}',
+    'src/renderer/**/hooks/*.{ts,tsx}',
+    '!src/renderer/**/hooks/*.{test,spec}.{ts,tsx}',
     'src/renderer/store/**/*.{ts,tsx}',
     '!src/renderer/store/**/*.{test,spec}.{ts,tsx}',
   ],
 
   // Transform configuration
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: {
-        jsx: 'react-jsx',
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        isolatedModules: true,
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          jsx: 'react-jsx',
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+          isolatedModules: true,
+        },
       },
-    }],
+    ],
   },
 
   // Module file extensions

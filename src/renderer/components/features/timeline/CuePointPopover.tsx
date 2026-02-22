@@ -3,13 +3,8 @@ import { Box, VStack, HStack, Text, Input, Button } from '@chakra-ui/react'
 import { nanoid } from 'nanoid'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useTimelineStore } from '@/store/timelineStore'
+import { snapToNearestBeat } from './utils/snapToBeat'
 import type { CuePoint } from '@shared/types/waveform.types'
-
-function snapToNearestBeat(timestamp: number, bpm: number, firstBeatOffset: number): number {
-  const beatInterval = 60 / bpm
-  const beatIndex = Math.round((timestamp - firstBeatOffset) / beatInterval)
-  return firstBeatOffset + beatIndex * beatInterval
-}
 
 interface CuePointPopoverProps {
   songId: string
@@ -46,11 +41,18 @@ export function CuePointPopover({
   const snapMode = useTimelineStore((s) => s.snapMode)
 
   // Apply snap-to-beat if enabled and BPM available
-  const timestamp = (!isEditing && snapMode === 'beat' && bpm && bpm > 0 && firstBeatOffset != null)
-    ? snapToNearestBeat(rawTimestamp, bpm, firstBeatOffset)
-    : rawTimestamp
+  const timestamp =
+    !isEditing &&
+    snapMode === 'beat' &&
+    bpm &&
+    bpm > 0 &&
+    firstBeatOffset != null
+      ? snapToNearestBeat(rawTimestamp, bpm, firstBeatOffset)
+      : rawTimestamp
 
-  const [label, setLabel] = useState(cuePoint?.label ?? `Cue ${existingCuePoints.length + 1}`)
+  const [label, setLabel] = useState(
+    cuePoint?.label ?? `Cue ${existingCuePoints.length + 1}`
+  )
   const [type, setType] = useState<CueType>(cuePoint?.type ?? 'marker')
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -67,7 +69,10 @@ export function CuePointPopover({
   // Click outside to close
   useEffect(() => {
     function handleClick(e: MouseEvent): void {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         onClose()
       }
     }
@@ -96,13 +101,19 @@ export function CuePointPopover({
       )
     } else {
       // For trim types, replace existing one of same type
-      updatedCuePoints = existingCuePoints.filter((cp) => cp.type !== type || type === 'marker')
+      updatedCuePoints = existingCuePoints.filter(
+        (cp) => cp.type !== type || type === 'marker'
+      )
       updatedCuePoints.push(newCuePoint)
     }
 
     // Compute trim fields from cue points
-    const trimStart = updatedCuePoints.find((cp) => cp.type === 'trim-start')?.timestamp
-    const trimEnd = updatedCuePoints.find((cp) => cp.type === 'trim-end')?.timestamp
+    const trimStart = updatedCuePoints.find(
+      (cp) => cp.type === 'trim-start'
+    )?.timestamp
+    const trimEnd = updatedCuePoints.find(
+      (cp) => cp.type === 'trim-end'
+    )?.timestamp
 
     const response = await window.api.mix.updateSong({
       projectId,
@@ -122,10 +133,16 @@ export function CuePointPopover({
   async function handleDelete(): Promise<void> {
     if (!cuePoint) return
 
-    const updatedCuePoints = existingCuePoints.filter((cp) => cp.id !== cuePoint.id)
+    const updatedCuePoints = existingCuePoints.filter(
+      (cp) => cp.id !== cuePoint.id
+    )
 
-    const trimStart = updatedCuePoints.find((cp) => cp.type === 'trim-start')?.timestamp
-    const trimEnd = updatedCuePoints.find((cp) => cp.type === 'trim-end')?.timestamp
+    const trimStart = updatedCuePoints.find(
+      (cp) => cp.type === 'trim-start'
+    )?.timestamp
+    const trimEnd = updatedCuePoints.find(
+      (cp) => cp.type === 'trim-end'
+    )?.timestamp
 
     const response = await window.api.mix.updateSong({
       projectId,
@@ -170,7 +187,9 @@ export function CuePointPopover({
 
         {/* Timestamp (read-only) */}
         <HStack>
-          <Text fontSize="xs" color="text.muted" w="70px">Time:</Text>
+          <Text fontSize="xs" color="text.muted" w="70px">
+            Time:
+          </Text>
           <Text fontSize="xs" color="text.primary" fontFamily="monospace">
             {formatTimestamp(cuePoint?.timestamp ?? timestamp)}
           </Text>
@@ -178,7 +197,9 @@ export function CuePointPopover({
 
         {/* Label */}
         <HStack>
-          <Text fontSize="xs" color="text.muted" w="70px">Label:</Text>
+          <Text fontSize="xs" color="text.muted" w="70px">
+            Label:
+          </Text>
           <Input
             size="xs"
             value={label}
@@ -189,7 +210,9 @@ export function CuePointPopover({
 
         {/* Type selection */}
         <VStack align="stretch" gap={1}>
-          <Text fontSize="xs" color="text.muted">Type:</Text>
+          <Text fontSize="xs" color="text.muted">
+            Type:
+          </Text>
           <HStack gap={1}>
             {typeOptions.map((opt) => (
               <Button
@@ -198,7 +221,11 @@ export function CuePointPopover({
                 variant={type === opt.value ? 'solid' : 'outline'}
                 onClick={() => setType(opt.value)}
                 flex={1}
-                style={type === opt.value ? { backgroundColor: opt.color } : undefined}
+                style={
+                  type === opt.value
+                    ? { backgroundColor: opt.color }
+                    : undefined
+                }
               >
                 {opt.label}
               </Button>
@@ -209,7 +236,12 @@ export function CuePointPopover({
         {/* Actions */}
         <HStack justify="flex-end" gap={1} pt={1}>
           {isEditing && (
-            <Button size="xs" variant="ghost" colorPalette="red" onClick={handleDelete}>
+            <Button
+              size="xs"
+              variant="ghost"
+              colorPalette="red"
+              onClick={handleDelete}
+            >
               Delete
             </Button>
           )}
