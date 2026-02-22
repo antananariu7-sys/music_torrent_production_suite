@@ -1,25 +1,30 @@
 # Code Size Analysis & Refactoring Recommendations
 
-**Last Updated**: 2026-02-19
+**Last Updated**: 2026-02-22
 **Target**: Keep all files under 400-500 lines for maintainability
 
 ---
 
 ## Summary Statistics
 
-| Category | Files Analyzed | Critical (>500) | Warning (400-500) | Good (<400) |
-|----------|----------------|-----------------|-------------------|-------------|
-| Renderer Components | 55 | 0 | 0 | 55 |
-| Main Services | 50 | 0 | 0 | 50 |
-| Pages | 29 | 0 | 0 | 29 |
-| Stores | 11 | 0 | 1 | 10 |
-| IPC Handlers | 10 | 0 | 0 | 10 |
+| Category            | Files Analyzed | Critical (>500) | Warning (400-500) | Good (<400) |
+| ------------------- | -------------- | --------------- | ----------------- | ----------- |
+| Renderer Components | 76             | 1               | 0                 | 75          |
+| Main Services       | 60             | 1               | 1                 | 58          |
+| Preload             | 2              | 1               | 0                 | 1           |
+| Pages               | 30             | 0               | 0                 | 30          |
+| Stores              | 14             | 0               | 1                 | 13          |
+| IPC Handlers        | 14             | 0               | 0                 | 14          |
+| Shared              | 21             | 0               | 0                 | 21          |
+| Other               | 18             | 0               | 0                 | 18          |
+| **TOTAL**           | **235**        | **3**           | **2**             | **230**     |
 
-**Total Critical Files**: 0 (all resolved!)
-**Total Warning Files**: 1 file (smartSearchStore.ts — monitor only)
+**Total Critical Files**: 3 (new since waveform timeline implementation)
+**Total Warning Files**: 2 (smartSearchStore.ts + ProjectService.ts)
+**Total Lines**: 29,291
 
-> Note: Higher file counts vs previous snapshot reflect all sub-modules created during refactoring (services split into subdirectories, components split into sub-components).
-
+> **Update 2026-02-22**: Waveform timeline implementation added 3 new critical files: `preload/index.ts` (653 lines — grew with waveform/bpm API surface), `WaveformExtractor.ts` (535 lines), `TimelineLayout.tsx` (535 lines). These need refactoring.
+>
 > **Update 2026-02-19 (Phase 3)**: All 4 warning files (400-500 lines) from Phase 3 have been split. All files in codebase are now under 400 lines except smartSearchStore.ts (434 lines, stable, only split if grows past 500).
 >
 > **Update 2026-02-19 (Phase 2)**: Major refactoring session completed. All 6 critical files (>500 lines) have been split into focused modules. Build passes, all tests pass.
@@ -30,7 +35,65 @@
 
 ## CRITICAL - Immediate Refactoring Needed (>500 lines)
 
-*No critical files remain. All have been resolved.*
+### 1. preload/index.ts — 653 lines
+
+**Location**: `src/preload/index.ts`
+
+**Problem**: Single preload file grew as new API namespaces were added (waveform, bpm, audio, mix export, stream preview). Each namespace adds ~30-50 lines of `contextBridge.exposeInMainWorld` boilerplate.
+
+**Suggested split**:
+
+```
+src/preload/
+├── index.ts (~100 lines) — contextBridge.exposeInMainWorld call, imports
+├── api/
+│   ├── auth.ts — auth namespace
+│   ├── search.ts — search namespace
+│   ├── torrent.ts — torrent, webtorrent, torrentMeta namespaces
+│   ├── project.ts — project namespace
+│   ├── audio.ts — audio, audioPlayer namespaces
+│   ├── waveform.ts — waveform, bpm namespaces
+│   └── mixExport.ts — mixExport namespace
+└── types.ts — existing type definitions
+```
+
+---
+
+### 2. WaveformExtractor.ts — 535 lines
+
+**Location**: `src/main/services/waveform/WaveformExtractor.ts`
+
+**Problem**: Combines FFmpeg peak extraction, 3-band frequency analysis, binary cache read/write, and legacy JSON migration in one file.
+
+**Suggested split**:
+
+```
+src/main/services/waveform/
+├── WaveformExtractor.ts (~200 lines) — Public API, batch orchestration
+├── peakExtractor.ts (~150 lines) — FFmpeg PCM extraction + peak downsampling
+├── frequencyExtractor.ts (~120 lines) — 3-band frequency analysis via FFmpeg
+└── peakCache.ts (~100 lines) — Binary .peaks read/write, legacy JSON migration
+```
+
+---
+
+### 3. TimelineLayout.tsx — 535 lines
+
+**Location**: `src/renderer/components/features/timeline/TimelineLayout.tsx`
+
+**Problem**: Handles zoom logic, scroll synchronization, track position computation, crossfade/cue point popover state, and rendering. Multiple concerns in one component.
+
+**Suggested split**:
+
+```
+src/renderer/components/features/timeline/
+├── TimelineLayout.tsx (~200 lines) — Main container, track rendering
+├── hooks/
+│   ├── useTimelineZoom.ts (~100 lines) — Ctrl+scroll zoom, cursor-position preservation
+│   ├── useTimelineScroll.ts (~100 lines) — Playback scroll sync, manual scroll detection
+│   └── useTrackPositions.ts (~80 lines) — computeTrackPositions, layout calculations
+└── (existing components unchanged)
+```
 
 ---
 
@@ -41,6 +104,7 @@
 **Location**: `src/main/services/WebTorrentService.ts` (re-export stub)
 
 **Split into**:
+
 ```
 src/main/services/webtorrent/
 ├── WebTorrentService.ts (288 lines) — Main facade, public API
@@ -62,6 +126,7 @@ src/main/services/webtorrent/
 **Location**: `src/renderer/components/features/torrent/DownloadQueueItem.tsx`
 
 **Split into**:
+
 ```
 src/renderer/components/features/torrent/
 ├── DownloadQueueItem.tsx (275 lines) — Main container
@@ -82,6 +147,7 @@ src/renderer/components/features/torrent/
 **Location**: `src/renderer/components/features/search/InlineSearchResults.tsx`
 
 **Split into**:
+
 ```
 src/renderer/components/features/search/
 ├── InlineSearchResults.tsx (266 lines) — Main container
@@ -99,6 +165,7 @@ src/renderer/components/features/search/
 **Location**: `src/main/services/AuthService.ts` (re-export stub)
 
 **Split into**:
+
 ```
 src/main/services/auth/
 ├── AuthService.ts (263 lines) — Main service, login, public API
@@ -108,6 +175,7 @@ src/main/services/auth/
 ```
 
 **Shared utility**:
+
 ```
 src/main/services/utils/
 └── browserUtils.ts (43 lines) — findChromePath() (shared across Auth, TorrentDownload, Discography)
@@ -120,6 +188,7 @@ src/main/services/utils/
 **Location**: `src/main/services/TorrentDownloadService.ts` (re-export stub)
 
 **Split into**:
+
 ```
 src/main/services/torrent/
 ├── TorrentDownloadService.ts (359 lines) — Main service
@@ -133,6 +202,7 @@ src/main/services/torrent/
 **Location**: `src/renderer/components/features/search/useSmartSearchWorkflow.ts`
 
 **Split into**:
+
 ```
 src/renderer/components/features/search/
 ├── useSmartSearchWorkflow.ts (313 lines) — Main orchestration hook
@@ -147,9 +217,11 @@ src/renderer/components/features/search/
 ### Previously Refactored
 
 #### RuTrackerSearchService.ts — ~~910 lines~~ → **364 lines** ✅
+
 Split into `src/main/services/rutracker/` subdirectory with scrapers, parsers, and utils.
 
 #### Settings/index.tsx — ~~899 lines~~ → **142 lines** ✅
+
 Split into GeneralSettings, RuTrackerAuthCard, SearchSettings, WebTorrentSettings, DebugSettings, AdvancedSettings subcomponents.
 
 ---
@@ -161,6 +233,7 @@ Split into GeneralSettings, RuTrackerAuthCard, SearchSettings, WebTorrentSetting
 **Location**: `src/main/services/MusicBrainzService.ts` (re-export stub)
 
 **Split into**:
+
 ```
 src/main/services/musicbrainz/
 ├── MusicBrainzService.ts (48 lines) — Facade
@@ -179,6 +252,7 @@ src/main/services/musicbrainz/
 **Location**: `src/renderer/components/features/torrent/CollectedTorrentItem.tsx`
 
 **Split into**:
+
 ```
 src/renderer/components/features/torrent/
 ├── CollectedTorrentItem.tsx (221 lines) — Container, actions, JSX
@@ -194,6 +268,7 @@ src/renderer/components/features/torrent/
 **Location**: `src/renderer/components/features/torrent/FileSelectionDialog.tsx`
 
 **Split into**:
+
 ```
 src/renderer/components/features/torrent/
 ├── FileSelectionDialog.tsx (168 lines) — Modal container + state
@@ -211,6 +286,7 @@ src/renderer/components/features/torrent/
 **Location**: `src/main/services/DiscographySearchService.ts` (re-export stub)
 
 **Split into**:
+
 ```
 src/main/services/discography/
 ├── DiscographySearchService.ts (169 lines) — Orchestration + browser lifecycle
@@ -223,34 +299,44 @@ src/main/services/discography/
 
 ## WATCH - Monitor Only
 
-| File | Lines | Notes |
-|------|-------|-------|
-| `smartSearchStore.ts` | 433 | Stable — split only if exceeds 500 |
-| `TorrentDownloadService.ts` | 358 | In torrent/ — stable |
-| `ProjectService.ts` | 395 | Approaching 400-line warning threshold |
-| `RuTrackerSearchService.ts` | 364 | Stable post-refactor |
-| `RuTrackerAuthCard.tsx` | 351 | Settings subcomponent, monitor |
+| File                        | Lines | Notes                                    |
+| --------------------------- | ----- | ---------------------------------------- |
+| `smartSearchStore.ts`       | 433   | WARNING — split only if exceeds 500      |
+| `ProjectService.ts`         | 427   | WARNING — grew past 400, approaching 500 |
+| `BpmDetector.ts`            | 396   | Approaching 400-line warning threshold   |
+| `AudioPlayer.tsx`           | 387   | Approaching 400-line warning threshold   |
+| `RuTrackerSearchService.ts` | 364   | Stable post-refactor                     |
+| `MixExportService.ts`       | 358   | Stable                                   |
+| `TorrentDownloadService.ts` | 358   | In torrent/ — stable                     |
+| `RuTrackerAuthCard.tsx`     | 351   | Settings subcomponent, monitor           |
+| `ExportConfigModal.tsx`     | 344   | Monitor                                  |
 
 ---
 
 ## Refactoring Principles
 
 ### 1. Single Responsibility Principle
+
 Each file should have ONE clear responsibility.
 
 ### 2. Extract Utilities First
+
 Move pure functions to separate files: formatters, builders, validators.
 
 ### 3. Component Composition
+
 Split UI into smaller, focused components: container, presentational, utility.
 
 ### 4. Service Layer Separation
+
 Separate orchestration from implementation: Service → Managers → Utils.
 
 ### 5. Hook Extraction
+
 Extract complex logic into custom hooks per concern.
 
 ### 6. Target File Size
+
 - **Ideal**: 200-300 lines
 - **Max**: 400 lines
 - **Critical**: >500 lines (must refactor)
@@ -260,6 +346,7 @@ Extract complex logic into custom hooks per concern.
 ## Files Already Well-Sized (<400 lines)
 
 **Excellent examples to follow**:
+
 - Most stores (26-222 lines)
 - Most IPC handlers (39-200 lines)
 - Most common components (32-285 lines)
@@ -268,5 +355,5 @@ Extract complex logic into custom hooks per concern.
 
 ---
 
-**Last Updated**: 2026-02-19
-**Status**: All Phase 1, 2 & 3 files resolved. Only smartSearchStore.ts (434 lines) remains in monitor list.
+**Last Updated**: 2026-02-22
+**Status**: 3 new critical files from waveform timeline implementation (preload/index.ts, WaveformExtractor.ts, TimelineLayout.tsx). Refactoring plans provided above. 2 warning files (smartSearchStore.ts, ProjectService.ts).
