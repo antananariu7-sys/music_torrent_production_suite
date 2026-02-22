@@ -14,7 +14,7 @@ export function createWindow(): BrowserWindow {
       }
     }
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data: audio:",
+      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data: audio:; connect-src 'self' audio:",
     ]
     callback({ responseHeaders: headers })
   })

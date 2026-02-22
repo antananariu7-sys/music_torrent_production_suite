@@ -673,16 +673,42 @@ export function TimelineLayout({
       </Box>
 
       {/* Crossfade popover */}
-      {activeCrossfadePopover && crossfadeSong && currentProject && (
-        <CrossfadePopover
-          songId={crossfadeSong.id}
-          projectId={currentProject.id}
-          currentValue={crossfadeSong.crossfadeDuration ?? defaultCrossfade}
-          currentCurveType={crossfadeSong.crossfadeCurveType ?? 'linear'}
-          position={activeCrossfadePopover.position}
-          onClose={closeCrossfadePopover}
-        />
-      )}
+      {activeCrossfadePopover &&
+        crossfadeSong &&
+        currentProject &&
+        (() => {
+          const cfIndex = songs.findIndex((s) => s.id === crossfadeSong.id)
+          const nextSong = cfIndex >= 0 ? songs[cfIndex + 1] : undefined
+          return (
+            <CrossfadePopover
+              songId={crossfadeSong.id}
+              projectId={currentProject.id}
+              currentValue={crossfadeSong.crossfadeDuration ?? defaultCrossfade}
+              currentCurveType={crossfadeSong.crossfadeCurveType ?? 'linear'}
+              trackA={{
+                filePath:
+                  crossfadeSong.localFilePath ??
+                  crossfadeSong.externalFilePath ??
+                  '',
+                duration: crossfadeSong.duration ?? 0,
+                trimEnd: crossfadeSong.trimEnd,
+              }}
+              nextSong={
+                nextSong
+                  ? {
+                      filePath:
+                        nextSong.localFilePath ??
+                        nextSong.externalFilePath ??
+                        '',
+                      trimStart: nextSong.trimStart,
+                    }
+                  : null
+              }
+              position={activeCrossfadePopover.position}
+              onClose={closeCrossfadePopover}
+            />
+          )
+        })()}
 
       {/* Cue point popover */}
       {activeCuePointPopover && cuePointSong && currentProject && (

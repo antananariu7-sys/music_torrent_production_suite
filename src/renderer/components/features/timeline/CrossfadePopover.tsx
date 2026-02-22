@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { Box, VStack, HStack, Text, Input, Button } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
+import { useCrossfadePreview } from '@/hooks/useCrossfadePreview'
 import type { CrossfadeCurveType } from '@shared/types/project.types'
 
 interface CrossfadePopoverProps {
@@ -8,6 +9,8 @@ interface CrossfadePopoverProps {
   projectId: string
   currentValue: number
   currentCurveType: CrossfadeCurveType
+  trackA: { filePath: string; duration: number; trimEnd?: number }
+  nextSong: { filePath: string; trimStart?: number } | null
   position: { x: number; y: number }
   onClose: () => void
 }
@@ -23,6 +26,8 @@ export function CrossfadePopover({
   projectId,
   currentValue,
   currentCurveType,
+  trackA,
+  nextSong,
   position,
   onClose,
 }: CrossfadePopoverProps): JSX.Element {
@@ -32,6 +37,20 @@ export function CrossfadePopover({
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const previewOptions = useMemo(
+    () =>
+      nextSong
+        ? {
+            trackA,
+            trackB: nextSong,
+            crossfadeDuration: value,
+            curveType,
+          }
+        : null,
+    [trackA, nextSong, value, curveType]
+  )
+  const preview = useCrossfadePreview(previewOptions)
 
   // Cleanup debounce on unmount
   useEffect(() => {
@@ -180,6 +199,19 @@ export function CrossfadePopover({
             </Button>
           ))}
         </HStack>
+
+        {/* Preview crossfade */}
+        <Button
+          size="xs"
+          variant="outline"
+          colorPalette="purple"
+          w="100%"
+          onClick={preview.isPlaying ? preview.stop : preview.play}
+          disabled={!nextSong || preview.isLoading}
+          loading={preview.isLoading}
+        >
+          {preview.isPlaying ? 'Stop Preview' : 'Preview Crossfade'}
+        </Button>
 
         <HStack justify="space-between">
           <Button

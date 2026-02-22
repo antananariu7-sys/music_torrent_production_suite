@@ -25,7 +25,10 @@ let mainWindow: BrowserWindow | null = null
 // Register custom protocol for streaming audio files to renderer.
 // MUST be called before app.whenReady().
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'audio', privileges: { stream: true, standard: true } },
+  {
+    scheme: 'audio',
+    privileges: { stream: true, standard: true, supportFetchAPI: true },
+  },
 ])
 
 // This method will be called when Electron has finished initialization
