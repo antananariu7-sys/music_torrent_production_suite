@@ -1,7 +1,7 @@
 # Test Coverage Gap Analysis & Plan
 
 **Date**: 2026-02-22 (updated 2026-02-22)
-**Overall coverage**: ~56% (35/62 testable files)
+**Overall coverage**: ~85% (53/62 testable files)
 
 ---
 
@@ -18,6 +18,10 @@
 - Waveform: WaveformExtractor, BpmDetector
 - Main utils: ffmpegRunner, parseAudioMeta
 - Renderer utils: ProjectOverview/utils
+- Frontend stores: all 11 non-trivial stores (10 new + smartSearchStore)
+- MusicBrainz API: albumSearch, classifySearch, artistAlbums
+- RuTracker scrapers: ResultParser, PaginationHandler, PageScraper
+- Auth session: SessionPersistence, SessionValidator
 
 ---
 
@@ -36,55 +40,56 @@ All 6 files now have specs (120 tests added in commit `043a54d`):
 
 ---
 
-## Priority 2 — Frontend Stores (7%, 1/14 tested)
+## Priority 2 — Frontend Stores ✅ DONE (79%, 11/14 tested)
 
-| File                                           | Complexity | What to test                                       |
-| ---------------------------------------------- | ---------- | -------------------------------------------------- |
-| `src/renderer/store/downloadQueueStore.ts`     | High       | Async ops, queue ordering, state transitions       |
-| `src/renderer/store/fileSelectionStore.ts`     | High       | File selection logic, mirrors FileSelectionHandler |
-| `src/renderer/store/torrentActivityStore.ts`   | Medium     | Real-time update handling                          |
-| `src/renderer/store/torrentCollectionStore.ts` | Medium     | CRUD operations, IPC integration                   |
-| `src/renderer/store/useProjectStore.ts`        | Medium     | Project lifecycle, state transitions               |
-| `src/renderer/store/useAuthStore.ts`           | Medium     | Session state, login/logout flows                  |
-| `src/renderer/store/mixExportStore.ts`         | Medium     | Export flow state, progress tracking               |
-| `src/renderer/store/timelineStore.ts`          | Medium     | Zoom/scroll state, waveform cache, popover state   |
-| `src/renderer/store/useSearchStore.ts`         | Low        | UI state correctness                               |
-| `src/renderer/store/useSettingsStore.ts`       | Low        | Settings persistence                               |
-| `src/renderer/store/streamPreviewStore.ts`     | Low        | **Skip** — trivial                                 |
-| `src/renderer/store/useThemeStore.ts`          | Low        | **Skip** — trivial                                 |
-| `src/renderer/store/audioPlayerStore.ts`       | Low        | **Skip** — trivial                                 |
+10 new spec files added covering all non-trivial stores:
 
----
-
-## Priority 3 — MusicBrainz API Layer (25%, 1/4)
-
-Facade (`MusicBrainzService`) is now tested. Sub-API modules still uncovered:
-
-| File                                                        | What to test                              |
-| ----------------------------------------------------------- | ----------------------------------------- |
-| `src/main/services/musicbrainz/api/albumSearch.ts`          | Search query construction, result mapping |
-| `src/main/services/musicbrainz/api/classifySearch.ts`       | Classification logic, edge cases          |
-| `src/main/services/musicbrainz/api/artistAlbums.ts`         | Album fetching, pagination                |
-| ~~`src/main/services/musicbrainz/MusicBrainzApiClient.ts`~~ | ✅ Covered via MusicBrainzService.spec    |
+| File                                           | Status    |
+| ---------------------------------------------- | --------- |
+| `src/renderer/store/smartSearchStore.ts`       | ✅ Tested |
+| `src/renderer/store/downloadQueueStore.ts`     | ✅ Tested |
+| `src/renderer/store/fileSelectionStore.ts`     | ✅ Tested |
+| `src/renderer/store/torrentActivityStore.ts`   | ✅ Tested |
+| `src/renderer/store/torrentCollectionStore.ts` | ✅ Tested |
+| `src/renderer/store/useProjectStore.ts`        | ✅ Tested |
+| `src/renderer/store/useAuthStore.ts`           | ✅ Tested |
+| `src/renderer/store/mixExportStore.ts`         | ✅ Tested |
+| `src/renderer/store/timelineStore.ts`          | ✅ Tested |
+| `src/renderer/store/useSearchStore.ts`         | ✅ Tested |
+| `src/renderer/store/useSettingsStore.ts`       | ✅ Tested |
+| `src/renderer/store/streamPreviewStore.ts`     | ⏭️ Skip   |
+| `src/renderer/store/useThemeStore.ts`          | ⏭️ Skip   |
+| `src/renderer/store/audioPlayerStore.ts`       | ⏭️ Skip   |
 
 ---
 
-## Priority 4 — RuTracker Scrapers (0%, 3 files)
+## Priority 3 — MusicBrainz API Layer ✅ DONE (100%, 4/4)
 
-| File                                                        | What to test                               |
-| ----------------------------------------------------------- | ------------------------------------------ |
-| `src/main/services/rutracker/scrapers/ResultParser.ts`      | HTML parsing branches, malformed input     |
-| `src/main/services/rutracker/scrapers/PaginationHandler.ts` | Pagination edge cases, last page detection |
-| `src/main/services/rutracker/scrapers/PageScraper.ts`       | Request/session handling, error recovery   |
+| File                                                        | Status                                 |
+| ----------------------------------------------------------- | -------------------------------------- |
+| `src/main/services/musicbrainz/api/albumSearch.ts`          | ✅ Tested                              |
+| `src/main/services/musicbrainz/api/classifySearch.ts`       | ✅ Tested                              |
+| `src/main/services/musicbrainz/api/artistAlbums.ts`         | ✅ Tested                              |
+| ~~`src/main/services/musicbrainz/MusicBrainzApiClient.ts`~~ | ✅ Covered via MusicBrainzService.spec |
 
 ---
 
-## Priority 5 — Auth Session Classes (0%, 2 files)
+## Priority 4 — RuTracker Scrapers ✅ DONE (100%, 3/3)
 
-| File                                                   | What to test                                 |
-| ------------------------------------------------------ | -------------------------------------------- |
-| `src/main/services/auth/session/SessionPersistence.ts` | File I/O, serialization, corruption handling |
-| `src/main/services/auth/session/SessionValidator.ts`   | Validation rules, expiry logic, edge cases   |
+| File                                                        | Status    |
+| ----------------------------------------------------------- | --------- |
+| `src/main/services/rutracker/scrapers/ResultParser.ts`      | ✅ Tested |
+| `src/main/services/rutracker/scrapers/PaginationHandler.ts` | ✅ Tested |
+| `src/main/services/rutracker/scrapers/PageScraper.ts`       | ✅ Tested |
+
+---
+
+## Priority 5 — Auth Session Classes ✅ DONE (100%, 2/2)
+
+| File                                                   | Status    |
+| ------------------------------------------------------ | --------- |
+| `src/main/services/auth/session/SessionPersistence.ts` | ✅ Tested |
+| `src/main/services/auth/session/SessionValidator.ts`   | ✅ Tested |
 
 ---
 
@@ -117,11 +122,11 @@ Facade (`MusicBrainzService`) is now tested. Sub-API modules still uncovered:
 | Mix Export                   | 5       | 4      | 80%      | Done (MixExportService untested) |
 | Waveform/BPM                 | 2       | 2      | 100%     | Done                             |
 | Main Utils                   | 3       | 2      | 67%      | Done (ffmpegPath untested)       |
-| Auth Subsystem               | 2       | 0      | **0%**   | Priority 5                       |
-| MusicBrainz APIs             | 4       | 1      | **25%**  | Priority 3                       |
-| RuTracker Scrapers           | 3       | 0      | **0%**   | Priority 4                       |
+| Auth Subsystem               | 2       | 2      | 100%     | ✅ Done                          |
+| MusicBrainz APIs             | 4       | 4      | 100%     | ✅ Done                          |
+| RuTracker Scrapers           | 3       | 3      | 100%     | ✅ Done                          |
 | Other Services               | 4       | 2      | 50%      | Priority 6                       |
-| Frontend Stores              | 14      | 1      | **7%**   | **Priority 2**                   |
+| Frontend Stores              | 14      | 11     | 79%      | ✅ Done (3 skipped as trivial)   |
 | Renderer Utils               | 1       | 1      | 100%     | Done                             |
 | Frontend Hooks               | 1       | 0      | 0%       | Priority 6                       |
-| **Total**                    | **~62** | **35** | **~56%** |                                  |
+| **Total**                    | **~62** | **53** | **~85%** |                                  |
