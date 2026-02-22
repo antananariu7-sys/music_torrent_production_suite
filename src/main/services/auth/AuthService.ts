@@ -1,5 +1,10 @@
 import puppeteer, { Browser, Page } from 'puppeteer-core'
-import type { LoginCredentials, LoginResult, AuthState, StoredCredentials } from '@shared/types/auth.types'
+import type {
+  LoginCredentials,
+  LoginResult,
+  AuthState,
+  StoredCredentials,
+} from '@shared/types/auth.types'
 import { findChromePath } from '../utils/browserUtils'
 import { SessionPersistence } from './session/SessionPersistence'
 import { SessionValidator } from './session/SessionValidator'
@@ -36,9 +41,14 @@ export class AuthService {
       getSessionCookies: () => [...this.sessionCookies],
       initBrowser: () => this.initBrowser(),
       onSessionExpired: () => {
-        this.authState = { isLoggedIn: false, username: undefined, sessionExpiry: undefined }
+        this.authState = {
+          isLoggedIn: false,
+          username: undefined,
+          sessionExpiry: undefined,
+        }
         this.sessionCookies = []
         this.persistence.clear()
+        this.validator.stop()
       },
     })
 
@@ -104,19 +114,23 @@ export class AuthService {
         return { success: false, error: 'Username and password are required' }
       }
 
-      console.log(`[AuthService] Login attempt for user: ${credentials.username}`)
+      console.log(
+        `[AuthService] Login attempt for user: ${credentials.username}`
+      )
 
       const browser = await this.initBrowser()
       page = await browser.newPage()
       await page.setViewport({ width: 1280, height: 800 })
 
-      console.log(`[AuthService] Navigating to https://rutracker.org/forum/login.php`)
+      console.log(
+        `[AuthService] Navigating to https://rutracker.org/forum/login.php`
+      )
       await page.goto('https://rutracker.org/forum/login.php', {
         waitUntil: 'networkidle2',
         timeout: 30000,
       })
 
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
       // Fill in credentials
       const usernameSelector = '#login-form-full input[name="login_username"]'
@@ -130,15 +144,26 @@ export class AuthService {
       // Check for CAPTCHA
       const captchaImage = await page.$('#login-form-full img[src*="captcha"]')
       if (captchaImage) {
-        console.log('[AuthService] ⚠️  CAPTCHA detected - user must solve manually')
+        console.log(
+          '[AuthService] ⚠️  CAPTCHA detected - user must solve manually'
+        )
         try {
-          await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 300000 })
+          await page.waitForNavigation({
+            waitUntil: 'networkidle2',
+            timeout: 300000,
+          })
         } catch (error) {
-          return { success: false, error: 'CAPTCHA submission timeout - please try again' }
+          return {
+            success: false,
+            error: 'CAPTCHA submission timeout - please try again',
+          }
         }
       } else {
-        console.log('[AuthService] No CAPTCHA detected - proceeding with automatic submission')
-        const submitButtonSelector = '#login-form-full input[name="login"][type="submit"]'
+        console.log(
+          '[AuthService] No CAPTCHA detected - proceeding with automatic submission'
+        )
+        const submitButtonSelector =
+          '#login-form-full input[name="login"][type="submit"]'
         await page.waitForSelector(submitButtonSelector, { visible: true })
 
         await page.evaluate((selector) => {
@@ -147,26 +172,39 @@ export class AuthService {
         }, submitButtonSelector)
 
         console.log('[AuthService] Login button clicked, waiting for response')
-        await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {
-          console.log('[AuthService] Navigation timeout or no navigation occurred')
-        })
+        await page
+          .waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 })
+          .catch(() => {
+            console.log(
+              '[AuthService] Navigation timeout or no navigation occurred'
+            )
+          })
       }
 
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
       // Check for error messages
       const errorElement = await page.$('.mrg_16')
       if (errorElement) {
-        const errorText = await page.evaluate(el => el?.textContent, errorElement)
+        const errorText = await page.evaluate(
+          (el) => el?.textContent,
+          errorElement
+        )
         console.error(`[AuthService] Login failed: ${errorText}`)
-        return { success: false, error: errorText || 'Invalid username or password' }
+        return {
+          success: false,
+          error: errorText || 'Invalid username or password',
+        }
       }
 
       // Extract session cookies
       const cookies = await page.cookies()
       this.sessionCookies = cookies
-        .filter(cookie => cookie.name.includes('bb_') || cookie.name.includes('session'))
-        .map(cookie => ({
+        .filter(
+          (cookie) =>
+            cookie.name.includes('bb_') || cookie.name.includes('session')
+        )
+        .map((cookie) => ({
           name: cookie.name,
           value: cookie.value,
           domain: cookie.domain,
@@ -174,15 +212,22 @@ export class AuthService {
           expires: cookie.expires || Date.now() / 1000 + 24 * 60 * 60,
         }))
 
-      console.log(`[AuthService] Extracted ${this.sessionCookies.length} session cookies`)
+      console.log(
+        `[AuthService] Extracted ${this.sessionCookies.length} session cookies`
+      )
 
       if (this.sessionCookies.length === 0) {
-        return { success: false, error: 'Login failed: No session cookies received' }
+        return {
+          success: false,
+          error: 'Login failed: No session cookies received',
+        }
       }
 
       await this.closeBrowser()
 
-      const sessionId = this.sessionCookies.find(c => c.name.includes('session'))?.value || `session_${Date.now()}`
+      const sessionId =
+        this.sessionCookies.find((c) => c.name.includes('session'))?.value ||
+        `session_${Date.now()}`
       const sessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
       this.authState = {
@@ -195,13 +240,18 @@ export class AuthService {
         this.storedCredentials = { username: credentials.username }
       }
 
-      console.log(`[AuthService] ✅ Login successful for user: ${credentials.username}`)
+      console.log(
+        `[AuthService] ✅ Login successful for user: ${credentials.username}`
+      )
       this.persistence.save(this.authState, this.sessionCookies)
 
       return { success: true, username: credentials.username, sessionId }
     } catch (error) {
       console.error('[AuthService] Login failed:', error)
-      return { success: false, error: error instanceof Error ? error.message : 'Login failed' }
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Login failed',
+      }
     }
   }
 
@@ -211,10 +261,15 @@ export class AuthService {
 
   async logout(): Promise<void> {
     console.log(`[AuthService] Logout user: ${this.authState.username}`)
-    this.authState = { isLoggedIn: false, username: undefined, sessionExpiry: undefined }
+    this.authState = {
+      isLoggedIn: false,
+      username: undefined,
+      sessionExpiry: undefined,
+    }
     this.sessionCookies = []
     this.isSessionRestored = false
     this.persistence.clear()
+    this.validator.stop()
   }
 
   async cleanup(): Promise<void> {
@@ -233,7 +288,11 @@ export class AuthService {
       this.authState.sessionExpiry &&
       new Date() > this.authState.sessionExpiry
     ) {
-      this.authState = { isLoggedIn: false, username: undefined, sessionExpiry: undefined }
+      this.authState = {
+        isLoggedIn: false,
+        username: undefined,
+        sessionExpiry: undefined,
+      }
     }
     return { ...this.authState }
   }

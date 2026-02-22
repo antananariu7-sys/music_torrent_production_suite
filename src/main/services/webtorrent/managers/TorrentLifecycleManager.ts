@@ -1,5 +1,6 @@
 import path from 'path'
-import { readFileSync, existsSync, mkdirSync, statSync } from 'fs'
+import { access, mkdir, readFile } from 'fs/promises'
+import { statSync } from 'fs'
 import type {
   QueuedTorrent,
   WebTorrentSettings,
@@ -8,7 +9,10 @@ import type WebTorrentClient from 'webtorrent'
 import type { Torrent } from 'webtorrent'
 
 import { mapCompletedFiles, mapTorrentFiles } from '../utils/torrentHelpers'
-import { cleanupDeselectedFiles, clearPreCreatedDirs } from '../utils/fileCleanup'
+import {
+  cleanupDeselectedFiles,
+  clearPreCreatedDirs,
+} from '../utils/fileCleanup'
 import type { ProgressBroadcaster } from './ProgressBroadcaster'
 
 export interface TorrentLifecycleDeps {
@@ -71,15 +75,16 @@ export class TorrentLifecycleManager {
    * Process the queue: start torrents up to concurrency limit.
    */
   async processQueue(): Promise<void> {
-    const activeCount = [...this.deps.queue.values()]
-      .filter(qt => qt.status === 'downloading' || qt.status === 'seeding')
-      .length
+    const activeCount = [...this.deps.queue.values()].filter(
+      (qt) => qt.status === 'downloading' || qt.status === 'seeding'
+    ).length
 
-    const slotsAvailable = this.deps.settings.maxConcurrentDownloads - activeCount
+    const slotsAvailable =
+      this.deps.settings.maxConcurrentDownloads - activeCount
     if (slotsAvailable <= 0) return
 
     const queued = [...this.deps.queue.values()]
-      .filter(qt => qt.status === 'queued')
+      .filter((qt) => qt.status === 'queued')
       .sort((a, b) => a.addedAt.localeCompare(b.addedAt)) // FIFO
 
     for (let i = 0; i < Math.min(slotsAvailable, queued.length); i++) {
@@ -94,17 +99,25 @@ export class TorrentLifecycleManager {
     try {
       const client = await this.ensureClient()
 
-      if (!existsSync(qt.downloadPath)) {
-        mkdirSync(qt.downloadPath, { recursive: true })
+      try {
+        await access(qt.downloadPath)
+      } catch {
+        await mkdir(qt.downloadPath, { recursive: true })
       }
 
       // Determine torrent source: prefer local .torrent file, fall back to magnet URI
       let torrentSource: string | Buffer = qt.magnetUri
-      if (qt.torrentFilePath && existsSync(qt.torrentFilePath)) {
-        console.log(`[WebTorrentService] Using local .torrent file: ${qt.torrentFilePath}`)
-        torrentSource = readFileSync(qt.torrentFilePath)
-      } else if (qt.torrentFilePath) {
-        console.log(`[WebTorrentService] .torrent file not found at ${qt.torrentFilePath}, falling back to magnet URI`)
+      if (qt.torrentFilePath) {
+        try {
+          torrentSource = await readFile(qt.torrentFilePath)
+          console.log(
+            `[WebTorrentService] Using local .torrent file: ${qt.torrentFilePath}`
+          )
+        } catch {
+          console.log(
+            `[WebTorrentService] .torrent file not found at ${qt.torrentFilePath}, falling back to magnet URI`
+          )
+        }
       }
 
       const torrent = client.add(torrentSource, {
@@ -115,7 +128,7 @@ export class TorrentLifecycleManager {
       // For .torrent files: torrent.files is populated synchronously, so this stops any
       // piece requests before the metadata handler runs and applies the correct selection.
       // For magnet links: torrent.files is empty here (no-op); the metadata handler handles it.
-      torrent.files.forEach(f => f.deselect())
+      torrent.files.forEach((f) => f.deselect())
 
       this.deps.activeTorrents.set(qt.id, torrent)
 
@@ -134,7 +147,10 @@ export class TorrentLifecycleManager {
       })
 
       torrent.on('error', (err: Error) => {
-        console.error(`[WebTorrentService] Torrent error (${qt.name}):`, err.message)
+        console.error(
+          `[WebTorrentService] Torrent error (${qt.name}):`,
+          err.message
+        )
         qt.status = 'error'
         qt.error = err.message
         qt.downloadSpeed = 0
@@ -145,7 +161,10 @@ export class TorrentLifecycleManager {
         this.processQueue()
       })
     } catch (err) {
-      console.error(`[WebTorrentService] Failed to start torrent (${qt.name}):`, err)
+      console.error(
+        `[WebTorrentService] Failed to start torrent (${qt.name}):`,
+        err
+      )
       qt.status = 'error'
       qt.error = err instanceof Error ? err.message : 'Failed to start torrent'
       this.deps.persistQueue()
@@ -168,7 +187,7 @@ export class TorrentLifecycleManager {
 
       // Check if all selected files already exist with matching size
       if (qt.downloadPath) {
-        const allExist = qt.selectedFileIndices.every(index => {
+        const allExist = qt.selectedFileIndices.every((index) => {
           if (index < 0 || index >= torrent.files.length) return false
           const file = torrent.files[index]
           const fullPath = path.join(qt.downloadPath, file.path)
@@ -180,7 +199,9 @@ export class TorrentLifecycleManager {
         })
 
         if (allExist) {
-          console.log(`[WebTorrentService] All selected files already exist, marking as completed: ${qt.name}`)
+          console.log(
+            `[WebTorrentService] All selected files already exist, marking as completed: ${qt.name}`
+          )
           qt.status = 'completed'
           qt.progress = 100
           qt.completedAt = new Date().toISOString()
@@ -198,7 +219,7 @@ export class TorrentLifecycleManager {
       // Deselect all first, clear pre-created dirs, then select only chosen files.
       // Clearing while everything is deselected ensures dirs are empty so
       // random-access-file only recreates dirs for selected files via mkdirp.
-      torrent.files.forEach(file => file.deselect())
+      torrent.files.forEach((file) => file.deselect())
       clearPreCreatedDirs(qt.downloadPath, torrent.name)
       torrent.files.forEach((file, index) => {
         if (selectedSet.has(index)) file.select()
@@ -207,12 +228,14 @@ export class TorrentLifecycleManager {
       qt.status = 'downloading'
       this.deps.persistQueue()
       this.deps.broadcaster.broadcastStatusChange(qt)
-      console.log(`[WebTorrentService] Metadata received, pre-selected ${selectedSet.size}/${torrent.files.length} files: ${qt.name}`)
+      console.log(
+        `[WebTorrentService] Metadata received, pre-selected ${selectedSet.size}/${torrent.files.length} files: ${qt.name}`
+      )
       return
     }
 
     // No pre-selection: deselect all files and wait for user to pick
-    torrent.files.forEach(file => file.deselect())
+    torrent.files.forEach((file) => file.deselect())
     qt.files = mapTorrentFiles(torrent)
 
     qt.status = 'awaiting-file-selection'
@@ -222,7 +245,9 @@ export class TorrentLifecycleManager {
     this.deps.broadcaster.broadcastStatusChange(qt)
     this.deps.broadcaster.broadcastFileSelectionNeeded(qt)
 
-    console.log(`[WebTorrentService] Metadata received, awaiting file selection: ${qt.name} (${qt.totalSize} bytes, ${torrent.files.length} files)`)
+    console.log(
+      `[WebTorrentService] Metadata received, awaiting file selection: ${qt.name} (${qt.totalSize} bytes, ${torrent.files.length} files)`
+    )
 
     // Delete the empty dir tree WebTorrent just created — all files are deselected
     // so no data has been written yet and Windows hasn't locked any handles.
@@ -234,7 +259,9 @@ export class TorrentLifecycleManager {
    * Handle torrent done event — mark complete or seed.
    */
   private handleTorrentDone(qt: QueuedTorrent, torrent: Torrent): void {
-    const selectedSet = qt.selectedFileIndices ? new Set(qt.selectedFileIndices) : undefined
+    const selectedSet = qt.selectedFileIndices
+      ? new Set(qt.selectedFileIndices)
+      : undefined
     qt.status = this.deps.settings.seedAfterDownload ? 'seeding' : 'completed'
     qt.progress = 100
     qt.completedAt = new Date().toISOString()

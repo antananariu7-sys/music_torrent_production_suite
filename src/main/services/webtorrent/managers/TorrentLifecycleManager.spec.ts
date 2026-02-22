@@ -3,15 +3,21 @@ import type { QueuedTorrent } from '@shared/types/torrent.types'
 import type { Torrent } from 'webtorrent'
 
 jest.mock('fs')
+jest.mock('fs/promises')
 jest.mock('../utils/torrentHelpers')
 jest.mock('../utils/fileCleanup')
 
-import { existsSync, mkdirSync } from 'fs'
+import { existsSync } from 'fs'
+import { access, mkdir, readFile } from 'fs/promises'
 
 const mockExistsSync = existsSync as jest.Mock
-const mockMkdirSync = mkdirSync as jest.Mock
+const mockAccess = access as jest.MockedFunction<typeof access>
+const mockMkdir = mkdir as jest.MockedFunction<typeof mkdir>
+const mockReadFile = readFile as jest.MockedFunction<typeof readFile>
 
-function makeQueuedTorrent(overrides: Partial<QueuedTorrent> = {}): QueuedTorrent {
+function makeQueuedTorrent(
+  overrides: Partial<QueuedTorrent> = {}
+): QueuedTorrent {
   return {
     id: 'qt-1',
     name: 'My Album',
@@ -56,7 +62,9 @@ describe('TorrentLifecycleManager', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockExistsSync.mockReturnValue(true)
-    mockMkdirSync.mockImplementation(() => {})
+    mockAccess.mockResolvedValue(undefined)
+    mockMkdir.mockResolvedValue(undefined as any)
+    mockReadFile.mockRejectedValue(new Error('not found'))
 
     deps = {
       queue: new Map(),
@@ -107,8 +115,14 @@ describe('TorrentLifecycleManager', () => {
       const mockClient = { add: jest.fn().mockReturnValue(mockTorrent) }
       jest.spyOn(manager, 'ensureClient').mockResolvedValue(mockClient as any)
 
-      const older = makeQueuedTorrent({ id: 'older', addedAt: '2026-01-01T00:00:00.000Z' })
-      const newer = makeQueuedTorrent({ id: 'newer', addedAt: '2026-01-02T00:00:00.000Z' })
+      const older = makeQueuedTorrent({
+        id: 'older',
+        addedAt: '2026-01-01T00:00:00.000Z',
+      })
+      const newer = makeQueuedTorrent({
+        id: 'newer',
+        addedAt: '2026-01-02T00:00:00.000Z',
+      })
       // Insert newer first to verify sorting
       deps.queue.set('newer', newer)
       deps.queue.set('older', older)
@@ -127,9 +141,26 @@ describe('TorrentLifecycleManager', () => {
       jest.spyOn(manager, 'ensureClient').mockResolvedValue(mockClient as any)
 
       // 1 active → 1 slot available
-      deps.queue.set('active', makeQueuedTorrent({ id: 'active', status: 'downloading' }))
-      deps.queue.set('q1', makeQueuedTorrent({ id: 'q1', status: 'queued', addedAt: '2026-01-01T00:00:00.000Z' }))
-      deps.queue.set('q2', makeQueuedTorrent({ id: 'q2', status: 'queued', addedAt: '2026-01-02T00:00:00.000Z' }))
+      deps.queue.set(
+        'active',
+        makeQueuedTorrent({ id: 'active', status: 'downloading' })
+      )
+      deps.queue.set(
+        'q1',
+        makeQueuedTorrent({
+          id: 'q1',
+          status: 'queued',
+          addedAt: '2026-01-01T00:00:00.000Z',
+        })
+      )
+      deps.queue.set(
+        'q2',
+        makeQueuedTorrent({
+          id: 'q2',
+          status: 'queued',
+          addedAt: '2026-01-02T00:00:00.000Z',
+        })
+      )
 
       await manager.processQueue()
 
@@ -142,10 +173,8 @@ describe('TorrentLifecycleManager', () => {
       const mockClient = { add: jest.fn().mockReturnValue(mockTorrent) }
       jest.spyOn(manager, 'ensureClient').mockResolvedValue(mockClient as any)
 
-      const { readFileSync } = jest.requireMock<typeof import('fs')>('fs')
-      const mockReadFileSync = readFileSync as jest.Mock
       const torrentBuffer = Buffer.from('fake-torrent-data')
-      mockReadFileSync.mockReturnValue(torrentBuffer)
+      mockReadFile.mockResolvedValue(torrentBuffer as any)
 
       const qt = makeQueuedTorrent({ torrentFilePath: '/path/to/file.torrent' })
       deps.queue.set(qt.id, qt)
@@ -153,7 +182,9 @@ describe('TorrentLifecycleManager', () => {
       await manager.processQueue()
 
       // Should pass the buffer, not the magnet URI
-      expect(mockClient.add).toHaveBeenCalledWith(torrentBuffer, { path: qt.downloadPath })
+      expect(mockClient.add).toHaveBeenCalledWith(torrentBuffer, {
+        path: qt.downloadPath,
+      })
     })
 
     it('falls back to magnet URI when .torrent file does not exist', async () => {
@@ -161,19 +192,22 @@ describe('TorrentLifecycleManager', () => {
       const mockClient = { add: jest.fn().mockReturnValue(mockTorrent) }
       jest.spyOn(manager, 'ensureClient').mockResolvedValue(mockClient as any)
 
-      // torrentFilePath set but file doesn't exist
-      mockExistsSync.mockImplementation((p: string) => !p.endsWith('.torrent'))
+      // torrentFilePath set but readFile rejects (default mock behavior)
 
       const qt = makeQueuedTorrent({ torrentFilePath: '/missing/file.torrent' })
       deps.queue.set(qt.id, qt)
 
       await manager.processQueue()
 
-      expect(mockClient.add).toHaveBeenCalledWith(qt.magnetUri, { path: qt.downloadPath })
+      expect(mockClient.add).toHaveBeenCalledWith(qt.magnetUri, {
+        path: qt.downloadPath,
+      })
     })
 
     it('sets torrent to error status when startTorrent throws', async () => {
-      jest.spyOn(manager, 'ensureClient').mockRejectedValue(new Error('WebTorrent init failed'))
+      jest
+        .spyOn(manager, 'ensureClient')
+        .mockRejectedValue(new Error('WebTorrent init failed'))
 
       const qt = makeQueuedTorrent()
       deps.queue.set(qt.id, qt)
@@ -218,7 +252,7 @@ describe('TorrentLifecycleManager', () => {
     it('destroys the WebTorrent client and nulls the reference', async () => {
       const mockClient = {
         add: jest.fn().mockReturnValue({ infoHash: '', on: jest.fn() }),
-        destroy: jest.fn(cb => cb()),
+        destroy: jest.fn((cb) => cb()),
         on: jest.fn(),
       }
       jest.spyOn(manager, 'ensureClient').mockResolvedValue(mockClient as any)

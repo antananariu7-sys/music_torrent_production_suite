@@ -1,5 +1,4 @@
-import { statSync } from 'fs'
-import { readFile } from 'fs/promises'
+import { stat, readFile } from 'fs/promises'
 import path from 'path'
 
 export interface AudioMeta {
@@ -25,8 +24,10 @@ export interface AudioMeta {
  * instead of Buffer.toString(), causing "Invalid FLAC preamble" errors.
  * All other formats use music-metadata's parseFile.
  */
-export async function parseAudioMeta(filePath: string): Promise<AudioMeta | null> {
-  const fileSize = statSync(filePath).size
+export async function parseAudioMeta(
+  filePath: string
+): Promise<AudioMeta | null> {
+  const { size: fileSize } = await stat(filePath)
 
   // ── FLAC: use manual binary parser ──────────────────────────────────────
   if (path.extname(filePath).toLowerCase() === '.flac') {
@@ -35,7 +36,10 @@ export async function parseAudioMeta(filePath: string): Promise<AudioMeta | null
       const result = parseFlacManual(buf, fileSize)
       if (result) return result
     } catch (err) {
-      console.warn(`[parseAudioMeta] FLAC manual parse failed for "${path.basename(filePath)}":`, err)
+      console.warn(
+        `[parseAudioMeta] FLAC manual parse failed for "${path.basename(filePath)}":`,
+        err
+      )
     }
     return null
   }
@@ -47,7 +51,9 @@ export async function parseAudioMeta(filePath: string): Promise<AudioMeta | null
     return metaToAudioMeta(meta, fileSize)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
-    console.warn(`[parseAudioMeta] parseFile failed for "${path.basename(filePath)}": ${msg}`)
+    console.warn(
+      `[parseAudioMeta] parseFile failed for "${path.basename(filePath)}": ${msg}`
+    )
     return null
   }
 }
@@ -80,7 +86,8 @@ function parseFlacManual(buf: Buffer, fileSize: number): AudioMeta | null {
     const headerByte = buf[offset]
     const isLast = (headerByte & 0x80) !== 0
     const blockType = headerByte & 0x7f
-    const blockLength = (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3]
+    const blockLength =
+      (buf[offset + 1] << 16) | (buf[offset + 2] << 8) | buf[offset + 3]
     offset += 4
 
     if (offset + blockLength > buf.length) break
@@ -105,10 +112,14 @@ function parseFlacManual(buf: Buffer, fileSize: number): AudioMeta | null {
       : undefined
 
   const bitrate =
-    duration && duration > 0 ? Math.round((8 * fileSize) / duration / 1000) : undefined
+    duration && duration > 0
+      ? Math.round((8 * fileSize) / duration / 1000)
+      : undefined
 
   const trackStr = tags['TRACKNUMBER']
-  const trackNumber = trackStr ? parseInt(trackStr.split('/')[0], 10) : undefined
+  const trackNumber = trackStr
+    ? parseInt(trackStr.split('/')[0], 10)
+    : undefined
 
   const dateStr = tags['DATE'] ?? tags['YEAR']
   const year = dateStr ? parseInt(dateStr, 10) : undefined
@@ -144,7 +155,7 @@ function parseStreamInfo(buf: Buffer, offset: number): FlacStreamInfo {
   const b12 = buf[offset + 12]
   const b13 = buf[offset + 13]
 
-  const sampleRate = ((b10 << 12) | (b11 << 4) | ((b12 & 0xf0) >> 4))
+  const sampleRate = (b10 << 12) | (b11 << 4) | ((b12 & 0xf0) >> 4)
   const channels = ((b12 & 0x0e) >> 1) + 1
   const bitsPerSample = (((b12 & 0x01) << 4) | ((b13 & 0xf0) >> 4)) + 1
 
@@ -163,7 +174,7 @@ function parseVorbisComment(
   buf: Buffer,
   offset: number,
   length: number,
-  out: Record<string, string>,
+  out: Record<string, string>
 ): void {
   const end = offset + length
   if (offset + 4 > end) return
@@ -193,7 +204,7 @@ function parseVorbisComment(
 
 function metaToAudioMeta(
   meta: import('music-metadata').IAudioMetadata,
-  fileSize: number,
+  fileSize: number
 ): AudioMeta {
   return {
     title: meta.common.title,
@@ -201,7 +212,9 @@ function metaToAudioMeta(
     album: meta.common.album,
     duration: meta.format.duration,
     format: meta.format.container?.toLowerCase(),
-    bitrate: meta.format.bitrate ? Math.round(meta.format.bitrate / 1000) : undefined,
+    bitrate: meta.format.bitrate
+      ? Math.round(meta.format.bitrate / 1000)
+      : undefined,
     sampleRate: meta.format.sampleRate,
     channels: meta.format.numberOfChannels,
     year: meta.common.year,

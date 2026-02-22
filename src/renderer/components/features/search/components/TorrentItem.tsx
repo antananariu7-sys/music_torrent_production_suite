@@ -1,11 +1,15 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { Box, VStack, Text, Button, HStack, Icon } from '@chakra-ui/react'
 import { FiDownload, FiChevronUp, FiList, FiHardDrive } from 'react-icons/fi'
 import type { SearchResult } from '@shared/types/search.types'
 import type { TorrentPageMetadata } from '@shared/types/torrentMetadata.types'
 import type { PageContentScanResult } from '@shared/types/discography.types'
 import { AlbumFoundBadge } from '../DiscographyScanPanel'
-import { TorrentTrackListPreview, TorrentTrackListLoading, TorrentTrackListError } from '../TorrentTrackListPreview'
+import {
+  TorrentTrackListPreview,
+  TorrentTrackListLoading,
+  TorrentTrackListError,
+} from '../TorrentTrackListPreview'
 
 interface TorrentItemProps {
   torrent: SearchResult
@@ -15,8 +19,16 @@ interface TorrentItemProps {
   highlightSongName?: string
 }
 
-export const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isDownloading, scanResult, highlightSongName }) => {
-  const [previewState, setPreviewState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
+export const TorrentItem = memo(function TorrentItem({
+  torrent,
+  onSelect,
+  isDownloading,
+  scanResult,
+  highlightSongName,
+}: TorrentItemProps) {
+  const [previewState, setPreviewState] = useState<
+    'idle' | 'loading' | 'loaded' | 'error'
+  >('idle')
   const [metadata, setMetadata] = useState<TorrentPageMetadata | null>(null)
   const [previewError, setPreviewError] = useState<string>('')
   const [isExpanded, setIsExpanded] = useState(false)
@@ -73,9 +85,20 @@ export const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isD
       {/* Main info row */}
       <VStack align="stretch" gap={0} p={3}>
         <HStack align="start">
-          <Icon as={FiDownload} boxSize={5} color="interactive.base" flexShrink={0} mt={0.5} />
+          <Icon
+            as={FiDownload}
+            boxSize={5}
+            color="interactive.base"
+            flexShrink={0}
+            mt={0.5}
+          />
           <VStack align="start" gap={1} flex="1" minW={0}>
-            <Text fontSize="sm" fontWeight="medium" color="text.primary" lineClamp={2}>
+            <Text
+              fontSize="sm"
+              fontWeight="medium"
+              color="text.primary"
+              lineClamp={2}
+            >
               {torrent.title}
             </Text>
             <HStack gap={3} flexWrap="wrap">
@@ -94,9 +117,19 @@ export const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isD
                 </Text>
               )}
               {torrent.size && (
-                <HStack gap={1} bg="bg.surface" px={2} py={0.5} borderRadius="sm">
+                <HStack
+                  gap={1}
+                  bg="bg.surface"
+                  px={2}
+                  py={0.5}
+                  borderRadius="sm"
+                >
                   <Icon as={FiHardDrive} boxSize={3} color="text.secondary" />
-                  <Text fontSize="xs" fontWeight="medium" color="text.secondary">
+                  <Text
+                    fontSize="xs"
+                    fontWeight="medium"
+                    color="text.secondary"
+                  >
                     {displaySize}
                   </Text>
                 </HStack>
@@ -112,7 +145,14 @@ export const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isD
                 </Text>
               )}
               {torrent.category && (
-                <Text fontSize="xs" color="text.muted" px={2} py={0.5} bg="bg.surface" borderRadius="sm">
+                <Text
+                  fontSize="xs"
+                  color="text.muted"
+                  px={2}
+                  py={0.5}
+                  bg="bg.surface"
+                  borderRadius="sm"
+                >
                   {torrent.category}
                 </Text>
               )}
@@ -128,8 +168,17 @@ export const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isD
             onClick={handlePreviewClick}
             loading={previewState === 'loading'}
           >
-            <Icon as={isExpanded && previewState === 'loaded' ? FiChevronUp : FiList} boxSize={3} />
-            {previewState === 'loaded' ? (isExpanded ? 'Hide tracks' : 'Show tracks') : 'Preview tracks'}
+            <Icon
+              as={
+                isExpanded && previewState === 'loaded' ? FiChevronUp : FiList
+              }
+              boxSize={3}
+            />
+            {previewState === 'loaded'
+              ? isExpanded
+                ? 'Hide tracks'
+                : 'Show tracks'
+              : 'Preview tracks'}
           </Button>
           <Button
             size="xs"
@@ -148,10 +197,17 @@ export const TorrentItem: React.FC<TorrentItemProps> = ({ torrent, onSelect, isD
       {isExpanded && (
         <Box px={3} pb={3} pl={10}>
           {previewState === 'loading' && <TorrentTrackListLoading />}
-          {previewState === 'error' && <TorrentTrackListError error={previewError} />}
-          {previewState === 'loaded' && metadata && <TorrentTrackListPreview metadata={metadata} highlightSongName={highlightSongName} />}
+          {previewState === 'error' && (
+            <TorrentTrackListError error={previewError} />
+          )}
+          {previewState === 'loaded' && metadata && (
+            <TorrentTrackListPreview
+              metadata={metadata}
+              highlightSongName={highlightSongName}
+            />
+          )}
         </Box>
       )}
     </Box>
   )
-}
+})

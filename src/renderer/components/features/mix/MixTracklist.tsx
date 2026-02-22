@@ -1,5 +1,14 @@
-import { Fragment, useRef, useState } from 'react'
-import { Box, Flex, Text, Icon, IconButton, Table, Badge, VStack } from '@chakra-ui/react'
+import { Fragment, useRef, useState, useMemo } from 'react'
+import {
+  Box,
+  Flex,
+  Text,
+  Icon,
+  IconButton,
+  Table,
+  Badge,
+  VStack,
+} from '@chakra-ui/react'
 import {
   FiPlay,
   FiTrash2,
@@ -32,9 +41,15 @@ export function MixTracklist(): JSX.Element {
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
   const dragSongId = useRef<string | null>(null)
 
-  if (!currentProject) return <></>
+  const songs = useMemo(
+    () =>
+      currentProject
+        ? [...currentProject.songs].sort((a, b) => a.order - b.order)
+        : [],
+    [currentProject?.songs]
+  )
 
-  const songs = [...currentProject.songs].sort((a, b) => a.order - b.order)
+  if (!currentProject) return <></>
 
   if (songs.length === 0) {
     return (
@@ -56,7 +71,8 @@ export function MixTracklist(): JSX.Element {
     )
   }
 
-  const defaultCrossfade = currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5
+  const defaultCrossfade =
+    currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5
   const tracks = songs.map(songToTrack)
 
   async function handleRemove(songId: string): Promise<void> {
@@ -65,30 +81,47 @@ export function MixTracklist(): JSX.Element {
       setCurrentProject(response.data)
       toaster.create({ title: 'Track removed', type: 'info' })
     } else {
-      toaster.create({ title: 'Failed to remove track', description: response.error, type: 'error' })
+      toaster.create({
+        title: 'Failed to remove track',
+        description: response.error,
+        type: 'error',
+      })
     }
   }
 
   async function handleReorder(newOrder: string[]): Promise<void> {
-    const response = await window.api.mix.reorderSongs(currentProject!.id, newOrder)
+    const response = await window.api.mix.reorderSongs(
+      currentProject!.id,
+      newOrder
+    )
     if (response.success && response.data) {
       setCurrentProject(response.data)
     } else {
-      toaster.create({ title: 'Failed to reorder tracks', description: response.error, type: 'error' })
+      toaster.create({
+        title: 'Failed to reorder tracks',
+        description: response.error,
+        type: 'error',
+      })
     }
   }
 
   function moveUp(index: number): void {
     if (index === 0) return
     const newOrder = songs.map((s) => s.id)
-    ;[newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]]
+    ;[newOrder[index - 1], newOrder[index]] = [
+      newOrder[index],
+      newOrder[index - 1],
+    ]
     handleReorder(newOrder)
   }
 
   function moveDown(index: number): void {
     if (index === songs.length - 1) return
     const newOrder = songs.map((s) => s.id)
-    ;[newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]]
+    ;[newOrder[index], newOrder[index + 1]] = [
+      newOrder[index + 1],
+      newOrder[index],
+    ]
     handleReorder(newOrder)
   }
 
@@ -134,14 +167,27 @@ export function MixTracklist(): JSX.Element {
       <Table.Root variant="outline">
         <Table.Header>
           <Table.Row>
-            <Table.ColumnHeader w="44px" textAlign="center"></Table.ColumnHeader>
+            <Table.ColumnHeader
+              w="44px"
+              textAlign="center"
+            ></Table.ColumnHeader>
             <Table.ColumnHeader>Title</Table.ColumnHeader>
             <Table.ColumnHeader>Artist</Table.ColumnHeader>
-            <Table.ColumnHeader w="90px" textAlign="right">Duration</Table.ColumnHeader>
-            <Table.ColumnHeader w="80px" pl={4}>Format</Table.ColumnHeader>
-            <Table.ColumnHeader w="80px" textAlign="right">Bitrate</Table.ColumnHeader>
-            <Table.ColumnHeader w="80px" textAlign="right">Size</Table.ColumnHeader>
-            <Table.ColumnHeader w="90px" textAlign="center">Actions</Table.ColumnHeader>
+            <Table.ColumnHeader w="90px" textAlign="right">
+              Duration
+            </Table.ColumnHeader>
+            <Table.ColumnHeader w="80px" pl={4}>
+              Format
+            </Table.ColumnHeader>
+            <Table.ColumnHeader w="80px" textAlign="right">
+              Bitrate
+            </Table.ColumnHeader>
+            <Table.ColumnHeader w="80px" textAlign="right">
+              Size
+            </Table.ColumnHeader>
+            <Table.ColumnHeader w="90px" textAlign="center">
+              Actions
+            </Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
         <Table.Body>
@@ -172,14 +218,24 @@ export function MixTracklist(): JSX.Element {
                   </IconButton>
                 </Table.Cell>
                 <Table.Cell>
-                  <Text fontWeight="medium" color="text.primary" lineClamp={1} title={song.title}>
+                  <Text
+                    fontWeight="medium"
+                    color="text.primary"
+                    lineClamp={1}
+                    title={song.title}
+                  >
                     {song.title}
                   </Text>
                 </Table.Cell>
                 <Table.Cell color="text.secondary" fontSize="sm">
                   {song.artist || '—'}
                 </Table.Cell>
-                <Table.Cell textAlign="right" fontFamily="monospace" fontSize="sm" color="text.secondary">
+                <Table.Cell
+                  textAlign="right"
+                  fontFamily="monospace"
+                  fontSize="sm"
+                  color="text.secondary"
+                >
                   {formatDuration(song.duration)}
                 </Table.Cell>
                 <Table.Cell pl={4}>
@@ -194,13 +250,23 @@ export function MixTracklist(): JSX.Element {
                       {song.format}
                     </Badge>
                   ) : (
-                    <Text color="text.muted" fontSize="xs">—</Text>
+                    <Text color="text.muted" fontSize="xs">
+                      —
+                    </Text>
                   )}
                 </Table.Cell>
-                <Table.Cell textAlign="right" fontSize="xs" color="text.secondary">
+                <Table.Cell
+                  textAlign="right"
+                  fontSize="xs"
+                  color="text.secondary"
+                >
                   {song.bitrate ? `${song.bitrate} kbps` : '—'}
                 </Table.Cell>
-                <Table.Cell textAlign="right" fontSize="xs" color="text.secondary">
+                <Table.Cell
+                  textAlign="right"
+                  fontSize="xs"
+                  color="text.secondary"
+                >
                   {formatFileSize(song.fileSize)}
                 </Table.Cell>
                 <Table.Cell>

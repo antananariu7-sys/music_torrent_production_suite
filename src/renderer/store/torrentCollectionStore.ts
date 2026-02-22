@@ -12,8 +12,15 @@ interface TorrentCollectionState {
   projectDirectory?: string
 
   // Actions
-  setProjectContext: (projectId: string, projectName: string, projectDirectory: string) => void
-  loadCollectionFromProject: (projectId: string, projectDirectory: string) => Promise<void>
+  setProjectContext: (
+    projectId: string,
+    projectName: string,
+    projectDirectory: string
+  ) => void
+  loadCollectionFromProject: (
+    projectId: string,
+    projectDirectory: string
+  ) => Promise<void>
   addToCollection: (torrent: SearchResult) => void
   removeFromCollection: (torrentId: string) => void
   updateMagnetLink: (torrentId: string, magnetLink: string) => void
@@ -43,7 +50,9 @@ async function saveCollectionToDisk(
       torrents: collection,
     })
 
-    console.log(`[torrentCollectionStore] Saved ${collection.length} torrents to ${projectDirectory}`)
+    console.log(
+      `[torrentCollectionStore] Saved ${collection.length} torrents to ${projectDirectory}`
+    )
   } catch (error) {
     console.error('[torrentCollectionStore] Failed to save collection:', error)
   }
@@ -73,148 +82,173 @@ async function loadCollectionFromDisk(
   }
 }
 
-export const useTorrentCollectionStore = create<TorrentCollectionState>((set, get) => ({
-  collections: {},
-  projectId: undefined,
-  projectName: undefined,
-  projectDirectory: undefined,
+export const useTorrentCollectionStore = create<TorrentCollectionState>(
+  (set, get) => ({
+    collections: {},
+    projectId: undefined,
+    projectName: undefined,
+    projectDirectory: undefined,
 
-  setProjectContext: (projectId: string, projectName: string, projectDirectory: string) =>
-    set({ projectId, projectName, projectDirectory }),
+    setProjectContext: (
+      projectId: string,
+      projectName: string,
+      projectDirectory: string
+    ) => set({ projectId, projectName, projectDirectory }),
 
-  loadCollectionFromProject: async (projectId: string, projectDirectory: string) => {
-    const collection = await loadCollectionFromDisk(projectId, projectDirectory)
-    set((state) => ({
-      collections: {
-        ...state.collections,
-        [projectId]: collection,
-      },
-    }))
-  },
+    loadCollectionFromProject: async (
+      projectId: string,
+      projectDirectory: string
+    ) => {
+      const collection = await loadCollectionFromDisk(
+        projectId,
+        projectDirectory
+      )
+      set((state) => ({
+        collections: {
+          ...state.collections,
+          [projectId]: collection,
+        },
+      }))
+    },
 
-  addToCollection: (torrent: SearchResult) => {
-    const { projectId, projectName, projectDirectory, collections } = get()
+    addToCollection: (torrent: SearchResult) => {
+      const { projectId, projectName, projectDirectory, collections } = get()
 
-    if (!projectId) {
-      console.warn('[torrentCollectionStore] Cannot add: no project context')
-      return
-    }
+      if (!projectId) {
+        console.warn('[torrentCollectionStore] Cannot add: no project context')
+        return
+      }
 
-    const currentCollection = collections[projectId] || []
+      const currentCollection = collections[projectId] || []
 
-    // Check for duplicates
-    if (currentCollection.some((t) => t.torrentId === torrent.id)) {
-      console.warn('[torrentCollectionStore] Torrent already in collection')
-      return
-    }
+      // Check for duplicates
+      if (currentCollection.some((t) => t.torrentId === torrent.id)) {
+        console.warn('[torrentCollectionStore] Torrent already in collection')
+        return
+      }
 
-    const collectedTorrent: CollectedTorrent = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      torrentId: torrent.id,
-      magnetLink: '', // Magnet link will be fetched during download
-      title: torrent.title,
-      pageUrl: torrent.url,
-      addedAt: new Date().toISOString(),
-      metadata: {
-        size: torrent.size,
-        sizeBytes: torrent.sizeBytes,
-        seeders: torrent.seeders,
-        leechers: torrent.leechers,
-        category: torrent.category,
-      },
-      projectId,
-    }
+      const collectedTorrent: CollectedTorrent = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        torrentId: torrent.id,
+        magnetLink: '', // Magnet link will be fetched during download
+        title: torrent.title,
+        pageUrl: torrent.url,
+        addedAt: new Date().toISOString(),
+        metadata: {
+          size: torrent.size,
+          sizeBytes: torrent.sizeBytes,
+          seeders: torrent.seeders,
+          leechers: torrent.leechers,
+          category: torrent.category,
+        },
+        projectId,
+      }
 
-    const newCollection = [collectedTorrent, ...currentCollection]
+      const newCollection = [collectedTorrent, ...currentCollection]
 
-    set((state) => ({
-      collections: {
-        ...state.collections,
-        [projectId]: newCollection,
-      },
-    }))
+      set((state) => ({
+        collections: {
+          ...state.collections,
+          [projectId]: newCollection,
+        },
+      }))
 
-    // Auto-save to disk
-    saveCollectionToDisk(newCollection, projectId, projectName, projectDirectory)
-  },
+      // Auto-save to disk
+      saveCollectionToDisk(
+        newCollection,
+        projectId,
+        projectName,
+        projectDirectory
+      )
+    },
 
-  removeFromCollection: (torrentId: string) => {
-    const { projectId, projectName, projectDirectory, collections } = get()
+    removeFromCollection: (torrentId: string) => {
+      const { projectId, projectName, projectDirectory, collections } = get()
 
-    if (!projectId) {
-      return
-    }
+      if (!projectId) {
+        return
+      }
 
-    const currentCollection = collections[projectId] || []
-    const newCollection = currentCollection.filter((t) => t.id !== torrentId)
+      const currentCollection = collections[projectId] || []
+      const newCollection = currentCollection.filter((t) => t.id !== torrentId)
 
-    set((state) => ({
-      collections: {
-        ...state.collections,
-        [projectId]: newCollection,
-      },
-    }))
+      set((state) => ({
+        collections: {
+          ...state.collections,
+          [projectId]: newCollection,
+        },
+      }))
 
-    // Auto-save to disk
-    saveCollectionToDisk(newCollection, projectId, projectName, projectDirectory)
-  },
+      // Auto-save to disk
+      saveCollectionToDisk(
+        newCollection,
+        projectId,
+        projectName,
+        projectDirectory
+      )
+    },
 
-  updateMagnetLink: (torrentId: string, magnetLink: string) => {
-    const { projectId, projectName, projectDirectory, collections } = get()
+    updateMagnetLink: (torrentId: string, magnetLink: string) => {
+      const { projectId, projectName, projectDirectory, collections } = get()
 
-    if (!projectId) {
-      return
-    }
+      if (!projectId) {
+        return
+      }
 
-    const currentCollection = collections[projectId] || []
-    const newCollection = currentCollection.map((t) =>
-      t.id === torrentId ? { ...t, magnetLink } : t
-    )
+      const currentCollection = collections[projectId] || []
+      const newCollection = currentCollection.map((t) =>
+        t.id === torrentId ? { ...t, magnetLink } : t
+      )
 
-    set((state) => ({
-      collections: {
-        ...state.collections,
-        [projectId]: newCollection,
-      },
-    }))
+      set((state) => ({
+        collections: {
+          ...state.collections,
+          [projectId]: newCollection,
+        },
+      }))
 
-    // Auto-save to disk
-    saveCollectionToDisk(newCollection, projectId, projectName, projectDirectory)
-  },
+      // Auto-save to disk
+      saveCollectionToDisk(
+        newCollection,
+        projectId,
+        projectName,
+        projectDirectory
+      )
+    },
 
-  clearCollection: () => {
-    const { projectId, projectName, projectDirectory } = get()
+    clearCollection: () => {
+      const { projectId, projectName, projectDirectory } = get()
 
-    if (!projectId) {
-      return
-    }
+      if (!projectId) {
+        return
+      }
 
-    set((state) => ({
-      collections: {
-        ...state.collections,
-        [projectId]: [],
-      },
-    }))
+      set((state) => ({
+        collections: {
+          ...state.collections,
+          [projectId]: [],
+        },
+      }))
 
-    // Auto-save to disk (empty collection)
-    saveCollectionToDisk([], projectId, projectName, projectDirectory)
-  },
+      // Auto-save to disk (empty collection)
+      saveCollectionToDisk([], projectId, projectName, projectDirectory)
+    },
 
-  getCollection: () => {
-    const { projectId, collections } = get()
-    if (!projectId) {
-      return []
-    }
-    return collections[projectId] || []
-  },
-}))
+    getCollection: () => {
+      const { projectId, collections } = get()
+      if (!projectId) {
+        return []
+      }
+      return collections[projectId] || []
+    },
+  })
+)
 
 // Selector hooks
-export const useCollection = () => {
-  const projectId = useTorrentCollectionStore((state) => state.projectId)
-  const collections = useTorrentCollectionStore((state) => state.collections)
-  return projectId ? collections[projectId] || [] : []
-}
+export const useCollection = () =>
+  useTorrentCollectionStore((s) =>
+    s.projectId ? s.collections[s.projectId] || [] : []
+  )
 
 export const useCollectionCount = () => {
   const collection = useCollection()

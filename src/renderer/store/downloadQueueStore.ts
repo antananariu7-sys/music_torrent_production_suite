@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { create } from 'zustand'
 import type {
   QueuedTorrent,
@@ -17,7 +18,9 @@ interface DownloadQueueState {
   // Actions
   loadAll: () => Promise<void>
   loadSettings: () => Promise<void>
-  addTorrent: (request: AddTorrentRequest) => Promise<{ success: boolean; error?: string }>
+  addTorrent: (
+    request: AddTorrentRequest
+  ) => Promise<{ success: boolean; error?: string }>
   pauseTorrent: (id: string) => Promise<void>
   resumeTorrent: (id: string) => Promise<void>
   removeTorrent: (id: string, deleteFiles?: boolean) => Promise<void>
@@ -87,7 +90,12 @@ export const useDownloadQueueStore = create<DownloadQueueState>((set) => ({
       set((state) => ({
         torrents: {
           ...state.torrents,
-          [id]: { ...state.torrents[id], status: 'paused', downloadSpeed: 0, uploadSpeed: 0 },
+          [id]: {
+            ...state.torrents[id],
+            status: 'paused',
+            downloadSpeed: 0,
+            uploadSpeed: 0,
+          },
         },
       }))
     }
@@ -164,21 +172,33 @@ export const useDownloadQueueStore = create<DownloadQueueState>((set) => ({
 /** Get all queued torrents sorted by addedAt (newest first) */
 export const useQueuedTorrents = () => {
   const torrents = useDownloadQueueStore((s) => s.torrents)
-  return Object.values(torrents).sort(
-    (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+  return useMemo(
+    () =>
+      Object.values(torrents).sort(
+        (a, b) => new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime()
+      ),
+    [torrents]
   )
 }
 
 /** Get only active (downloading/seeding) torrents */
 export const useActiveTorrents = () => {
   const all = useQueuedTorrents()
-  return all.filter(t => t.status === 'downloading' || t.status === 'seeding')
+  return useMemo(
+    () =>
+      all.filter((t) => t.status === 'downloading' || t.status === 'seeding'),
+    [all]
+  )
 }
 
 /** Count of downloading + queued torrents */
 export const useQueuedCount = () => {
   const torrents = useDownloadQueueStore((s) => s.torrents)
-  return Object.values(torrents).filter(
-    t => t.status === 'downloading' || t.status === 'queued'
-  ).length
+  return useMemo(
+    () =>
+      Object.values(torrents).filter(
+        (t) => t.status === 'downloading' || t.status === 'queued'
+      ).length,
+    [torrents]
+  )
 }
