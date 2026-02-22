@@ -14,6 +14,8 @@ describe('artistAlbums', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     client = makeClient()
   })
 

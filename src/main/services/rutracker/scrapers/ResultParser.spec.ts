@@ -29,6 +29,8 @@ describe('ResultParser', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     parser = new ResultParser()
   })
 

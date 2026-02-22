@@ -44,6 +44,8 @@ describe('SessionPersistence', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     // Constructor checks existsSync for session dir
     mockFs.existsSync.mockReturnValue(true)
     persistence = new SessionPersistence()

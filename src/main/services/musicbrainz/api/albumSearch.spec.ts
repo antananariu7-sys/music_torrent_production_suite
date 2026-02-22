@@ -17,6 +17,8 @@ describe('albumSearch', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     client = makeClient()
   })
 

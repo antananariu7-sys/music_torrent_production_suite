@@ -60,6 +60,8 @@ describe('SessionValidator', () => {
   beforeEach(() => {
     jest.useFakeTimers()
     jest.clearAllMocks()
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
     deps = makeDeps()
     validator = new SessionValidator(deps)
   })

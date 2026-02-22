@@ -33,6 +33,8 @@ describe('PaginationHandler', () => {
 
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.spyOn(console, 'log').mockImplementation(() => {})
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     handler = new PaginationHandler()
     browser = makeMockBrowser()
 

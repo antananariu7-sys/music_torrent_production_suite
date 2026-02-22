@@ -28,6 +28,7 @@ function makeProgress(
 describe('mixExportStore', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     useMixExportStore.setState({
       isExporting: false,
       progress: null,

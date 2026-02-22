@@ -24,6 +24,7 @@ import { useSettingsStore } from './useSettingsStore'
 describe('useSettingsStore', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     useSettingsStore.setState({ autoScanDiscography: true })
   })
 

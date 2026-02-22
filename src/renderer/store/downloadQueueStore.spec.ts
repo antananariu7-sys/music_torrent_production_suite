@@ -64,6 +64,8 @@ function makeProgress(
 describe('downloadQueueStore', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    jest.spyOn(console, 'error').mockImplementation(() => {})
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
     useDownloadQueueStore.setState({
       torrents: {},
       settings: null,
