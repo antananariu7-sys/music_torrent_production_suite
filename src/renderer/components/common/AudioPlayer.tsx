@@ -32,9 +32,10 @@ export function AudioPlayer(): JSX.Element | null {
 
   const pendingSeekTime = useAudioPlayerStore((s) => s.pendingSeekTime)
   const loopRegion = useAudioPlayerStore((s) => s.loopRegion)
-  const previewMaxDuration = useAudioPlayerStore((s) => s.previewMaxDuration)
 
   const stopPreview = useStreamPreviewStore((s) => s.stopPreview)
+  const isFullyBuffered = useStreamPreviewStore((s) => s.isFullyBuffered)
+  const bufferFraction = useStreamPreviewStore((s) => s.bufferFraction)
 
   const togglePlayPause = useAudioPlayerStore((s) => s.togglePlayPause)
   const seek = useAudioPlayerStore((s) => s.seek)
@@ -185,14 +186,6 @@ export function AudioPlayer(): JSX.Element | null {
     }
   }, [currentTime, currentTrack, isPlaying, loopRegion])
 
-  // Auto-stop preview after max duration
-  useEffect(() => {
-    if (!currentTrack?.isPreview || !isPlaying) return
-    if (currentTime >= previewMaxDuration) {
-      stopPreview()
-    }
-  }, [currentTime, currentTrack, isPlaying, previewMaxDuration, stopPreview])
-
   // Handle play/pause state changes (only when NOT loading a new track)
   useEffect(() => {
     if (!audioRef.current || isLoadingRef.current) return
@@ -217,7 +210,7 @@ export function AudioPlayer(): JSX.Element | null {
   if (!currentTrack) return null
 
   const handleSeek = (value: number[]) => {
-    const newTime = value[0]
+    const newTime = Math.min(value[0], seekMax)
     seek(newTime)
     if (audioRef.current) {
       audioRef.current.currentTime = newTime
@@ -249,6 +242,8 @@ export function AudioPlayer(): JSX.Element | null {
   }
 
   const isPreview = !!currentTrack.isPreview
+  const isPartialPreview = isPreview && !isFullyBuffered
+  const seekMax = isPartialPreview ? duration * bufferFraction : duration
   const hasNext = !isPreview && currentIndex < playlist.length - 1
   const hasPrevious = !isPreview && currentIndex > 0
 
@@ -290,7 +285,7 @@ export function AudioPlayer(): JSX.Element | null {
           <Text fontSize="xs" color="text.muted" w="45px" textAlign="right">
             {formatTime(currentTime)}
           </Text>
-          <Box flex="1">
+          <Box flex="1" position="relative">
             <Slider
               value={[currentTime]}
               min={0}
@@ -299,6 +294,20 @@ export function AudioPlayer(): JSX.Element | null {
               onValueChange={handleSeek}
               size="sm"
             />
+            {isPartialPreview && (
+              <Box
+                position="absolute"
+                top="50%"
+                transform="translateY(-50%)"
+                left={`${bufferFraction * 100}%`}
+                right={0}
+                height="6px"
+                bg="bg.elevated"
+                opacity={0.7}
+                borderRadius="full"
+                pointerEvents="none"
+              />
+            )}
           </Box>
           <Text fontSize="xs" color="text.muted" w="45px">
             {formatTime(duration)}

@@ -10,11 +10,21 @@ import { useStreamPreviewStore } from '@/store/streamPreviewStore'
 export function useStreamPreviewListener(): void {
   const setBuffering = useStreamPreviewStore((s) => s.setBuffering)
   const setReady = useStreamPreviewStore((s) => s.setReady)
+  const setFullReady = useStreamPreviewStore((s) => s.setFullReady)
   const setError = useStreamPreviewStore((s) => s.setError)
 
   useEffect(() => {
     const cleanupReady = window.api.streamPreview.onReady((event) => {
-      setReady(event.dataUrl, event.trackName)
+      setReady(
+        event.dataUrl,
+        event.trackName,
+        !!event.isPartial,
+        event.bufferFraction
+      )
+    })
+
+    const cleanupFullReady = window.api.streamPreview.onFullReady((event) => {
+      setFullReady(event.dataUrl)
     })
 
     const cleanupBuffering = window.api.streamPreview.onBuffering((event) => {
@@ -27,8 +37,9 @@ export function useStreamPreviewListener(): void {
 
     return () => {
       cleanupReady()
+      cleanupFullReady()
       cleanupBuffering()
       cleanupError()
     }
-  }, [setBuffering, setReady, setError])
+  }, [setBuffering, setReady, setFullReady, setError])
 }

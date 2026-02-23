@@ -8,7 +8,15 @@ import type { StreamPreviewStartRequest } from '@shared/types/streamPreview.type
 const LOG_TAG = '[StreamPreview]'
 
 /** Supported audio extensions for HTML5 <audio> playback */
-const SUPPORTED_EXTENSIONS = new Set(['.mp3', '.flac', '.wav', '.ogg', '.m4a', '.aac', '.opus'])
+const SUPPORTED_EXTENSIONS = new Set([
+  '.mp3',
+  '.flac',
+  '.wav',
+  '.ogg',
+  '.m4a',
+  '.aac',
+  '.opus',
+])
 
 /** MIME type mapping for data URLs */
 const MIME_TYPES: Record<string, string> = {
@@ -21,9 +29,9 @@ const MIME_TYPES: Record<string, string> = {
   '.opus': 'audio/opus',
 }
 
-/** Buffer sizes for different formats */
-const BUFFER_SIZE_COMPRESSED = 2 * 1024 * 1024 // 2 MB — enough for ~60s of MP3/AAC
-const BUFFER_SIZE_LOSSLESS = 4 * 1024 * 1024   // 4 MB — FLAC/WAV need more
+/** Initial buffer sizes — enough for ~30-60s quick-start playback */
+const INITIAL_BUFFER_COMPRESSED = 2 * 1024 * 1024 // 2 MB — ~60s of MP3/AAC
+const INITIAL_BUFFER_LOSSLESS = 4 * 1024 * 1024 // 4 MB — FLAC/WAV need more
 
 /** Timeouts */
 const METADATA_TIMEOUT_MS = 15_000 // 15 seconds for peer discovery + metadata
@@ -45,9 +53,14 @@ export class StreamPreviewService {
    * Start a stream preview for a specific file in a torrent.
    * Stops any existing preview first.
    */
-  async start(request: StreamPreviewStartRequest, sender: WebContents): Promise<void> {
+  async start(
+    request: StreamPreviewStartRequest,
+    sender: WebContents
+  ): Promise<void> {
     const { magnetUri, fileIndex, trackName } = request
-    console.log(`${LOG_TAG} Starting preview: "${trackName}" (file ${fileIndex})`)
+    console.log(
+      `${LOG_TAG} Starting preview: "${trackName}" (file ${fileIndex})`
+    )
 
     // Stop any existing preview
     await this.stop()
@@ -74,7 +87,7 @@ export class StreamPreviewService {
       // Set up metadata timeout
       this.metadataTimer = setTimeout(() => {
         console.log(`${LOG_TAG} Metadata timeout — no peers found`)
-        this.pushError('No peers available — can\'t preview this track')
+        this.pushError("No peers available — can't preview this track")
         this.stop()
       }, METADATA_TIMEOUT_MS)
 
@@ -92,7 +105,9 @@ export class StreamPreviewService {
       })
     } catch (error) {
       console.error(`${LOG_TAG} Failed to start preview:`, error)
-      this.pushError(error instanceof Error ? error.message : 'Failed to start preview')
+      this.pushError(
+        error instanceof Error ? error.message : 'Failed to start preview'
+      )
       await this.stop()
     }
   }
@@ -150,7 +165,11 @@ export class StreamPreviewService {
     return this.client
   }
 
-  private onTorrentReady(torrent: Torrent, fileIndex: number, trackName: string): void {
+  private onTorrentReady(
+    torrent: Torrent,
+    fileIndex: number,
+    trackName: string
+  ): void {
     // Validate file index
     if (fileIndex < 0 || fileIndex >= torrent.files.length) {
       this.pushError('Track not found in torrent')
@@ -159,7 +178,9 @@ export class StreamPreviewService {
     }
 
     const file = torrent.files[fileIndex]
-    console.log(`${LOG_TAG} Torrent ready — file: "${file.name}" (${file.length} bytes)`)
+    console.log(
+      `${LOG_TAG} Torrent ready — file: "${file.name}" (${file.length} bytes)`
+    )
 
     // Determine extension from actual torrent file name (more reliable than trackName)
     const ext = path.extname(file.name).toLowerCase()
@@ -175,44 +196,70 @@ export class StreamPreviewService {
     }
     file.select()
 
-    // Determine buffer size based on format
-    const isLossless = ext === '.flac' || ext === '.wav'
-    const bufferSize = isLossless ? BUFFER_SIZE_LOSSLESS : BUFFER_SIZE_COMPRESSED
-    const readEnd = Math.min(bufferSize, file.length) - 1
-
-    // Stream the first chunk
-    this.bufferFile(file, readEnd, ext, trackName)
+    this.bufferFile(file, ext, trackName)
   }
 
   private bufferFile(
     file: import('webtorrent').TorrentFile,
-    readEnd: number,
     ext: string,
-    trackName: string,
+    trackName: string
   ): void {
     const chunks: Buffer[] = []
     let received = 0
-    const totalBytes = readEnd + 1
+    const totalBytes = file.length
+    const mimeType = MIME_TYPES[ext] || 'audio/mpeg'
 
-    const stream = file.createReadStream({ start: 0, end: readEnd })
+    // Determine initial buffer threshold for quick-start playback
+    const isLossless = ext === '.flac' || ext === '.wav'
+    const initialThreshold = isLossless
+      ? INITIAL_BUFFER_LOSSLESS
+      : INITIAL_BUFFER_COMPRESSED
+    const needsFullPhase = totalBytes > initialThreshold
+    let initialSent = false
+
+    const stream = file.createReadStream({ start: 0, end: totalBytes - 1 })
 
     stream.on('data', (chunk: Buffer) => {
       chunks.push(chunk)
       received += chunk.length
-      const progress = Math.min(Math.round((received / totalBytes) * 100), 99)
-      this.pushBuffering(progress)
+
+      if (!initialSent) {
+        // Phase 1: report buffering progress against initial threshold
+        const target = needsFullPhase ? initialThreshold : totalBytes
+        const progress = Math.min(Math.round((received / target) * 100), 99)
+        this.pushBuffering(progress)
+
+        if (needsFullPhase && received >= initialThreshold) {
+          initialSent = true
+          this.pushBuffering(100)
+
+          // Send initial chunk for quick-start playback
+          const buffer = Buffer.concat(chunks)
+          const initialBuffer = buffer.subarray(0, initialThreshold)
+          const dataUrl = `data:${mimeType};base64,${initialBuffer.toString('base64')}`
+          const bufferFraction = initialThreshold / totalBytes
+          console.log(
+            `${LOG_TAG} Initial buffer ready — ${initialThreshold} bytes (${Math.round(bufferFraction * 100)}%), continuing full download...`
+          )
+          this.pushReady(dataUrl, trackName, true, bufferFraction)
+        }
+      }
     })
 
     stream.on('end', () => {
-      console.log(`${LOG_TAG} Buffering complete — ${received} bytes`)
-      this.pushBuffering(100)
-
       const buffer = Buffer.concat(chunks)
-      const mimeType = MIME_TYPES[ext] || 'audio/mpeg'
-      const base64 = buffer.toString('base64')
-      const dataUrl = `data:${mimeType};base64,${base64}`
+      const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`
 
-      this.pushReady(dataUrl, trackName)
+      if (!initialSent) {
+        // Small file — fits in initial buffer, send as single ready event
+        console.log(`${LOG_TAG} Buffering complete — ${received} bytes`)
+        this.pushBuffering(100)
+        this.pushReady(dataUrl, trackName)
+      } else {
+        // Full file ready — send upgrade event
+        console.log(`${LOG_TAG} Full file ready — ${received} bytes`)
+        this.pushFullReady(dataUrl, trackName)
+      }
     })
 
     stream.on('error', (err: Error) => {
@@ -232,9 +279,28 @@ export class StreamPreviewService {
     }
   }
 
-  private pushReady(dataUrl: string, trackName: string): void {
+  private pushReady(
+    dataUrl: string,
+    trackName: string,
+    isPartial = false,
+    bufferFraction?: number
+  ): void {
     if (this.sender && !this.sender.isDestroyed()) {
-      this.sender.send(IPC_CHANNELS.STREAM_PREVIEW_READY, { dataUrl, trackName })
+      this.sender.send(IPC_CHANNELS.STREAM_PREVIEW_READY, {
+        dataUrl,
+        trackName,
+        isPartial,
+        bufferFraction,
+      })
+    }
+  }
+
+  private pushFullReady(dataUrl: string, trackName: string): void {
+    if (this.sender && !this.sender.isDestroyed()) {
+      this.sender.send(IPC_CHANNELS.STREAM_PREVIEW_FULL_READY, {
+        dataUrl,
+        trackName,
+      })
     }
   }
 

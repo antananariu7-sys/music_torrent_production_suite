@@ -25,9 +25,6 @@ interface AudioPlayerState {
   // Loop region (for selection playback)
   loopRegion: { startTime: number; endTime: number } | null
 
-  // Preview
-  previewMaxDuration: number
-
   // Playlist
   playlist: Track[]
   currentIndex: number
@@ -62,7 +59,6 @@ export const useAudioPlayerStore = create<AudioPlayerState>((set, get) => ({
   volume: 0.7,
   pendingSeekTime: null,
   loopRegion: null,
-  previewMaxDuration: 60,
   playlist: [],
   currentIndex: -1,
 

@@ -121,6 +121,7 @@ export const IPC_CHANNELS = {
   STREAM_PREVIEW_START: 'stream-preview:start',
   STREAM_PREVIEW_STOP: 'stream-preview:stop',
   STREAM_PREVIEW_READY: 'stream-preview:ready',
+  STREAM_PREVIEW_FULL_READY: 'stream-preview:full-ready',
   STREAM_PREVIEW_ERROR: 'stream-preview:error',
   STREAM_PREVIEW_BUFFERING: 'stream-preview:buffering',
 } as const

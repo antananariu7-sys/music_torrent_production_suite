@@ -573,6 +573,24 @@ const api = {
       }
     },
 
+    onFullReady: (
+      callback: (event: StreamPreviewReadyEvent) => void
+    ): (() => void) => {
+      const handler = (
+        _event: Electron.IpcRendererEvent,
+        data: StreamPreviewReadyEvent
+      ) => {
+        callback(data)
+      }
+      ipcRenderer.on(IPC_CHANNELS.STREAM_PREVIEW_FULL_READY, handler)
+      return () => {
+        ipcRenderer.removeListener(
+          IPC_CHANNELS.STREAM_PREVIEW_FULL_READY,
+          handler
+        )
+      }
+    },
+
     onBuffering: (
       callback: (event: StreamPreviewBufferingEvent) => void
     ): (() => void) => {
