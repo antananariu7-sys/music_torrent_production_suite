@@ -17,7 +17,7 @@ interface TrimHandleProps {
  * 8px-wide vertical bar with col-resize cursor and 3-line grip texture.
  */
 export const TrimHandle = memo(function TrimHandle({
-  side: _side,
+  side,
   x,
   trackHeight,
   pixelsPerSecond,
@@ -34,6 +34,8 @@ export const TrimHandle = memo(function TrimHandle({
 
   return (
     <Box
+      data-drag-handle
+      title={side === 'start' ? 'Trim start' : 'Trim end'}
       position="absolute"
       left={`${x - 4}px`}
       top={0}
@@ -41,7 +43,10 @@ export const TrimHandle = memo(function TrimHandle({
       h={`${trackHeight}px`}
       cursor="col-resize"
       zIndex={3}
-      onPointerDown={onPointerDown}
+      onPointerDown={(e) => {
+        e.stopPropagation()
+        onPointerDown(e)
+      }}
       onClick={(e) => e.stopPropagation()}
     >
       {/* Background bar */}

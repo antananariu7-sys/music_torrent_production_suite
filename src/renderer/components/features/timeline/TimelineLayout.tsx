@@ -117,6 +117,33 @@ export function TimelineLayout({
     [positions]
   )
 
+  // Slice waveform peaks to the committed trim region so the waveform
+  // matches the trimmed track width (avoids compression/stretching).
+  const slicedWaveforms = useMemo(() => {
+    const result: Record<string, WaveformData> = {}
+    for (const song of songs) {
+      const wf = waveforms[song.id]
+      if (!wf) continue
+      const dur = song.duration ?? 0
+      const ts = song.trimStart ?? 0
+      const te = song.trimEnd ?? dur
+      if (dur > 0 && (ts > 0 || te < dur)) {
+        const si = Math.round((ts / dur) * wf.peaks.length)
+        const ei = Math.round((te / dur) * wf.peaks.length)
+        result[song.id] = {
+          ...wf,
+          peaks: wf.peaks.slice(si, ei),
+          peaksLow: wf.peaksLow?.slice(si, ei),
+          peaksMid: wf.peaksMid?.slice(si, ei),
+          peaksHigh: wf.peaksHigh?.slice(si, ei),
+        }
+      } else {
+        result[song.id] = wf
+      }
+    }
+    return result
+  }, [songs, waveforms])
+
   // Keep ref in sync for the wheel handler (avoids effect re-runs on every zoom tick)
   zoomRef.current.zoomLevel = zoomLevel
   zoomRef.current.totalWidth = totalWidth
@@ -661,7 +688,7 @@ export function TimelineLayout({
         >
           {songs.map((song, index) => {
             const pos = positions[index]
-            const waveform = waveforms[song.id]
+            const waveform = slicedWaveforms[song.id]
             const color = TRACK_COLORS[index % TRACK_COLORS.length]
             const isSelected = selectedTrackId === song.id
             const cuePoints = song.cuePoints ?? []
@@ -725,6 +752,7 @@ export function TimelineLayout({
                       previewTrims[song.id]?.trimStart ?? song.trimStart
                     }
                     trimEnd={previewTrims[song.id]?.trimEnd ?? song.trimEnd}
+                    trackStartTime={song.trimStart ?? 0}
                     trackWidth={pos.width}
                     trackHeight={TRACK_HEIGHT}
                     pixelsPerSecond={pixelsPerSecond}

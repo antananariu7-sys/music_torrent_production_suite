@@ -89,6 +89,7 @@ export const RegionSelection = memo(function RegionSelection({
         <>
           {/* Start edge handle */}
           <Box
+            data-drag-handle
             position="absolute"
             left={`${leftPx - 4}px`}
             top={0}
@@ -96,7 +97,10 @@ export const RegionSelection = memo(function RegionSelection({
             h={`${trackHeight}px`}
             cursor="col-resize"
             zIndex={4}
-            onPointerDown={onStartPointerDown}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              onStartPointerDown(e)
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <Box
@@ -110,6 +114,7 @@ export const RegionSelection = memo(function RegionSelection({
 
           {/* End edge handle */}
           <Box
+            data-drag-handle
             position="absolute"
             left={`${leftPx + widthPx - 4}px`}
             top={0}
@@ -117,7 +122,10 @@ export const RegionSelection = memo(function RegionSelection({
             h={`${trackHeight}px`}
             cursor="col-resize"
             zIndex={4}
-            onPointerDown={onEndPointerDown}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              onEndPointerDown(e)
+            }}
             onClick={(e) => e.stopPropagation()}
           >
             <Box

@@ -6,6 +6,8 @@ import { snapToNearestBeat } from './utils/snapToBeat'
 interface TrimOverlayProps {
   trimStart?: number
   trimEnd?: number
+  /** Absolute time (seconds) corresponding to x=0 of the visible track */
+  trackStartTime: number
   trackWidth: number
   trackHeight: number
   pixelsPerSecond: number
@@ -28,6 +30,7 @@ const MIN_TRIM_GAP = 1
 export const TrimOverlay = memo(function TrimOverlay({
   trimStart,
   trimEnd,
+  trackStartTime,
   trackWidth,
   trackHeight,
   pixelsPerSecond,
@@ -43,9 +46,11 @@ export const TrimOverlay = memo(function TrimOverlay({
   const initialStartRef = useRef(trimStart ?? 0)
   const initialEndRef = useRef(trimEnd ?? songDuration)
 
-  const trimStartPx = trimStart != null ? trimStart * pixelsPerSecond : 0
-  const trimEndPx = trimEnd != null ? trimEnd * pixelsPerSecond : trackWidth
-  const totalPx = songDuration * pixelsPerSecond
+  // Pixel positions are relative to the visible track (offset by trackStartTime)
+  const trimStartPx =
+    trimStart != null ? (trimStart - trackStartTime) * pixelsPerSecond : 0
+  const trimEndPx =
+    trimEnd != null ? (trimEnd - trackStartTime) * pixelsPerSecond : trackWidth
 
   const canSnap =
     snapMode === 'beat' && bpm != null && bpm > 0 && firstBeatOffset != null
@@ -90,8 +95,8 @@ export const TrimOverlay = memo(function TrimOverlay({
 
   return (
     <>
-      {/* Dim overlay: before trim start */}
-      {trimStart != null && trimStartPx > 0 && (
+      {/* Dim overlay: before trim start (visible when dragging start handle inward) */}
+      {trimStartPx > 0 && (
         <Box
           position="absolute"
           left={0}
@@ -105,8 +110,8 @@ export const TrimOverlay = memo(function TrimOverlay({
         />
       )}
 
-      {/* Dim overlay: after trim end */}
-      {trimEnd != null && trimEndPx < totalPx && (
+      {/* Dim overlay: after trim end (visible when dragging end handle inward) */}
+      {trimEndPx < trackWidth && (
         <Box
           position="absolute"
           left={`${trimEndPx}px`}

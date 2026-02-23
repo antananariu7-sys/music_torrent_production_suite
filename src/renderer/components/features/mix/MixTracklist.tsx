@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, useMemo } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import {
   Box,
   Flex,
@@ -20,7 +20,6 @@ import { useProjectStore } from '@/store/useProjectStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import { toaster } from '@/components/ui/toaster'
 import { formatDuration, formatFileSize } from '@/pages/ProjectOverview/utils'
-import { CrossfadeControl } from './CrossfadeControl'
 import type { Song } from '@shared/types/project.types'
 import type { Track } from '@/store/audioPlayerStore'
 
@@ -71,8 +70,6 @@ export function MixTracklist(): JSX.Element {
     )
   }
 
-  const defaultCrossfade =
-    currentProject.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5
   const tracks = songs.map(songToTrack)
 
   async function handleRemove(songId: string): Promise<void> {
@@ -192,131 +189,118 @@ export function MixTracklist(): JSX.Element {
         </Table.Header>
         <Table.Body>
           {songs.map((song, index) => (
-            <Fragment key={song.id}>
-              <Table.Row
-                draggable
-                onDragStart={() => handleDragStart(song.id)}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDrop={() => handleDrop(index)}
-                onDragEnd={handleDragEnd}
-                cursor="grab"
-                bg={dragOverIndex === index ? 'blue.500/10' : undefined}
-                borderTop={dragOverIndex === index ? '2px solid' : undefined}
-                borderColor={dragOverIndex === index ? 'blue.500' : undefined}
-                _hover={{ bg: 'bg.muted' }}
+            <Table.Row
+              key={song.id}
+              draggable
+              onDragStart={() => handleDragStart(song.id)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={() => handleDrop(index)}
+              onDragEnd={handleDragEnd}
+              cursor="grab"
+              bg={dragOverIndex === index ? 'blue.500/10' : undefined}
+              borderTop={dragOverIndex === index ? '2px solid' : undefined}
+              borderColor={dragOverIndex === index ? 'blue.500' : undefined}
+              _hover={{ bg: 'bg.muted' }}
+            >
+              <Table.Cell textAlign="center" px={1}>
+                <IconButton
+                  aria-label="Play"
+                  size="xs"
+                  variant="ghost"
+                  colorPalette="blue"
+                  onClick={() => playPlaylist(tracks, index)}
+                  title="Play"
+                >
+                  <Icon as={FiPlay} boxSize={3} />
+                </IconButton>
+              </Table.Cell>
+              <Table.Cell>
+                <Text
+                  fontWeight="medium"
+                  color="text.primary"
+                  lineClamp={1}
+                  title={song.title}
+                >
+                  {song.title}
+                </Text>
+              </Table.Cell>
+              <Table.Cell color="text.secondary" fontSize="sm">
+                {song.artist || '—'}
+              </Table.Cell>
+              <Table.Cell
+                textAlign="right"
+                fontFamily="monospace"
+                fontSize="sm"
+                color="text.secondary"
               >
-                <Table.Cell textAlign="center" px={1}>
+                {formatDuration(song.duration)}
+              </Table.Cell>
+              <Table.Cell pl={4}>
+                {song.format ? (
+                  <Badge
+                    fontSize="2xs"
+                    fontWeight="bold"
+                    textTransform="uppercase"
+                    colorPalette="blue"
+                    variant="subtle"
+                  >
+                    {song.format}
+                  </Badge>
+                ) : (
+                  <Text color="text.muted" fontSize="xs">
+                    —
+                  </Text>
+                )}
+              </Table.Cell>
+              <Table.Cell
+                textAlign="right"
+                fontSize="xs"
+                color="text.secondary"
+              >
+                {song.bitrate ? `${song.bitrate} kbps` : '—'}
+              </Table.Cell>
+              <Table.Cell
+                textAlign="right"
+                fontSize="xs"
+                color="text.secondary"
+              >
+                {formatFileSize(song.fileSize)}
+              </Table.Cell>
+              <Table.Cell>
+                <Flex gap={1} justify="center">
                   <IconButton
-                    aria-label="Play"
+                    aria-label="Move up"
                     size="xs"
                     variant="ghost"
-                    colorPalette="blue"
-                    onClick={() => playPlaylist(tracks, index)}
-                    title="Play"
+                    onClick={() => moveUp(index)}
+                    disabled={index === 0}
+                    title="Move up"
                   >
-                    <Icon as={FiPlay} boxSize={3} />
+                    <Icon as={FiArrowUp} boxSize={3} />
                   </IconButton>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text
-                    fontWeight="medium"
-                    color="text.primary"
-                    lineClamp={1}
-                    title={song.title}
+                  <IconButton
+                    aria-label="Move down"
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => moveDown(index)}
+                    disabled={index === songs.length - 1}
+                    title="Move down"
                   >
-                    {song.title}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell color="text.secondary" fontSize="sm">
-                  {song.artist || '—'}
-                </Table.Cell>
-                <Table.Cell
-                  textAlign="right"
-                  fontFamily="monospace"
-                  fontSize="sm"
-                  color="text.secondary"
-                >
-                  {formatDuration(song.duration)}
-                </Table.Cell>
-                <Table.Cell pl={4}>
-                  {song.format ? (
-                    <Badge
-                      fontSize="2xs"
-                      fontWeight="bold"
-                      textTransform="uppercase"
-                      colorPalette="blue"
-                      variant="subtle"
-                    >
-                      {song.format}
-                    </Badge>
-                  ) : (
-                    <Text color="text.muted" fontSize="xs">
-                      —
-                    </Text>
-                  )}
-                </Table.Cell>
-                <Table.Cell
-                  textAlign="right"
-                  fontSize="xs"
-                  color="text.secondary"
-                >
-                  {song.bitrate ? `${song.bitrate} kbps` : '—'}
-                </Table.Cell>
-                <Table.Cell
-                  textAlign="right"
-                  fontSize="xs"
-                  color="text.secondary"
-                >
-                  {formatFileSize(song.fileSize)}
-                </Table.Cell>
-                <Table.Cell>
-                  <Flex gap={1} justify="center">
-                    <IconButton
-                      aria-label="Move up"
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => moveUp(index)}
-                      disabled={index === 0}
-                      title="Move up"
-                    >
-                      <Icon as={FiArrowUp} boxSize={3} />
-                    </IconButton>
-                    <IconButton
-                      aria-label="Move down"
-                      size="xs"
-                      variant="ghost"
-                      onClick={() => moveDown(index)}
-                      disabled={index === songs.length - 1}
-                      title="Move down"
-                    >
-                      <Icon as={FiArrowDown} boxSize={3} />
-                    </IconButton>
-                    <IconButton
-                      aria-label="Remove"
-                      size="xs"
-                      variant="ghost"
-                      colorPalette="red"
-                      onClick={() => handleRemove(song.id)}
-                      title="Remove from Mix"
-                    >
-                      <Icon as={FiTrash2} boxSize={3} />
-                    </IconButton>
-                  </Flex>
-                </Table.Cell>
-              </Table.Row>
-              {/* Crossfade control between consecutive songs */}
-              {index < songs.length - 1 && (
-                <Table.Row _hover={{ bg: 'transparent' }}>
-                  <Table.Cell colSpan={8} p={0} borderBottom="none">
-                    <CrossfadeControl
-                      songId={song.id}
-                      projectId={currentProject.id}
-                      value={song.crossfadeDuration ?? defaultCrossfade}
-                    />
-                  </Table.Cell>
-                </Table.Row>
-              )}
-            </Fragment>
+                    <Icon as={FiArrowDown} boxSize={3} />
+                  </IconButton>
+                  <IconButton
+                    aria-label="Remove"
+                    size="xs"
+                    variant="ghost"
+                    colorPalette="red"
+                    onClick={() => handleRemove(song.id)}
+                    title="Remove from Mix"
+                  >
+                    <Icon as={FiTrash2} boxSize={3} />
+                  </IconButton>
+                </Flex>
+              </Table.Cell>
+            </Table.Row>
           ))}
         </Table.Body>
       </Table.Root>
