@@ -76,7 +76,7 @@ describe('PaginationHandler', () => {
     expect(results[0].id).toBe('1')
   })
 
-  it('should cap maxPages at 10', async () => {
+  it('should respect maxPages from config without hardcoded cap', async () => {
     ;(handler as any).resultParser.parseSearchResults.mockResolvedValue([])
     ;(handler as any).resultParser.getTotalPages.mockResolvedValue(20)
 
@@ -91,9 +91,9 @@ describe('PaginationHandler', () => {
       onProgress
     )
 
-    // Should report totalPages as 10 (capped), not 15 or 20
+    // Should report totalPages as 15 (min of available 20 and requested 15)
     expect(onProgress).toHaveBeenCalledWith(
-      expect.objectContaining({ totalPages: 10 })
+      expect.objectContaining({ totalPages: 15 })
     )
   })
 

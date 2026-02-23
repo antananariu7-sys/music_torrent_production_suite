@@ -85,13 +85,18 @@ export class PaginationHandler {
     onProgress?: (event: SearchProgressEvent) => void
   ): Promise<SearchResult[]> {
     const allResults: SearchResult[] = []
-    const maxPages = Math.min(config.maxPages, 10) // Cap at 10 pages
+    const maxPages = config.maxPages
     const CONCURRENT_PAGES = config.concurrentPages
 
-    console.log(`[PaginationHandler] Progressive search for: "${query}" (max ${maxPages} pages, ${CONCURRENT_PAGES} concurrent)`)
+    console.log(
+      `[PaginationHandler] Progressive search for: "${query}" (max ${maxPages} pages, ${CONCURRENT_PAGES} concurrent)`
+    )
 
     // First, fetch page 1 to get total pages
-    const firstPage = await this.pageScraper.createPageWithCookies(browser, sessionCookies)
+    const firstPage = await this.pageScraper.createPageWithCookies(
+      browser,
+      sessionCookies
+    )
     const firstPageResults = await this.fetchPage(firstPage, 1, query, filters)
     const totalPagesAvailable = await this.resultParser.getTotalPages(firstPage)
     const totalPages = Math.min(totalPagesAvailable, maxPages)
@@ -99,7 +104,9 @@ export class PaginationHandler {
     // Add first page results
     allResults.push(...firstPageResults)
 
-    console.log(`[PaginationHandler] Page 1: ${firstPageResults.length} results, total pages: ${totalPagesAvailable}, will fetch: ${totalPages}`)
+    console.log(
+      `[PaginationHandler] Page 1: ${firstPageResults.length} results, total pages: ${totalPagesAvailable}, will fetch: ${totalPages}`
+    )
 
     // Report first page progress
     onProgress?.({
@@ -118,11 +125,16 @@ export class PaginationHandler {
     // Create additional pages for parallel fetching
     const pages: Page[] = [firstPage]
     for (let i = 1; i < Math.min(CONCURRENT_PAGES, totalPages - 1); i++) {
-      pages.push(await this.pageScraper.createPageWithCookies(browser, sessionCookies))
+      pages.push(
+        await this.pageScraper.createPageWithCookies(browser, sessionCookies)
+      )
     }
 
     // Fetch remaining pages in parallel batches
-    const remainingPageNums = Array.from({ length: totalPages - 1 }, (_, i) => i + 2)
+    const remainingPageNums = Array.from(
+      { length: totalPages - 1 },
+      (_, i) => i + 2
+    )
     let pagesCompleted = 1
 
     // Process pages in batches using available browser pages
@@ -132,14 +144,14 @@ export class PaginationHandler {
       const batchPromises = batch.map((pageNum, idx) => {
         const browserPage = pages[idx % pages.length]
         return this.fetchPage(browserPage, pageNum, query, filters)
-          .then(results => ({ pageNum, results, error: null }))
-          .catch(error => ({ pageNum, results: [] as SearchResult[], error }))
+          .then((results) => ({ pageNum, results, error: null }))
+          .catch((error) => ({ pageNum, results: [] as SearchResult[], error }))
       })
 
       const batchResults = await Promise.all(batchPromises)
 
       // Process batch results
-      const existingIds = new Set(allResults.map(r => r.id))
+      const existingIds = new Set(allResults.map((r) => r.id))
 
       for (const { pageNum, results, error } of batchResults) {
         if (error) {
@@ -147,11 +159,13 @@ export class PaginationHandler {
           continue
         }
 
-        const uniqueResults = results.filter(r => !existingIds.has(r.id))
-        uniqueResults.forEach(r => existingIds.add(r.id))
+        const uniqueResults = results.filter((r) => !existingIds.has(r.id))
+        uniqueResults.forEach((r) => existingIds.add(r.id))
         allResults.push(...uniqueResults)
 
-        console.log(`[PaginationHandler] Page ${pageNum}: ${results.length} results (${uniqueResults.length} new)`)
+        console.log(
+          `[PaginationHandler] Page ${pageNum}: ${results.length} results (${uniqueResults.length} new)`
+        )
         pagesCompleted++
       }
 
@@ -169,7 +183,9 @@ export class PaginationHandler {
       await page.close().catch(() => {})
     }
 
-    console.log(`[PaginationHandler] Progressive search complete: ${allResults.length} total results`)
+    console.log(
+      `[PaginationHandler] Progressive search complete: ${allResults.length} total results`
+    )
 
     return allResults
   }
