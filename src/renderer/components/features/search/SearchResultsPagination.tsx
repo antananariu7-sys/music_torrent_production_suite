@@ -154,13 +154,20 @@ export function SearchResultsPagination({
             padding: '2px 4px',
             borderRadius: '4px',
             border: '1px solid var(--chakra-colors-border-base)',
-            background: 'transparent',
+            background: 'var(--chakra-colors-bg-card)',
             color: 'inherit',
             cursor: 'pointer',
           }}
         >
           {PAGE_SIZES.map((size) => (
-            <option key={size} value={size}>
+            <option
+              key={size}
+              value={size}
+              style={{
+                background: 'var(--chakra-colors-bg-card)',
+                color: 'var(--chakra-colors-text-primary)',
+              }}
+            >
               {size}
             </option>
           ))}

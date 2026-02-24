@@ -7,30 +7,30 @@ import type { SearchResult } from '../types/search.types'
  */
 const NON_AUDIO_PATTERNS: RegExp[] = [
   // PDFs / books
-  /\bpdf\b/,
-  /\bкниг[аи]\b/,
-  /\bучебник/,
-  /\bсамоучитель/,
+  /\bpdf\b/i,
+  /\bкниг[аи]\b/i,
+  /\bучебник/i,
+  /\bсамоучитель/i,
   // Video-only content (not "+video" bonus in music torrents)
   /(?<!\+)\bvideo\s*(lesson|урок|курс|school)/i,
-  /\bвидео\s*(урок|курс|школ)/,
-  /\bdvd\b(?!.*(?:flac|mp3|ape|wav|aac|lossless))/,
-  /\bblu-ray\b(?!.*(?:flac|mp3|ape|wav|aac|lossless))/,
-  /\bconcert film\b/,
+  /\bвидео\s*(урок|курс|школ)/i,
+  /\bdvd\b(?!.*(?:flac|mp3|ape|wav|aac|lossless))/i,
+  /\bblu-ray\b(?!.*(?:flac|mp3|ape|wav|aac|lossless))/i,
+  /\bconcert film\b/i,
   // Guitar tabs / sheet music
-  /\bguitar\s*pro\b/,
-  /\bgtp\b/,
-  /\bтабулатур/,
-  /\bноты\b/,
+  /\bguitar\s*pro\b/i,
+  /\bgtp\b/i,
+  /\bтабулатур/i,
+  /\bноты\b/i,
   // Software / plugins
-  /\bvst[i23]?\b/,
-  /\bplugin\b/,
-  /\bsoftware\b/,
-  /\bпрограмм/,
+  /\bvst[i23]?\b/i,
+  /\bplugin\b/i,
+  /\bsoftware\b/i,
+  /\bпрограмм/i,
   // Karaoke
-  /\bkaraoke\b/,
-  /\bкараоке\b/,
-  /\bминус(?:овк[аи])?\b/,
+  /\bkaraoke\b/i,
+  /\bкараоке\b/i,
+  /\bминус(?:овк[аи])?\b/i,
 ]
 
 /** Returns true if the result likely contains non-audio content */
