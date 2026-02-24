@@ -1,15 +1,29 @@
 import { useMemo } from 'react'
-import { Box, VStack, Text, Button, HStack, Icon, Heading, Grid } from '@chakra-ui/react'
+import {
+  Box,
+  VStack,
+  Text,
+  Button,
+  HStack,
+  Icon,
+  Heading,
+  Grid,
+} from '@chakra-ui/react'
 import { FiUser, FiInfo } from 'react-icons/fi'
-import type { SearchClassificationResult, MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
+import type {
+  SearchClassificationResult,
+  MusicBrainzAlbum,
+} from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
-import { isLikelyDiscography, groupResults } from '@shared/utils/resultClassifier'
-import type { DiscographySearchProgress, PageContentScanResult } from '@shared/types/discography.types'
+import { isLikelyDiscography } from '@shared/utils/resultClassifier'
+import type {
+  DiscographySearchProgress,
+  PageContentScanResult,
+} from '@shared/types/discography.types'
 import { DiscographyScanPanel } from './DiscographyScanPanel'
 import { ClassificationItem } from './components/ClassificationItem'
 import { AlbumItem } from './components/AlbumItem'
-import { TorrentItem } from './components/TorrentItem'
-import { GroupedTorrentList } from './components/GroupedTorrentList'
+import { SearchResultsTable } from './SearchResultsTable'
 
 interface InlineSearchResultsProps {
   step: 'classification' | 'albums' | 'torrents'
@@ -64,50 +78,13 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
     return torrents.filter((t) => isLikelyDiscography(t.title))
   }, [torrents])
 
-  // Create a map of scan results by torrent ID
-  const scanResultsMap = useMemo(() => {
-    const map = new Map<string, PageContentScanResult>()
-    discographyScanResults.forEach((r) => {
-      map.set(r.searchResult.id, r)
-    })
-    return map
-  }, [discographyScanResults])
-
   // Check if all results are from discography (no direct album results)
   const isDiscographyOnly = useMemo(() => {
-    return torrents.length > 0 && torrents.every(t => t.searchSource === 'discography')
+    return (
+      torrents.length > 0 &&
+      torrents.every((t) => t.searchSource === 'discography')
+    )
   }, [torrents])
-
-  // Sort torrents: matched first, then by seeders
-  const sortedTorrents = useMemo(() => {
-    if (discographyScanResults.length === 0) return torrents
-
-    return [...torrents].sort((a, b) => {
-      const aResult = scanResultsMap.get(a.id)
-      const bResult = scanResultsMap.get(b.id)
-
-      // Matched albums come first
-      if (aResult?.albumFound && !bResult?.albumFound) return -1
-      if (!aResult?.albumFound && bResult?.albumFound) return 1
-
-      // Then by seeders
-      return b.seeders - a.seeders
-    })
-  }, [torrents, discographyScanResults, scanResultsMap])
-
-  // Group results by category (only when enough results to make grouping useful)
-  const grouped = useMemo(() => {
-    if (sortedTorrents.length < 5) return null
-    const groups = groupResults(sortedTorrents)
-    // Only show groups if there's more than one non-empty category
-    const nonEmpty = Object.values(groups).filter(g => g.length > 0)
-    return nonEmpty.length > 1 ? groups : null
-  }, [sortedTorrents])
-
-  // Derive song name for track highlighting (only during song search flow)
-  const searchedSongName = selectedClassification?.type === 'song'
-    ? selectedClassification.name
-    : undefined
 
   return (
     <Box
@@ -162,11 +139,7 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
           </HStack>
 
           {selectedClassification?.type === 'artist' && onSelectDiscography && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onSelectDiscography}
-            >
+            <Button size="sm" variant="outline" onClick={onSelectDiscography}>
               <Icon as={FiUser} mr={2} />
               Search Full Discography
             </Button>
@@ -215,49 +188,34 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
             >
               <Icon as={FiInfo} boxSize={4} color="yellow.500" flexShrink={0} />
               <Text fontSize="sm" color="yellow.500">
-                No direct results for {selectedAlbum ? `"${selectedAlbum.title}"` : 'this album'}.
-                Showing results from artist discography — your album may be inside these torrents.
+                No direct results for{' '}
+                {selectedAlbum ? `"${selectedAlbum.title}"` : 'this album'}.
+                Showing results from artist discography — your album may be
+                inside these torrents.
               </Text>
             </HStack>
           )}
 
           {/* Discography Scan Panel */}
-          {discographyTorrents.length > 0 && onStartDiscographyScan && onStopDiscographyScan && (
-            <DiscographyScanPanel
-              isScanning={isScannningDiscography}
-              progress={discographyScanProgress}
-              scanResults={discographyScanResults}
-              discographyTorrents={discographyTorrents}
-              albumName={selectedAlbum?.title}
-              onStartScan={onStartDiscographyScan}
-              onStopScan={onStopDiscographyScan}
-            />
-          )}
-
-          <VStack align="stretch" gap={2} maxH="500px" overflowY="auto">
-            {grouped ? (
-              // Grouped display
-              <GroupedTorrentList
-                grouped={grouped}
-                onSelectTorrent={onSelectTorrent}
-                isDownloading={isDownloading}
-                scanResultsMap={scanResultsMap}
-                highlightSongName={searchedSongName}
+          {discographyTorrents.length > 0 &&
+            onStartDiscographyScan &&
+            onStopDiscographyScan && (
+              <DiscographyScanPanel
+                isScanning={isScannningDiscography}
+                progress={discographyScanProgress}
+                scanResults={discographyScanResults}
+                discographyTorrents={discographyTorrents}
+                albumName={selectedAlbum?.title}
+                onStartScan={onStartDiscographyScan}
+                onStopScan={onStopDiscographyScan}
               />
-            ) : (
-              // Flat list (few results or single category)
-              sortedTorrents.map((torrent) => (
-                <TorrentItem
-                  key={torrent.id}
-                  torrent={torrent}
-                  onSelect={onSelectTorrent}
-                  isDownloading={isDownloading}
-                  scanResult={scanResultsMap.get(torrent.id)}
-                  highlightSongName={searchedSongName}
-                />
-              ))
             )}
-          </VStack>
+
+          <SearchResultsTable
+            results={torrents}
+            onSelectTorrent={onSelectTorrent}
+            isDownloading={isDownloading}
+          />
         </VStack>
       )}
     </Box>
