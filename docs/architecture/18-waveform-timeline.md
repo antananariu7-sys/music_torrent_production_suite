@@ -5,7 +5,7 @@
 **Status**: Implemented (core + visual improvements + interaction improvements)
 **Depends on**: Component 3 (Mix Builder, doc 16), Audio Mix Export (doc 17), ProjectService, AudioPlayer
 **Feature spec**: [docs/features/done/waveform-timeline.md](../features/done/waveform-timeline.md)
-**Implementation plan**: [docs/features/done/waveform-timeline-plan.md](../features/done/waveform-timeline-plan.md)
+**Implementation plan**: [docs/features/done/plans/waveform-timeline-plan.md](../features/done/plans/waveform-timeline-plan.md)
 **Visual improvements spec**: [docs/features/done/waveform-visual-improvements.md](../features/done/waveform-visual-improvements.md)
 **Interaction improvements spec**: [docs/features/done/waveform-interaction-improvements.md](../features/done/waveform-interaction-improvements.md)
 **Interaction improvements plan**: [docs/features/done/waveform-interaction-implementation.md](../features/done/waveform-interaction-implementation.md)

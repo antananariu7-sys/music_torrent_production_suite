@@ -260,7 +260,7 @@ const worker = new Worker(new URL('./waveform.worker.ts', import.meta.url), {
 
 **Status: Evaluated — Decision: Skip WASM**
 
-Benchmark conducted 2026-02-21 using AssemblyScript 0.27 → WASM (4.7KB binary). Full results in [done/wasm-benchmark-plan.md](done/wasm-benchmark-plan.md).
+Benchmark conducted 2026-02-21 using AssemblyScript 0.27 → WASM (4.7KB binary). Full results in [done/plans/wasm-benchmark-plan.md](plans/wasm-benchmark-plan.md).
 
 | Operation          | JS Median | WASM Median | Speedup |
 | ------------------ | --------- | ----------- | ------- |

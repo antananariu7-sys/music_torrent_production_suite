@@ -8,19 +8,19 @@ The architecture is organized into 12 comprehensive documents:
 
 ### Core Architecture (Read First)
 
-1. **[01-overview.md](/.architecture/01-overview.md)** - Application overview and component architecture
+1. **[01-overview.md](/docs/architecture/01-overview.md)** - Application overview and component architecture
    - Project purpose and target users
    - Three main components: Search, Download, Mixer
    - Project-based workflow
    - Technical requirements
 
-2. **[02-process-architecture.md](/.architecture/02-process-architecture.md)** - Electron process architecture
+2. **[02-process-architecture.md](/docs/architecture/02-process-architecture.md)** - Electron process architecture
    - Main process responsibilities
    - Renderer process responsibilities
    - Preload script patterns
    - Process separation strategy
 
-3. **[03-ipc-communication.md](/.architecture/03-ipc-communication.md)** - Inter-Process Communication
+3. **[03-ipc-communication.md](/docs/architecture/03-ipc-communication.md)** - Inter-Process Communication
    - IPC channel definitions
    - Request-response patterns
    - Event streaming patterns
@@ -28,31 +28,31 @@ The architecture is organized into 12 comprehensive documents:
 
 ### Implementation Details
 
-4. **[04-web-automation.md](/.architecture/04-web-automation.md)** - Web automation with Puppeteer
+4. **[04-web-automation.md](/docs/architecture/04-web-automation.md)** - Web automation with Puppeteer
    - RuTracker scraping patterns
    - Session management
    - Pagination handling
    - Browser lifecycle
 
-5. **[05-security.md](/.architecture/05-security.md)** - Security guidelines
+5. **[05-security.md](/docs/architecture/05-security.md)** - Security guidelines
    - Context isolation requirements
    - Credential storage with safeStorage
    - Sandboxing configuration
    - Security best practices
 
-6. **[06-directory-structure.md](/.architecture/06-directory-structure.md)** - Project structure
+6. **[06-directory-structure.md](/docs/architecture/06-directory-structure.md)** - Project structure
    - Complete directory layout
    - Module organization
    - File naming conventions
    - Feature-based organization
 
-7. **[07-data-models.md](/.architecture/07-data-models.md)** - Data structures and types
+7. **[07-data-models.md](/docs/architecture/07-data-models.md)** - Data structures and types
    - TypeScript interfaces
    - Zod validation schemas
    - State management models
    - Database schemas
 
-8. **[08-ui-architecture.md](/.architecture/08-ui-architecture.md)** - UI/UX patterns
+8. **[08-ui-architecture.md](/docs/architecture/08-ui-architecture.md)** - UI/UX patterns
    - React component structure
    - Zustand state management
    - Page navigation
@@ -60,19 +60,19 @@ The architecture is organized into 12 comprehensive documents:
 
 ### Project Setup
 
-9. **[09-dependencies.md](/.architecture/09-dependencies.md)** - Dependencies and tools
+9. **[09-dependencies.md](/docs/architecture/09-dependencies.md)** - Dependencies and tools
    - NPM packages
    - Development tools
    - Build configuration
    - Version requirements
 
-10. **[10-development-plan.md](/.architecture/10-development-plan.md)** - Development roadmap
+10. **[10-development-plan.md](/docs/architecture/10-development-plan.md)** - Development roadmap
     - Implementation phases
     - Task breakdown
     - Priority order
     - Milestones
 
-11. **[11-risks-and-success.md](/.architecture/11-risks-and-success.md)** - Risk assessment
+11. **[11-risks-and-success.md](/docs/architecture/11-risks-and-success.md)** - Risk assessment
     - Technical risks
     - Mitigation strategies
     - Success criteria
@@ -80,7 +80,7 @@ The architecture is organized into 12 comprehensive documents:
 
 ### Reference Implementation
 
-12. **[12-implementation-guide.md](/.architecture/12-implementation-guide.md)** - Specific examples
+12. **[12-implementation-guide.md](/docs/architecture/12-implementation-guide.md)** - Specific examples
     - RuTracker login flow
     - Search execution
     - Error handling
@@ -92,37 +92,41 @@ The architecture is organized into 12 comprehensive documents:
 ### For New Feature Implementation
 
 **Start here:**
-1. Read [01-overview.md](/.architecture/01-overview.md) to understand which component the feature belongs to
-2. Check [06-directory-structure.md](/.architecture/06-directory-structure.md) to know where to create files
-3. Review [07-data-models.md](/.architecture/07-data-models.md) for type definitions
-4. Consult [12-implementation-guide.md](/.architecture/12-implementation-guide.md) for similar patterns
+
+1. Read [01-overview.md](/docs/architecture/01-overview.md) to understand which component the feature belongs to
+2. Check [06-directory-structure.md](/docs/architecture/06-directory-structure.md) to know where to create files
+3. Review [07-data-models.md](/docs/architecture/07-data-models.md) for type definitions
+4. Consult [12-implementation-guide.md](/docs/architecture/12-implementation-guide.md) for similar patterns
 
 **For specific concerns:**
-- **IPC communication**: Read [03-ipc-communication.md](/.architecture/03-ipc-communication.md)
-- **Web scraping**: Read [04-web-automation.md](/.architecture/04-web-automation.md)
-- **Security**: Read [05-security.md](/.architecture/05-security.md)
-- **UI components**: Read [08-ui-architecture.md](/.architecture/08-ui-architecture.md)
+
+- **IPC communication**: Read [03-ipc-communication.md](/docs/architecture/03-ipc-communication.md)
+- **Web scraping**: Read [04-web-automation.md](/docs/architecture/04-web-automation.md)
+- **Security**: Read [05-security.md](/docs/architecture/05-security.md)
+- **UI components**: Read [08-ui-architecture.md](/docs/architecture/08-ui-architecture.md)
 
 ### For Understanding Existing Code
 
-1. **[06-directory-structure.md](/.architecture/06-directory-structure.md)** - Find where components live
-2. **[02-process-architecture.md](/.architecture/02-process-architecture.md)** - Understand process boundaries
-3. **[07-data-models.md](/.architecture/07-data-models.md)** - Understand data flow
+1. **[06-directory-structure.md](/docs/architecture/06-directory-structure.md)** - Find where components live
+2. **[02-process-architecture.md](/docs/architecture/02-process-architecture.md)** - Understand process boundaries
+3. **[07-data-models.md](/docs/architecture/07-data-models.md)** - Understand data flow
 
 ### For Setup and Configuration
 
-1. **[09-dependencies.md](/.architecture/09-dependencies.md)** - Install required packages
-2. **[05-security.md](/.architecture/05-security.md)** - Configure security settings
-3. **[10-development-plan.md](/.architecture/10-development-plan.md)** - Understand development workflow
+1. **[09-dependencies.md](/docs/architecture/09-dependencies.md)** - Install required packages
+2. **[05-security.md](/docs/architecture/05-security.md)** - Configure security settings
+3. **[10-development-plan.md](/docs/architecture/10-development-plan.md)** - Understand development workflow
 
 ## Key Architectural Principles
 
 ### 1. Process Separation
+
 - Main process handles Node.js APIs, file system, web scraping
 - Renderer process handles UI only
 - Communication via type-safe IPC channels
 
 ### 2. Security First
+
 ```typescript
 // Always use these settings
 webPreferences: {
@@ -133,16 +137,19 @@ webPreferences: {
 ```
 
 ### 3. Service Layer Pattern
+
 ```
 Renderer → IPC → Handler → Service → Data
 ```
 
 ### 4. Type Safety
+
 - Shared TypeScript types in `src/shared/types/`
 - Zod schemas for runtime validation
 - Type-safe IPC with exposed APIs
 
 ### 5. Project-Based Workflow
+
 ```
 Project {
   Component 1: Search Results
@@ -155,7 +162,7 @@ Project {
 
 ### Creating a New Service
 
-Refer to [06-directory-structure.md](/.architecture/06-directory-structure.md):
+Refer to [06-directory-structure.md](/docs/architecture/06-directory-structure.md):
 
 ```typescript
 // src/main/services/example.service.ts
@@ -173,7 +180,7 @@ export class ExampleService {
 
 ### Creating a New IPC Handler
 
-Refer to [03-ipc-communication.md](/.architecture/03-ipc-communication.md):
+Refer to [03-ipc-communication.md](/docs/architecture/03-ipc-communication.md):
 
 ```typescript
 // src/main/ipc/example-handlers.ts
@@ -189,7 +196,7 @@ ipcMain.handle('example:action', async (event, data) => {
 
 ### Creating a New React Component
 
-Refer to [08-ui-architecture.md](/.architecture/08-ui-architecture.md):
+Refer to [08-ui-architecture.md](/docs/architecture/08-ui-architecture.md):
 
 ```typescript
 // src/renderer/components/features/Example/ExampleComponent.tsx
@@ -208,7 +215,7 @@ export function ExampleComponent() {
 
 ### Creating a New Zustand Store
 
-Refer to [08-ui-architecture.md](/.architecture/08-ui-architecture.md):
+Refer to [08-ui-architecture.md](/docs/architecture/08-ui-architecture.md):
 
 ```typescript
 // src/renderer/store/useExampleStore.ts
@@ -225,7 +232,7 @@ export const useExampleStore = create<ExampleState>()(
     persist(
       (set) => ({
         data: [],
-        setData: (data) => set({ data })
+        setData: (data) => set({ data }),
       }),
       { name: 'example-store' }
     ),
@@ -266,6 +273,7 @@ cat .architecture/05-security.md
 ## Summary
 
 The architecture documentation provides:
+
 - **Complete specifications**: All aspects of the application
 - **Implementation patterns**: Proven approaches for common tasks
 - **Type definitions**: Shared data models

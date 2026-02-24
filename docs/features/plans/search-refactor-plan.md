@@ -10,12 +10,14 @@
 ## Executive Summary
 
 This document outlines a comprehensive refactor of the search functionality to improve:
+
 - **User Experience**: Better search intelligence, grouped results, duplicate detection
 - **Architecture**: Move business logic from UI store to services, improve separation of concerns
 - **Visibility**: Full activity tracking for all operations including torrent parsing
 - **Maintainability**: Clearer service boundaries, better testability
 
 **Key Improvements:**
+
 1. Track-level search with album highlighting
 2. Grouped and filterable RuTracker results (Studio Albums | Live | Compilations)
 3. Torrent page parsing for track listings with progress indication
@@ -41,6 +43,7 @@ This document outlines a comprehensive refactor of the search functionality to i
 ## Current Architecture Analysis
 
 ### Search Flow
+
 ```
 User Query
   ↓
@@ -62,12 +65,14 @@ Add to collection
 ### Current Services
 
 #### **MusicBrainzService** (`src/main/services/MusicBrainzService.ts`)
+
 - Search classification (artist/album/song)
 - Album search by song title
 - Artist albums lookup
 - **Issue**: No retry logic for API failures
 
 #### **RuTrackerSearchService** (`src/main/services/RuTrackerSearchService.ts`)
+
 - Puppeteer-based search
 - Progressive search with pagination
 - Basic filtering and relevance scoring
@@ -75,6 +80,7 @@ Add to collection
 - **Issue**: No track listing extraction from torrent pages
 
 #### **DiscographySearchService** (`src/main/services/DiscographySearchService.ts`)
+
 - Scans multiple torrent pages for album matches
 - Parallel page loading
 - **Issue**: Doesn't extract track listings for non-discography pages
@@ -82,6 +88,7 @@ Add to collection
 ### Current State Management
 
 #### **smartSearchStore** (`src/renderer/store/smartSearchStore.ts`)
+
 - Manages entire search workflow state machine
 - Activity logging
 - Search history
@@ -101,33 +108,39 @@ Add to collection
 ## Issues to Address
 
 ### 1. **Search Intelligence**
+
 - ❌ No track name search with album highlighting
 - ❌ MusicBrainz API calls have no retry logic
 - ❌ Can't distinguish between album versions in results
 
 ### 2. **Result Presentation**
+
 - ❌ RuTracker results not grouped by type (Studio/Live/Compilation)
 - ❌ No collapsible groups (overwhelming for 100+ results)
 - ❌ Limited filtering options in UI
 - ❌ No "show more" within groups (shows all or nothing)
 
 ### 3. **Track-Level Awareness**
+
 - ❌ No track listing extraction from torrent pages
 - ❌ Users can't preview what's in a torrent before adding
 - ❌ No progress indicator for torrent page parsing
 
 ### 4. **Duplicate Detection**
+
 - ❌ No checking against existing project audio files
 - ❌ Can download same content multiple times
 - ❌ No metadata tracking of what's already been downloaded
 
 ### 5. **Architecture Issues**
+
 - ❌ Business logic in UI store (`smartSearchStore`)
 - ❌ Service orchestration happens in renderer
 - ❌ Hard to test workflow logic
 - ❌ No dedicated service for result processing/grouping
 
 ### 6. **Progress Visibility**
+
 - ❌ Torrent page parsing has no progress indication
 - ❌ Duplicate detection happens silently
 - ❌ API retry attempts not visible to user
@@ -200,12 +213,14 @@ Add to collection
 ### Store Simplification
 
 **smartSearchStore** becomes a pure UI state store:
+
 - Current step in workflow
 - Selected items (classification, album, torrent)
 - UI state (loading, errors, dialogs)
 - Activity log (for display only)
 
 **Business logic moves to services:**
+
 - All API calls
 - Result processing and grouping
 - Duplicate detection
@@ -222,6 +237,7 @@ Add to collection
 **Location:** `src/main/services/TorrentMetadataService.ts`
 
 **Responsibilities:**
+
 - Parse torrent page HTML for track listings
 - Extract metadata: format (MP3/FLAC), bitrate, codec
 - Cache parsed results (avoid re-parsing same page)
@@ -229,6 +245,7 @@ Add to collection
 - Handle parsing errors gracefully
 
 **IPC Interface:**
+
 ```typescript
 // New IPC channel
 IPC_CHANNELS.TORRENT_PARSE_METADATA
@@ -266,6 +283,7 @@ interface TorrentParseProgress {
 ```
 
 **Implementation Notes:**
+
 - Reuse Puppeteer browser instance from RuTrackerSearchService
 - Use same session cookies from AuthService
 - Cache results in memory (Map<torrentId, metadata>)
@@ -280,6 +298,7 @@ interface TorrentParseProgress {
 **Location:** `src/main/services/DuplicateDetectionService.ts`
 
 **Responsibilities:**
+
 - Scan project directory for audio files (.mp3, .flac, .wav, etc.)
 - Build/maintain index of existing files in project metadata
 - Compare torrent track listings against existing files
@@ -287,6 +306,7 @@ interface TorrentParseProgress {
 - Fast fuzzy matching for track names
 
 **Project Metadata:**
+
 ```typescript
 // Stored in project directory: .music-suite/audio-index.json
 interface AudioFileIndex {
@@ -305,6 +325,7 @@ interface AudioFileIndex {
 ```
 
 **IPC Interface:**
+
 ```typescript
 IPC_CHANNELS.DUPLICATE_CHECK
 
@@ -327,6 +348,7 @@ interface DuplicateCheckResponse {
 ```
 
 **Implementation Notes:**
+
 - Use fast-glob for directory scanning
 - Use music-metadata library for audio file parsing
 - Fuzzy match using string similarity (levenshtein distance)
@@ -342,6 +364,7 @@ interface DuplicateCheckResponse {
 **Location:** `src/main/services/SearchOrchestrationService.ts`
 
 **Responsibilities:**
+
 - Manage search state machine (current step, data)
 - Coordinate calls to MusicBrainz, RuTracker, TorrentMetadata, DuplicateDetection
 - Handle retry logic and error recovery
@@ -349,6 +372,7 @@ interface DuplicateCheckResponse {
 - Maintain search session context
 
 **IPC Interface:**
+
 ```typescript
 IPC_CHANNELS.SEARCH_ORCHESTRATION_START
 
@@ -372,6 +396,7 @@ interface SearchOrchestrationProgress {
 ```
 
 **Implementation Notes:**
+
 - Maintains session state in memory
 - Emits progress events at each step
 - Handles errors and retries
@@ -382,15 +407,18 @@ interface SearchOrchestrationProgress {
 ### Change 4: Enhance MusicBrainzService
 
 **Enhancements:**
+
 1. **Retry Logic**
    - Exponential backoff (1s, 2s, 4s)
    - Max 3 retries
    - Report retry attempts via progress events
 
 2. **Track Name Search**
+
    ```typescript
    async findAlbumsWithTrack(trackName: string, artistName?: string): Promise<MusicBrainzAlbum[]>
    ```
+
    - Search MusicBrainz for recordings
    - Return albums containing the track
    - Include track position in album
@@ -400,6 +428,7 @@ interface SearchOrchestrationProgress {
    - Consider query structure (e.g., "artist - track" format)
 
 **Implementation Notes:**
+
 - Use axios-retry or manual retry logic
 - Add new IPC channel: `IPC_CHANNELS.MUSICBRAINZ_FIND_TRACK`
 - Report API retry attempts in progress events
@@ -409,7 +438,9 @@ interface SearchOrchestrationProgress {
 ### Change 5: Enhance RuTrackerSearchService
 
 **Enhancements:**
+
 1. **Result Grouping**
+
    ```typescript
    interface GroupedSearchResults {
      studioAlbums: SearchResult[]
@@ -433,6 +464,7 @@ interface SearchOrchestrationProgress {
    - UI controls for each filter
 
 **Implementation Notes:**
+
 - Add `groupResults()` utility function
 - Update `SearchResponse` type to include grouped results
 - Keep flat results array for backwards compatibility
@@ -442,11 +474,13 @@ interface SearchOrchestrationProgress {
 ### Change 6: Simplify smartSearchStore
 
 **Remove from store:**
+
 - API call logic → Move to services
 - Orchestration logic → Move to SearchOrchestrationService
 - Complex data processing → Move to services
 
 **Keep in store:**
+
 - Current workflow step (for UI state)
 - Selected items (classification, album, torrent)
 - UI-specific state (dialogs open, loading indicators)
@@ -454,6 +488,7 @@ interface SearchOrchestrationProgress {
 - Search history (display-only)
 
 **New structure:**
+
 ```typescript
 interface SmartSearchState {
   // Workflow state (minimal)
@@ -519,9 +554,11 @@ interface SmartSearchState {
 ## Implementation Plan
 
 ### Phase 1: Foundation (Week 1)
+
 **Goal:** Create new services without breaking existing functionality
 
 **Tasks:**
+
 1. Create `TorrentMetadataService.ts` (stub implementation)
    - IPC handlers
    - Basic Puppeteer integration
@@ -544,6 +581,7 @@ interface SmartSearchState {
 6. Add new types to `src/shared/types/`
 
 **Testing:**
+
 - Unit tests for each new service
 - IPC integration tests
 - No UI changes yet
@@ -551,9 +589,11 @@ interface SmartSearchState {
 ---
 
 ### Phase 2: Torrent Metadata Parsing (Week 2)
+
 **Goal:** Implement and integrate torrent page parsing
 
 **Tasks:**
+
 1. Implement `TorrentMetadataService.parseMetadata()`
    - Parse track listings from RuTracker page HTML
    - Extract format, bitrate, codec
@@ -570,6 +610,7 @@ interface SmartSearchState {
 4. Update activity log to show parsing progress
 
 **Testing:**
+
 - Parse various torrent page formats
 - Test progress reporting
 - Test caching
@@ -578,9 +619,11 @@ interface SmartSearchState {
 ---
 
 ### Phase 3: Duplicate Detection (Week 2-3)
+
 **Goal:** Implement duplicate detection and warning system
 
 **Tasks:**
+
 1. Implement `DuplicateDetectionService.checkDuplicates()`
    - Directory scanning with fast-glob
    - Audio metadata extraction with music-metadata
@@ -597,6 +640,7 @@ interface SmartSearchState {
 4. Add "Rescan Project" button to settings
 
 **Testing:**
+
 - Test with various audio formats
 - Test fuzzy matching accuracy
 - Test with large directories (1000+ files)
@@ -605,9 +649,11 @@ interface SmartSearchState {
 ---
 
 ### Phase 4: MusicBrainz Enhancements (Week 3)
+
 **Goal:** Add retry logic and track name search
 
 **Tasks:**
+
 1. Add retry logic to all MusicBrainz API calls
    - Exponential backoff
    - Progress reporting for retries
@@ -624,6 +670,7 @@ interface SmartSearchState {
 4. Show retry attempts in activity log
 
 **Testing:**
+
 - Test retry logic with network failures
 - Test track search accuracy
 - Test various query formats
@@ -631,9 +678,11 @@ interface SmartSearchState {
 ---
 
 ### Phase 5: Result Grouping (Week 4)
+
 **Goal:** Implement grouped RuTracker results
 
 **Tasks:**
+
 1. Implement `groupResults()` in RuTrackerSearchService
    - Classification logic (Studio/Live/Compilation)
    - Apply to search results
@@ -648,6 +697,7 @@ interface SmartSearchState {
 4. Add group filter UI controls
 
 **Testing:**
+
 - Test grouping accuracy with various results
 - Test UI expand/collapse
 - Test "show more" pagination
@@ -655,9 +705,11 @@ interface SmartSearchState {
 ---
 
 ### Phase 6: Search Orchestration (Week 4-5)
+
 **Goal:** Move orchestration logic from store to service
 
 **Tasks:**
+
 1. Implement `SearchOrchestrationService` fully
    - Complete state machine
    - Coordinate all services
@@ -673,6 +725,7 @@ interface SmartSearchState {
 4. Comprehensive integration testing
 
 **Testing:**
+
 - Test complete search flows
 - Test error handling and recovery
 - Test cancellation
@@ -681,9 +734,11 @@ interface SmartSearchState {
 ---
 
 ### Phase 7: Polish & Optimization (Week 5)
+
 **Goal:** Performance, UX improvements, documentation
 
 **Tasks:**
+
 1. Performance optimization
    - Cache MusicBrainz results
    - Optimize directory scanning
@@ -705,6 +760,7 @@ interface SmartSearchState {
    - ESLint/TypeScript strict mode
 
 **Testing:**
+
 - Performance benchmarks
 - User acceptance testing
 - Regression testing
@@ -735,18 +791,22 @@ interface SmartSearchState {
 ### Data Migration
 
 **Search History:**
+
 - No changes needed (JSON format remains same)
 
 **Torrent Collection:**
+
 - No changes needed (existing structure compatible)
 
 **New Metadata:**
+
 - Audio file index created on first use
 - No migration needed for existing data
 
 ### Rollback Plan
 
 If critical issues arise:
+
 1. Disable feature flags (revert to old code paths)
 2. Keep old services functional until Phase 6
 3. IPC handlers support both old and new APIs
@@ -759,6 +819,7 @@ If critical issues arise:
 ### Unit Tests
 
 **New Services:**
+
 - `TorrentMetadataService`: Parse various page formats
 - `DuplicateDetectionService`: Matching accuracy, performance
 - `SearchOrchestrationService`: State machine transitions
@@ -770,11 +831,13 @@ If critical issues arise:
 ### Integration Tests
 
 **IPC Communication:**
+
 - Each new IPC channel
 - Progress event delivery
 - Error propagation
 
 **Service Coordination:**
+
 - Complete search flows (happy path)
 - Error scenarios
 - Cancellation
@@ -783,12 +846,14 @@ If critical issues arise:
 ### E2E Tests (Manual for Phase 1, Automated Later)
 
 **Critical Flows:**
+
 1. Search by artist → select album → parse metadata → check duplicates → add to collection
 2. Search by track → find album → search RuTracker → select from grouped results
 3. Search with retry (MusicBrainz failure)
 4. Cancel during long operation
 
 **Test Cases:**
+
 - ~20 critical user journeys
 - Various query types (artist, album, track)
 - Edge cases (no results, errors, duplicates)
@@ -796,12 +861,14 @@ If critical issues arise:
 ### Performance Tests
 
 **Benchmarks:**
+
 - Directory scan with 1000, 5000, 10000 files
 - Fuzzy matching performance
 - Torrent page parsing speed
 - Memory usage during concurrent searches
 
 **Targets:**
+
 - Directory scan: < 2s for 5000 files
 - Duplicate check: < 1s for 100 tracks
 - Torrent parse: < 3s per page
@@ -814,6 +881,7 @@ If critical issues arise:
 ### High Risks
 
 **Risk 1: RuTracker Page HTML Changes**
+
 - **Impact:** Parsing breaks if RuTracker changes page structure
 - **Mitigation:**
   - Use multiple selectors (fallbacks)
@@ -822,6 +890,7 @@ If critical issues arise:
   - Version detection for different page formats
 
 **Risk 2: Performance with Large Music Libraries**
+
 - **Impact:** Duplicate detection slow for 10,000+ audio files
 - **Mitigation:**
   - Incremental indexing (scan only new files)
@@ -830,6 +899,7 @@ If critical issues arise:
   - Optional: disable duplicate check for large libraries
 
 **Risk 3: Workflow Complexity**
+
 - **Impact:** Orchestration service becomes too complex
 - **Mitigation:**
   - Clear state machine definition
@@ -840,6 +910,7 @@ If critical issues arise:
 ### Medium Risks
 
 **Risk 4: MusicBrainz Rate Limiting**
+
 - **Impact:** API blocks requests if too many in short time
 - **Mitigation:**
   - Respect rate limits (1 req/sec)
@@ -848,6 +919,7 @@ If critical issues arise:
   - Show user-friendly error if blocked
 
 **Risk 5: Memory Leaks in Puppeteer**
+
 - **Impact:** App becomes slow/crashes after many searches
 - **Mitigation:**
   - Close pages after each operation
@@ -858,6 +930,7 @@ If critical issues arise:
 ### Low Risks
 
 **Risk 6: Fuzzy Matching False Positives**
+
 - **Impact:** Incorrect duplicate detection
 - **Mitigation:**
   - Conservative matching threshold (85%+)
@@ -869,6 +942,7 @@ If critical issues arise:
 ## Success Criteria
 
 ### Functional Requirements
+
 - ✅ Users can search by track name and see which albums contain it
 - ✅ RuTracker results grouped by type (Studio/Live/Compilation)
 - ✅ Users can preview track listings before downloading
@@ -877,6 +951,7 @@ If critical issues arise:
 - ✅ All operations show progress indicators
 
 ### Non-Functional Requirements
+
 - ✅ Duplicate check completes in < 2s for 5000 files
 - ✅ Torrent page parse completes in < 3s
 - ✅ No memory leaks (stable memory usage over 100 searches)
@@ -884,6 +959,7 @@ If critical issues arise:
 - ✅ Zero regressions in existing functionality
 
 ### User Experience
+
 - ✅ Users report search is "smarter" and "more helpful"
 - ✅ Reduced duplicate downloads
 - ✅ Clearer understanding of what's happening during search
@@ -894,6 +970,7 @@ If critical issues arise:
 ## Appendix
 
 ### New File Structure
+
 ```
 src/
 ├── main/
@@ -923,6 +1000,7 @@ src/
 ```
 
 ### New IPC Channels
+
 ```typescript
 // Torrent Metadata
 TORRENT_PARSE_METADATA: 'torrent:parseMetadata'
@@ -943,15 +1021,15 @@ MUSICBRAINZ_FIND_TRACK: 'musicbrainz:findTrack'
 
 ### Estimated Effort
 
-| Phase | Duration | Complexity | Dependencies |
-|-------|----------|------------|--------------|
-| Phase 1: Foundation | 1 week | Medium | None |
-| Phase 2: Torrent Metadata | 1 week | High | Phase 1 |
-| Phase 3: Duplicate Detection | 1.5 weeks | High | Phase 1 |
-| Phase 4: MusicBrainz Enhancements | 1 week | Medium | Phase 1 |
-| Phase 5: Result Grouping | 1 week | Low | Phase 1 |
-| Phase 6: Orchestration | 1.5 weeks | High | Phases 2-5 |
-| Phase 7: Polish | 1 week | Low | Phase 6 |
+| Phase                             | Duration  | Complexity | Dependencies |
+| --------------------------------- | --------- | ---------- | ------------ |
+| Phase 1: Foundation               | 1 week    | Medium     | None         |
+| Phase 2: Torrent Metadata         | 1 week    | High       | Phase 1      |
+| Phase 3: Duplicate Detection      | 1.5 weeks | High       | Phase 1      |
+| Phase 4: MusicBrainz Enhancements | 1 week    | Medium     | Phase 1      |
+| Phase 5: Result Grouping          | 1 week    | Low        | Phase 1      |
+| Phase 6: Orchestration            | 1.5 weeks | High       | Phases 2-5   |
+| Phase 7: Polish                   | 1 week    | Low        | Phase 6      |
 
 **Total Estimated Duration:** 5-6 weeks
 
@@ -962,11 +1040,13 @@ MUSICBRAINZ_FIND_TRACK: 'musicbrainz:findTrack'
 ### Completed
 
 #### Store Simplification (pre-plan)
+
 - `smartSearchStore` refactored to pure UI state
 - Orchestration moved to `useSmartSearchWorkflow` hook
 - Search error retry button added to `SearchErrorNotice`
 
 #### Result Grouping — Pure Logic (2026-02-17)
+
 - **Created** `src/main/services/rutracker/utils/resultGrouper.ts` — `classifyResult()`, `groupResults()`, `filterDiscographyPages()`
 - **Created** `src/shared/utils/resultClassifier.ts` — shared `isLikelyDiscography()` (importable by both main and renderer)
 - **Created** `src/main/services/rutracker/utils/resultGrouper.spec.ts` — 15 tests
@@ -975,11 +1055,13 @@ MUSICBRAINZ_FIND_TRACK: 'musicbrainz:findTrack'
 - Classification: discography / live / compilation / studio (priority order)
 
 #### MusicBrainz Retry with Backoff (2026-02-17)
+
 - **Created** `src/main/services/utils/retryWithBackoff.ts` — generic async retry with exponential backoff + jitter
 - **Created** `src/main/services/utils/retryWithBackoff.spec.ts` — 8 tests
 - **Applied** to `MusicBrainzService.request()` — retries on 429, 503, 5xx, network errors (max 3 retries)
 
 #### Torrent Page Parser — Pure Logic (2026-02-17)
+
 - **Created** `src/shared/types/torrentMetadata.types.ts` — `TorrentTrack`, `ParsedAlbum`, `TorrentPageMetadata`
 - **Created** `src/main/services/rutracker/utils/torrentPageParser.ts` — `parseAlbumsFromHtml()`, `parseTracksFromText()`, `parseTracksFromCue()`, `extractFormatInfo()`
 - **Created** `src/main/services/rutracker/utils/torrentPageParser.spec.ts` — 18 tests
@@ -988,19 +1070,23 @@ MUSICBRAINZ_FIND_TRACK: 'musicbrainz:findTrack'
 ### Remaining
 
 #### Torrent Metadata Service + IPC (Step 4)
+
 - Wire `torrentPageParser` into `TorrentMetadataService` with Puppeteer
 - Add IPC channel `torrent:parse-metadata`, handler, preload API
 - Cache parsed results in memory
 
 #### Track List Preview UI (Step 5)
+
 - `TorrentTrackListPreview.tsx` component (Chakra UI)
 - Integrate into `InlineSearchResults.tsx` as action on torrent items
 
 #### Grouped Results UI (Step 6)
+
 - Render `groupResults()` output as collapsible category sections in `InlineSearchResults.tsx`
 - Group headers with counts, "Show more" per group
 
 #### Duplicate Detection (Step 7 — optional)
+
 - `trackMatcher.ts` — fuzzy matching pure functions
 - `DuplicateDetectionService` — scan project dir for audio files
 - `DuplicateWarningDialog.tsx` — warning before download
@@ -1008,4 +1094,5 @@ MUSICBRAINZ_FIND_TRACK: 'musicbrainz:findTrack'
 ### Dropped
 
 #### SearchOrchestrationService
+
 **Decision:** Not implementing. The workflow is inherently interactive (user picks at each step). Moving orchestration from the renderer hook to the main process would add IPC round-trips with no testability gain. The `useSmartSearchWorkflow` hook approach works well.

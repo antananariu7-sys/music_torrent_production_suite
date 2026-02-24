@@ -232,8 +232,8 @@ yarn package      # Build + electron-builder packaging
 - Export pipeline integration (atrim filter, cue point INDEX entries)
 
 > Architecture detail: `docs/architecture/18-waveform-timeline.md`
-> Feature spec: `docs/features/waveform-timeline.md`
-> Implementation plan: `docs/features/waveform-timeline-plan.md`
+> Feature spec: `docs/features/done/waveform-timeline.md`
+> Implementation plan: `docs/features/done/plans/waveform-timeline-plan.md`
 
 **Inputs**: Ordered mix from Component 3, audio files on disk
 **Outputs**: Visual timeline with waveforms; trim/cue point data fed into export pipeline

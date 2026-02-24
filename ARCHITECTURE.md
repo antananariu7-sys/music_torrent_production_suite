@@ -25,25 +25,23 @@ A project-based music production suite with three integrated components:
 
 Core architecture and system design documents:
 
-| Document                                                                                           | Description                                        |
-| -------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| [**01-overview.md**](docs/architecture/01-overview.md)                                             | Application purpose, components, project structure |
-| [**02-process-architecture.md**](docs/architecture/02-process-architecture.md)                     | Main/Renderer/Preload process responsibilities     |
-| [**03-ipc-communication.md**](docs/architecture/03-ipc-communication.md)                           | IPC channels, patterns, validation strategy        |
-| [**04-web-automation.md**](docs/architecture/04-web-automation.md)                                 | Puppeteer integration, RuTracker scraping flows    |
-| [**05-security.md**](docs/architecture/05-security.md)                                             | Security architecture, threats, credential storage |
-| [**06-directory-structure.md**](docs/architecture/06-directory-structure.md)                       | Complete file/folder organization                  |
-| [**07-data-models.md**](docs/architecture/07-data-models.md)                                       | TypeScript interfaces for all data structures      |
-| [**08-ui-architecture.md**](docs/architecture/08-ui-architecture.md)                               | React components, pages, styling strategy          |
-| [**09-dependencies.md**](docs/architecture/09-dependencies.md)                                     | NPM packages and dependency rationale              |
-| [**10-development-plan.md**](docs/architecture/10-development-plan.md)                             | 6-phase development roadmap, ADRs                  |
-| [**11-risks-and-success.md**](docs/architecture/11-risks-and-success.md)                           | Technical risks, success criteria                  |
-| [**15-project-system.md**](docs/architecture/15-project-system.md)                                 | Project-based workflow architecture                |
-| [**16-mixer-component.md**](docs/architecture/16-mixer-component.md)                               | Mix Builder component architecture                 |
-| [**17-audio-mix-export.md**](docs/architecture/17-audio-mix-export.md)                             | Audio mix export pipeline architecture             |
-| [**18-waveform-timeline.md**](docs/architecture/18-waveform-timeline.md)                           | Waveform timeline editor architecture              |
-| [**refactoring-plan-project-launcher.md**](docs/architecture/refactoring-plan-project-launcher.md) | Project launcher refactoring plan                  |
-| [**transform-welcome-to-project.md**](docs/architecture/transform-welcome-to-project.md)           | Welcome screen transformation plan                 |
+| Document                                                                       | Description                                        |
+| ------------------------------------------------------------------------------ | -------------------------------------------------- |
+| [**01-overview.md**](docs/architecture/01-overview.md)                         | Application purpose, components, project structure |
+| [**02-process-architecture.md**](docs/architecture/02-process-architecture.md) | Main/Renderer/Preload process responsibilities     |
+| [**03-ipc-communication.md**](docs/architecture/03-ipc-communication.md)       | IPC channels, patterns, validation strategy        |
+| [**04-web-automation.md**](docs/architecture/04-web-automation.md)             | Puppeteer integration, RuTracker scraping flows    |
+| [**05-security.md**](docs/architecture/05-security.md)                         | Security architecture, threats, credential storage |
+| [**06-directory-structure.md**](docs/architecture/06-directory-structure.md)   | Complete file/folder organization                  |
+| [**07-data-models.md**](docs/architecture/07-data-models.md)                   | TypeScript interfaces for all data structures      |
+| [**08-ui-architecture.md**](docs/architecture/08-ui-architecture.md)           | React components, pages, styling strategy          |
+| [**09-dependencies.md**](docs/architecture/09-dependencies.md)                 | NPM packages and dependency rationale              |
+| [**10-development-plan.md**](docs/architecture/10-development-plan.md)         | 6-phase development roadmap, ADRs                  |
+| [**11-risks-and-success.md**](docs/architecture/11-risks-and-success.md)       | Technical risks, success criteria                  |
+| [**15-project-system.md**](docs/architecture/15-project-system.md)             | Project-based workflow architecture                |
+| [**16-mixer-component.md**](docs/architecture/16-mixer-component.md)           | Mix Builder component architecture                 |
+| [**17-audio-mix-export.md**](docs/architecture/17-audio-mix-export.md)         | Audio mix export pipeline architecture             |
+| [**18-waveform-timeline.md**](docs/architecture/18-waveform-timeline.md)       | Waveform timeline editor architecture              |
 
 ### Development Guides ([docs/guides/](docs/guides/))
 
@@ -62,11 +60,13 @@ Practical implementation guides and best practices:
 
 Feature specs and implementation plans:
 
-| Document                                                                                       | Description                                                                                  |
-| ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| [**done/**](docs/features/done/)                                                               | Completed feature specs (waveform timeline, visual/perf improvements, mix export, installer) |
-| [**waveform-interaction-improvements.md**](docs/features/waveform-interaction-improvements.md) | Planned: drag-to-trim, draggable cue points, crossfade preview                               |
-| [**unit-test-coverage-plan.md**](docs/features/unit-test-coverage-plan.md)                     | Unit test coverage plan                                                                      |
+| Document                                                             | Description                        |
+| -------------------------------------------------------------------- | ---------------------------------- |
+| [**done/**](docs/features/done/)                                     | Completed feature specs and plans  |
+| [**plans/**](docs/features/plans/)                                   | Active implementation plans        |
+| [**search-results-table.md**](docs/features/search-results-table.md) | Search results table overhaul spec |
+| [**mix-preparation-view.md**](docs/features/mix-preparation-view.md) | Mix preparation view spec          |
+| [**mix-preparation-v2.md**](docs/features/mix-preparation-v2.md)     | Mix preparation v2 spec            |
 
 ### API Reference ([docs/api/](docs/api/))
 

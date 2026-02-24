@@ -60,11 +60,15 @@ Feature specifications organized by status:
 
 **In Progress**:
 
-- **[waveform-interaction-improvements.md](features/waveform-interaction-improvements.md)** - Drag-to-trim, draggable cue points, crossfade preview
+- **[search-results-table.md](features/search-results-table.md)** - Search results table overhaul
+- **[mix-preparation-view.md](features/mix-preparation-view.md)** - Mix preparation view
+- **[mix-preparation-v2.md](features/mix-preparation-v2.md)** - Mix preparation v2
 
-**Planning**:
+**Plans** ([features/plans/](features/plans/)):
 
-- **[unit-test-coverage-plan.md](features/unit-test-coverage-plan.md)** - Unit test coverage plan
+- **[search-results-table-plan.md](features/plans/search-results-table-plan.md)** - Search results table implementation plan
+- **[search-refactor-plan.md](features/plans/search-refactor-plan.md)** - Search refactor plan
+- **[unit-test-coverage-plan.md](features/plans/unit-test-coverage-plan.md)** - Unit test coverage plan
 
 ### [API](api/)
 

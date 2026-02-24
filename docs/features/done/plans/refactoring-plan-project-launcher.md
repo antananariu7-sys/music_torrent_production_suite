@@ -18,11 +18,13 @@ The ProjectLauncher page is 631 lines with 534 lines of JSX, exceeding the proje
 ### High Priority (Highest Complexity Reduction)
 
 #### 1.1 CreateProjectCard
+
 **Lines:** 252-432 (~180 lines)
 **Complexity:** VERY HIGH
 **Impact:** Largest reduction, isolates complex form logic
 
 **Responsibilities:**
+
 - Display create new project card
 - Manage form visibility toggle (collapsed/expanded state)
 - Handle all form inputs (name, description, location)
@@ -35,11 +37,13 @@ The ProjectLauncher page is 631 lines with 534 lines of JSX, exceeding the proje
 ---
 
 #### 1.2 RecentProjectsSection
+
 **Lines:** 509-597 (~90 lines)
 **Complexity:** MEDIUM
 **Impact:** Significant reduction, enables testing project list display
 
 **Responsibilities:**
+
 - Display "Recent Projects" section header
 - Render grid of recent project cards
 - Handle empty state (when no recent projects exist)
@@ -47,6 +51,7 @@ The ProjectLauncher page is 631 lines with 534 lines of JSX, exceeding the proje
 **Location:** `ProjectLauncher/components/RecentProjectsSection.tsx`
 
 **Sub-component:** Extract individual project cards to:
+
 - `RecentProjectCard.tsx` - Single project card with click handler
 
 ---
@@ -54,11 +59,13 @@ The ProjectLauncher page is 631 lines with 534 lines of JSX, exceeding the proje
 ### Medium Priority (Moderate Complexity)
 
 #### 1.3 ErrorAlert
+
 **Lines:** 185-228 (~45 lines)
 **Complexity:** LOW-MEDIUM
 **Impact:** Adds reusability across pages
 
 **Responsibilities:**
+
 - Display error message with icon
 - Provide close/dismiss button
 - Support consistent error styling
@@ -70,11 +77,13 @@ The ProjectLauncher page is 631 lines with 534 lines of JSX, exceeding the proje
 ---
 
 #### 1.4 OpenProjectCard
+
 **Lines:** 434-503 (~70 lines)
 **Complexity:** LOW-MEDIUM
 **Impact:** Clean separation from CreateProjectCard
 
 **Responsibilities:**
+
 - Display open existing project card
 - Handle browse button click
 - Trigger directory selection dialog
@@ -86,11 +95,13 @@ The ProjectLauncher page is 631 lines with 534 lines of JSX, exceeding the proje
 ### Low Priority (Organizational Improvements)
 
 #### 1.5 LauncherHeader
+
 **Lines:** 116-182 (~66 lines)
 **Complexity:** LOW
 **Impact:** Improves organization, easy to test
 
 **Responsibilities:**
+
 - Display "PROJECT SYSTEM" label
 - Render main heading with gradient effect
 - Show description text
@@ -100,11 +111,13 @@ The ProjectLauncher page is 631 lines with 534 lines of JSX, exceeding the proje
 ---
 
 #### 1.6 LauncherFooter
+
 **Lines:** 600-627 (~28 lines)
 **Complexity:** LOW
 **Impact:** Minor but clean separation
 
 **Responsibilities:**
+
 - Display app version information
 - Show platform and architecture
 - Render status indicator
@@ -171,6 +184,7 @@ interface CreateProjectCardProps {
 ```
 
 **State Management (Internal):**
+
 - `projectName: string` - Form input value
 - `projectDescription: string` - Form input value
 - `projectLocation: string` - Selected directory path
@@ -252,6 +266,7 @@ interface RecentProjectCardProps {
 **State Management:** No internal state needed (stateless component)
 
 **Helper Functions (Internal):**
+
 - `formatDate(date: Date): string` - Format last opened date
 
 ---
@@ -325,25 +340,28 @@ interface LauncherFooterProps {
 ### What Stays in Parent (index.tsx)
 
 **Zustand Store State:**
+
 ```typescript
 const {
-  currentProject,     // Keep - used for navigation effect
-  recentProjects,     // Keep - passed to RecentProjectsSection
-  isLoading,          // Keep - passed to multiple components
-  error,              // Keep - passed to ErrorAlert
+  currentProject, // Keep - used for navigation effect
+  recentProjects, // Keep - passed to RecentProjectsSection
+  isLoading, // Keep - passed to multiple components
+  error, // Keep - passed to ErrorAlert
   loadRecentProjects, // Keep - called in useEffect
-  createProject,      // Keep - wrapped in handler
-  openProject,        // Keep - wrapped in handler
-  clearError,         // Keep - passed to ErrorAlert
+  createProject, // Keep - wrapped in handler
+  openProject, // Keep - wrapped in handler
+  clearError, // Keep - passed to ErrorAlert
 } = useProjectStore()
 ```
 
 **Props:**
+
 ```typescript
 { appInfo }: ProjectLauncherProps  // Keep - passed to LauncherFooter
 ```
 
 **Effects:**
+
 ```typescript
 // Keep in parent - side effects and navigation
 useEffect(() => {
@@ -358,6 +376,7 @@ useEffect(() => {
 ```
 
 **Handler Functions (Created in Parent):**
+
 ```typescript
 const handleCreateProject = async (
   name: string,
@@ -386,6 +405,7 @@ const handleBrowseProject = async () => {
 ### What Moves to Components
 
 **CreateProjectCard (Internal State):**
+
 ```typescript
 // These stay INSIDE CreateProjectCard component
 const [projectName, setProjectName] = useState('')
@@ -403,6 +423,7 @@ const handleSelectLocation = async () => {
 ```
 
 **Reasoning:**
+
 - Form state is an internal UI concern
 - Component manages its own form lifecycle
 - Parent only needs final submission data
@@ -410,6 +431,7 @@ const handleSelectLocation = async () => {
 - Follows React best practice: "Lift state only when sharing is needed"
 
 **All Other Components:**
+
 - No internal state needed
 - Pure presentational components
 - Receive data via props, emit events via callbacks
@@ -511,12 +533,14 @@ Follow TDD approach from `dev` skill:
 ### Decision 1: Form State Location ✅
 
 **Options:**
+
 - **A:** Keep form state in parent, pass as props (controlled externally)
 - **B:** Move form state into CreateProjectCard (self-contained)
 
 **Chosen:** Option B
 
 **Rationale:**
+
 - Form state is internal UI concern, not business logic
 - Parent only needs to know about submission, not form lifecycle
 - Makes CreateProjectCard independently testable
@@ -524,6 +548,7 @@ Follow TDD approach from `dev` skill:
 - Reduces props drilling (4 fewer state variables to pass)
 
 **Implementation Note:**
+
 ```typescript
 // ❌ BAD: Parent controls form state
 <CreateProjectCard
@@ -550,12 +575,14 @@ Follow TDD approach from `dev` skill:
 ### Decision 2: Component Granularity ✅
 
 **Options:**
+
 - **A:** Only extract high-complexity components (CreateProjectCard, RecentProjects)
 - **B:** Extract all logical sections including simple ones (Header, Footer)
 
 **Chosen:** Option B
 
 **Rationale:**
+
 - Better testability - each component tested in isolation
 - Follows project guideline: "Keep components small" (400-500 lines max)
 - Easier to understand and modify individual pieces
@@ -566,6 +593,7 @@ Follow TDD approach from `dev` skill:
 "Extracting simple components adds unnecessary files"
 
 **Response:**
+
 - File count vs readability trade-off favors readability
 - Modern IDEs handle navigation easily
 - Co-located tests make each component discoverable
@@ -576,12 +604,14 @@ Follow TDD approach from `dev` skill:
 ### Decision 3: RecentProjectCard Extraction ✅
 
 **Options:**
+
 - **A:** Keep project cards inline in RecentProjectsSection
 - **B:** Extract to separate RecentProjectCard component
 
 **Chosen:** Option B
 
 **Rationale:**
+
 - Each project card is ~40-50 lines of JSX
 - Enables isolated testing of card interactions (hover, click)
 - Cleaner separation: Section handles layout, Card handles display
@@ -589,6 +619,7 @@ Follow TDD approach from `dev` skill:
 - Makes future enhancements easier (e.g., context menu, drag-drop)
 
 **Component Hierarchy:**
+
 ```
 RecentProjectsSection
 └── RecentProjectCard (repeated for each project)
@@ -603,12 +634,14 @@ RecentProjectsSection
 ### Decision 4: ErrorAlert Location ✅
 
 **Options:**
+
 - **A:** Keep as `ProjectLauncher/components/ErrorAlert.tsx`
 - **B:** Move to `components/common/ErrorAlert.tsx`
 
 **Chosen:** Option B
 
 **Rationale:**
+
 - Error display pattern needed across multiple pages:
   - Settings page errors (config save failures)
   - Download page errors (network failures)
@@ -618,6 +651,7 @@ RecentProjectsSection
 - Follows project pattern: "Move common UI patterns to shared components"
 
 **Future Usage:**
+
 ```typescript
 // Settings page
 <ErrorAlert error={settingsError} onClose={clearSettingsError} />
@@ -634,6 +668,7 @@ RecentProjectsSection
 ### Decision 5: Styling Strategy ✅
 
 **Options:**
+
 - **A:** Keep all styles in `ProjectLauncher.styles.tsx`
 - **B:** Split styles per component (CreateProjectCard.styles.tsx, etc.)
 - **C:** Use Chakra inline styles only (keep styles.tsx for animations)
@@ -641,6 +676,7 @@ RecentProjectsSection
 **Chosen:** Option C
 
 **Rationale:**
+
 - Current `ProjectLauncher.styles.tsx` contains only:
   - CSS animations (@keyframes)
   - Hover effects and transitions
@@ -650,12 +686,14 @@ RecentProjectsSection
 - Avoids style file proliferation
 
 **Keep in ProjectLauncher.styles.tsx:**
+
 - `@keyframes fade-in-up`
 - `@keyframes glow-pulse`
 - `@keyframes card-entrance`
 - `.action-card`, `.project-card`, `.emoji-icon` hover effects
 
 **Inline with Chakra:**
+
 - Layout props (spacing, sizing)
 - Color schemes
 - Typography
@@ -666,12 +704,14 @@ RecentProjectsSection
 ### Decision 6: Loading State Display ✅
 
 **Options:**
+
 - **A:** Extract LoadingState component
 - **B:** Keep inline in main page
 
 **Chosen:** Option B (Keep inline)
 
 **Rationale:**
+
 - Only 15 lines of simple JSX
 - Not complex enough to justify extraction
 - Used only once in this page
@@ -679,6 +719,7 @@ RecentProjectsSection
 - Follows "avoid premature abstraction" principle
 
 **Implementation:**
+
 ```typescript
 {isLoading && (
   <Box textAlign="center" py={16}>
@@ -953,19 +994,20 @@ describe('ProjectLauncher', () => {
 
 ### Quantitative Improvements
 
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Main file LOC | 631 lines | ~100-150 lines | 76-84% reduction |
-| JSX lines | 534 lines | ~80-100 lines | 81-85% reduction |
-| Largest component | 631 lines | ~200 lines | 68% reduction |
-| Testable units | 1 page | 7 components | 700% increase |
-| Component reusability | 0 shared | 1 shared (ErrorAlert) | ∞ |
+| Metric                | Before    | After                 | Improvement      |
+| --------------------- | --------- | --------------------- | ---------------- |
+| Main file LOC         | 631 lines | ~100-150 lines        | 76-84% reduction |
+| JSX lines             | 534 lines | ~80-100 lines         | 81-85% reduction |
+| Largest component     | 631 lines | ~200 lines            | 68% reduction    |
+| Testable units        | 1 page    | 7 components          | 700% increase    |
+| Component reusability | 0 shared  | 1 shared (ErrorAlert) | ∞                |
 
 ---
 
 ### Qualitative Improvements
 
 #### 1. Maintainability ✅
+
 - **Easier to find code:** Each feature in its own file
 - **Smaller cognitive load:** Understand one component at a time
 - **Clearer responsibilities:** Each component has single purpose
@@ -976,6 +1018,7 @@ describe('ProjectLauncher', () => {
 ---
 
 #### 2. Testability ✅
+
 - **Isolated testing:** Each component tested without parent dependencies
 - **Faster test execution:** Smaller components = faster renders
 - **Better test coverage:** Each component has dedicated test file
@@ -986,6 +1029,7 @@ describe('ProjectLauncher', () => {
 ---
 
 #### 3. Reusability ✅
+
 - **ErrorAlert in common/:** Can be used in Settings, Mixer, Download pages
 - **Pattern established:** Other pages can follow same extraction pattern
 - **Consistent UX:** Shared components ensure consistent behavior
@@ -995,6 +1039,7 @@ describe('ProjectLauncher', () => {
 ---
 
 #### 4. Readability ✅
+
 - **Clear component hierarchy:** Parent orchestrates, children specialize
 - **Self-documenting structure:** File names describe responsibilities
 - **Less scrolling:** Find what you need faster
@@ -1006,6 +1051,7 @@ describe('ProjectLauncher', () => {
 ---
 
 #### 5. Compliance ✅
+
 - **Follows project guideline:** "Keep components small" (400-500 lines max)
 - **Matches existing patterns:** Same structure as Settings page
 - **Adheres to architecture:** Components in `components/` subdirectory
@@ -1014,6 +1060,7 @@ describe('ProjectLauncher', () => {
 ---
 
 #### 6. Developer Experience ✅
+
 - **Easier onboarding:** New developers understand smaller components faster
 - **Faster iteration:** Modify single component without touching others
 - **Better IDE support:** Faster intellisense and go-to-definition
@@ -1072,21 +1119,25 @@ After completion:
 ## 11. Rollout Plan
 
 ### Phase 1: Foundation (Week 1)
+
 - Extract CreateProjectCard (highest impact)
 - Extract RecentProjectsSection + RecentProjectCard
 - **Deliverable:** Main page reduced by ~43%
 
 ### Phase 2: Reusability (Week 1)
+
 - Extract ErrorAlert to common/
 - Extract OpenProjectCard
 - **Deliverable:** Main page reduced by ~61%, reusable component added
 
 ### Phase 3: Polish (Week 2)
+
 - Extract LauncherHeader
 - Extract LauncherFooter
 - **Deliverable:** Main page reduced by ~80%, all components extracted
 
 ### Phase 4: Documentation (Week 2)
+
 - Update architecture docs
 - Add JSDoc comments
 - Create component README if needed
@@ -1126,18 +1177,23 @@ After refactoring is complete, consider:
 ## 13. Questions & Decisions Log
 
 ### Q1: Should we extract LoadingState component?
+
 **Decision:** No, keep inline (only 15 lines, not complex enough)
 
 ### Q2: Where should ErrorAlert component live?
+
 **Decision:** Move to `components/common/` for reusability
 
 ### Q3: Should form state stay in parent or move to CreateProjectCard?
+
 **Decision:** Move to CreateProjectCard (self-contained component)
 
 ### Q4: Should we split project card into separate component?
+
 **Decision:** Yes, extract to RecentProjectCard
 
 ### Q5: Should we create separate style files for each component?
+
 **Decision:** No, keep Chakra inline styles + shared animations in ProjectLauncher.styles.tsx
 
 ---
@@ -1157,4 +1213,3 @@ After refactoring is complete, consider:
 **Target Completion Date:** _[To be filled]_
 
 ---
-
