@@ -29,7 +29,12 @@ music_production_suite/
 │   │   │   ├── torrentHandlers.ts
 │   │   │   ├── torrentMetadataHandlers.ts
 │   │   │   ├── webtorrentHandlers.ts
-│   │   │   └── audioHandlers.ts
+│   │   │   ├── audioHandlers.ts
+│   │   │   ├── streamPreviewHandlers.ts
+│   │   │   ├── mixExportHandlers.ts
+│   │   │   ├── waveformHandlers.ts
+│   │   │   ├── bpmHandlers.ts
+│   │   │   └── duplicateHandlers.ts
 │   │   │
 │   │   ├── services/            # Business logic
 │   │   │   ├── AuthService.ts            (+ AuthService.spec.ts)
@@ -44,6 +49,7 @@ music_production_suite/
 │   │   │   ├── TorrentCollectionService.ts (+ TorrentCollectionService.spec.ts)
 │   │   │   ├── TorrentDownloadService.ts (+ TorrentDownloadService.spec.ts)
 │   │   │   ├── TorrentMetadataService.ts
+│   │   │   ├── DuplicateDetectionService.ts
 │   │   │   ├── WebTorrentService.ts      (+ WebTorrentService.spec.ts)
 │   │   │   │
 │   │   │   ├── rutracker/       # RuTracker search internals
@@ -132,17 +138,33 @@ music_production_suite/
 │   │   │   │   │   ├── ActivityLog.tsx
 │   │   │   │   │   ├── AlbumSelectionDialog.tsx
 │   │   │   │   │   ├── DiscographyScanPanel.tsx
+│   │   │   │   │   ├── DuplicateWarningBadge.tsx
 │   │   │   │   │   ├── InlineSearchResults.tsx
 │   │   │   │   │   ├── SearchClassificationDialog.tsx
 │   │   │   │   │   ├── SearchCompletionNotice.tsx
 │   │   │   │   │   ├── SearchErrorNotice.tsx
 │   │   │   │   │   ├── SearchHistory.tsx
 │   │   │   │   │   ├── SearchLoadingIndicator.tsx
+│   │   │   │   │   ├── SearchResultsFilter.tsx
+│   │   │   │   │   ├── SearchResultsLoadMore.tsx
+│   │   │   │   │   ├── SearchResultsPagination.tsx
+│   │   │   │   │   ├── SearchResultsRow.tsx
+│   │   │   │   │   ├── SearchResultsTable.tsx
+│   │   │   │   │   ├── SearchResultsTabs.tsx
 │   │   │   │   │   ├── SmartSearch.tsx
 │   │   │   │   │   ├── SmartSearchBar.tsx
 │   │   │   │   │   ├── TorrentResultsDialog.tsx
 │   │   │   │   │   ├── TorrentTrackListPreview.tsx
-│   │   │   │   │   └── useSmartSearchWorkflow.ts
+│   │   │   │   │   ├── useSmartSearchWorkflow.ts
+│   │   │   │   │   ├── components/
+│   │   │   │   │   │   ├── ClassificationItem.tsx
+│   │   │   │   │   │   └── AlbumItem.tsx
+│   │   │   │   │   └── hooks/
+│   │   │   │   │       ├── useDuplicateCheck.ts
+│   │   │   │   │       ├── useDiscographyScan.ts
+│   │   │   │   │       ├── useRuTrackerSearch.ts
+│   │   │   │   │       ├── useSearchClassification.ts
+│   │   │   │   │       └── useSearchTableState.ts
 │   │   │   │   │
 │   │   │   │   └── torrent/
 │   │   │   │       ├── index.ts
@@ -195,20 +217,27 @@ music_production_suite/
 │   │   │   ├── app.types.ts
 │   │   │   ├── auth.types.ts
 │   │   │   ├── discography.types.ts
+│   │   │   ├── duplicateDetection.types.ts
+│   │   │   ├── mixExport.types.ts
 │   │   │   ├── musicbrainz.types.ts
 │   │   │   ├── project.types.ts
 │   │   │   ├── search.types.ts
 │   │   │   ├── searchHistory.types.ts
+│   │   │   ├── streamPreview.types.ts
 │   │   │   ├── torrent.types.ts
-│   │   │   └── torrentMetadata.types.ts
+│   │   │   ├── torrentMetadata.types.ts
+│   │   │   └── waveform.types.ts
 │   │   ├── schemas/             # Zod validation schemas
 │   │   │   ├── index.ts
 │   │   │   ├── project.schema.ts
 │   │   │   ├── search.schema.ts
 │   │   │   └── torrent.schema.ts
 │   │   └── utils/               # Shared utilities
+│   │       ├── flacImageDetector.ts
+│   │       ├── nonAudioDetector.ts      (+ nonAudioDetector.spec.ts)
 │   │       ├── resultClassifier.ts
-│   │       └── songMatcher.ts
+│   │       ├── songMatcher.ts
+│   │       └── trackMatcher.ts
 │   │
 │   └── test/                    # Test infrastructure
 │       └── setup.ts
@@ -241,7 +270,9 @@ music_production_suite/
 ```
 
 ### Module Organization Strategy
+
 **Hybrid approach**: Feature-based organization within each process layer
+
 - Clear separation by process type (main/renderer/preload/shared)
 - Feature-based grouping within renderer components (`features/search/`, `features/torrent/`)
 - Page components use co-located subcomponents and styles (`pages/ProjectLauncher/components/`)

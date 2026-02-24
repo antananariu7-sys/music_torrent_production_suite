@@ -25,7 +25,7 @@ interface AuthState {
   isLoggedIn: boolean
   username?: string
   sessionExpiry?: Date
-  isSessionRestored?: boolean  // Indicates session was restored from saved state
+  isSessionRestored?: boolean // Indicates session was restored from saved state
 }
 
 interface StoredCredentials {
@@ -71,10 +71,10 @@ interface Project {
   description?: string
   createdAt: Date
   updatedAt: Date
-  projectDirectory: string          // Root directory for project
-  songs: Song[]                      // Array of songs in the mix
-  mixMetadata: MixMetadata          // Metadata about the mix
-  isActive: boolean                 // Whether project is currently open
+  projectDirectory: string // Root directory for project
+  songs: Song[] // Array of songs in the mix
+  mixMetadata: MixMetadata // Metadata about the mix
+  isActive: boolean // Whether project is currently open
 }
 
 interface Song {
@@ -82,27 +82,27 @@ interface Song {
   title: string
   artist?: string
   album?: string
-  duration?: number                 // Duration in seconds
-  format?: string                   // mp3, flac, wav, etc.
-  bitrate?: number                  // Bitrate in kbps
-  sampleRate?: number               // Sample rate in Hz
-  fileSize?: number                 // File size in bytes
-  downloadId?: string               // Reference to download (if from Component 2)
-  externalFilePath?: string         // Path to external file (if not downloaded)
-  localFilePath?: string            // Path in project assets/ directory
+  duration?: number // Duration in seconds
+  format?: string // mp3, flac, wav, etc.
+  bitrate?: number // Bitrate in kbps
+  sampleRate?: number // Sample rate in Hz
+  fileSize?: number // File size in bytes
+  downloadId?: string // Reference to download (if from Component 2)
+  externalFilePath?: string // Path to external file (if not downloaded)
+  localFilePath?: string // Path in project assets/ directory
   addedAt: Date
-  order: number                     // Order in the mix
-  metadata?: AudioMetadata          // Extended audio metadata
+  order: number // Order in the mix
+  metadata?: AudioMetadata // Extended audio metadata
 }
 
 interface MixMetadata {
   title?: string
   description?: string
-  coverImagePath?: string           // Path to cover image in assets/covers/
+  coverImagePath?: string // Path to cover image in assets/covers/
   tags: string[]
   genre?: string
-  estimatedDuration?: number        // Sum of all song durations
-  createdBy?: string                // User who created the mix
+  estimatedDuration?: number // Sum of all song durations
+  createdBy?: string // User who created the mix
 }
 
 interface AudioMetadata {
@@ -132,11 +132,11 @@ interface RecentProject {
 
 interface ProjectStats {
   totalSongs: number
-  totalDuration: number             // Sum of all song durations in seconds
-  totalSize: number                 // Total file size in bytes
-  downloadedSongs: number           // Songs from Component 2
-  externalSongs: number             // Songs from external files
-  formatBreakdown: Record<string, number>  // Count by format (mp3: 5, flac: 3)
+  totalDuration: number // Sum of all song durations in seconds
+  totalSize: number // Total file size in bytes
+  downloadedSongs: number // Songs from Component 2
+  externalSongs: number // Songs from external files
+  formatBreakdown: Record<string, number> // Count by format (mp3: 5, flac: 3)
 }
 
 interface ProjectLock {
@@ -147,7 +147,7 @@ interface ProjectLock {
 
 interface CreateProjectRequest {
   name: string
-  location: string                  // Parent directory where project will be created
+  location: string // Parent directory where project will be created
   description?: string
 }
 
@@ -167,15 +167,23 @@ interface ProjectMetadata {
 ### Search (`search.types.ts`)
 
 ```typescript
-type FileFormat = 'mp3' | 'flac' | 'wav' | 'aac' | 'ogg' | 'alac' | 'ape' | 'any'
+type FileFormat =
+  | 'mp3'
+  | 'flac'
+  | 'wav'
+  | 'aac'
+  | 'ogg'
+  | 'alac'
+  | 'ape'
+  | 'any'
 type SortBy = 'relevance' | 'seeders' | 'date' | 'size' | 'title'
 type SortOrder = 'asc' | 'desc'
 
 interface SearchFilters {
   format?: FileFormat
   minSeeders?: number
-  minSize?: number                  // MB
-  maxSize?: number                  // MB
+  minSize?: number // MB
+  maxSize?: number // MB
   categories?: string[]
   dateFrom?: Date
   dateTo?: Date
@@ -196,19 +204,19 @@ interface SearchRequest {
 type SearchSource = 'album' | 'discography'
 
 interface SearchResult {
-  id: string                        // Topic ID from RuTracker
+  id: string // Topic ID from RuTracker
   title: string
   author: string
   size: string
-  sizeBytes?: number                // For sorting/filtering
+  sizeBytes?: number // For sorting/filtering
   seeders: number
   leechers: number
-  url: string                       // Full URL to topic page
+  url: string // Full URL to topic page
   category?: string
   uploadDate?: string
-  relevanceScore?: number           // 0-100
-  format?: FileFormat               // Detected from title/description
-  searchSource?: SearchSource       // Direct album or discography search
+  relevanceScore?: number // 0-100
+  format?: FileFormat // Detected from title/description
+  searchSource?: SearchSource // Direct album or discography search
 }
 
 interface SearchResponse {
@@ -217,7 +225,7 @@ interface SearchResponse {
   error?: string
   query?: string
   appliedFilters?: SearchFilters
-  totalResults?: number             // Before filtering
+  totalResults?: number // Before filtering
 }
 
 interface SearchState {
@@ -233,7 +241,7 @@ interface SearchState {
 interface ProgressiveSearchRequest {
   query: string
   filters?: SearchFilters
-  maxPages?: number                 // Default: 10, max: 10
+  maxPages?: number // Default: 10, max: 10
 }
 
 // Result grouping
@@ -249,10 +257,27 @@ interface GroupedSearchResults {
 
 // Progress event for progressive search (M->R push via search:progress)
 interface SearchProgressEvent {
-  currentPage: number               // 1-based
+  currentPage: number // 1-based
   totalPages: number
-  results: SearchResult[]           // Results found so far
+  results: SearchResult[] // Results found so far
   isComplete: boolean
+  error?: string
+}
+
+// Load more results (on-demand page fetching)
+interface LoadMoreRequest {
+  query: string // Original search query
+  fromPage: number // First page to fetch (1-indexed)
+  toPage: number // Last page to fetch (inclusive)
+  filters?: SearchFilters
+}
+
+interface LoadMoreResponse {
+  success: boolean
+  results: SearchResult[] // New results from fetched pages
+  loadedPages: number // Pages successfully loaded
+  totalPages: number // Total available pages on tracker
+  isComplete: boolean // All available pages loaded
   error?: string
 }
 ```
@@ -263,9 +288,9 @@ interface SearchProgressEvent {
 interface SearchHistoryEntry {
   id: string
   query: string
-  timestamp: string                 // ISO timestamp
+  timestamp: string // ISO timestamp
   status: 'completed' | 'error' | 'cancelled'
-  result?: string                   // Description (e.g., "Downloaded album X")
+  result?: string // Description (e.g., "Downloaded album X")
 }
 
 interface SearchHistoryFile {
@@ -280,21 +305,21 @@ interface SearchHistoryFile {
 
 ```typescript
 interface MusicBrainzAlbum {
-  id: string                        // MusicBrainz release ID
+  id: string // MusicBrainz release ID
   title: string
   artist: string
-  date?: string                     // Release date
-  type?: string                     // album, single, compilation, etc.
+  date?: string // Release date
+  type?: string // album, single, compilation, etc.
   trackCount?: number
-  tracks?: MusicBrainzTrack[]       // Track listing
-  score?: number                    // Match confidence (0-100)
-  coverArtUrl?: string              // Cover Art Archive URL
+  tracks?: MusicBrainzTrack[] // Track listing
+  score?: number // Match confidence (0-100)
+  coverArtUrl?: string // Cover Art Archive URL
 }
 
 interface MusicBrainzTrack {
   position: number
   title: string
-  duration?: number                 // Duration in ms
+  duration?: number // Duration in ms
 }
 
 interface AlbumSearchRequest {
@@ -320,7 +345,7 @@ interface SearchClassificationResult {
   name: string
   artist?: string
   albumId?: string
-  score: number                     // Confidence (0-100)
+  score: number // Confidence (0-100)
 }
 
 interface SearchClassificationResponse {
@@ -334,7 +359,7 @@ interface SearchClassificationResponse {
 interface MusicBrainzArtist {
   id: string
   name: string
-  type?: string                     // person, group, etc.
+  type?: string // person, group, etc.
   score?: number
 }
 
@@ -377,7 +402,7 @@ interface DiscographySearchRequest {
   albumName: string
   artistName?: string
   maxConcurrent?: number
-  pageTimeout?: number              // ms
+  pageTimeout?: number // ms
 }
 
 interface DiscographySearchResponse {
@@ -405,17 +430,17 @@ interface DiscographySearchProgress {
 type TorrentStatus = 'pending' | 'downloading' | 'completed' | 'failed'
 
 interface TorrentDownloadRequest {
-  torrentId: string                 // RuTracker topic/torrent ID
+  torrentId: string // RuTracker topic/torrent ID
   pageUrl: string
   title?: string
-  projectDirectory?: string         // For saving download history
+  projectDirectory?: string // For saving download history
 }
 
 interface TorrentFile {
   id: string
   title: string
-  filePath?: string                 // Local path (for .torrent files)
-  magnetLink?: string               // Magnet link alternative
+  filePath?: string // Local path (for .torrent files)
+  magnetLink?: string // Magnet link alternative
   pageUrl: string
   downloadedAt: Date
   size?: number
@@ -447,7 +472,7 @@ interface CollectedTorrent {
   magnetLink: string
   title: string
   pageUrl: string
-  addedAt: string                   // ISO timestamp
+  addedAt: string // ISO timestamp
   metadata?: {
     size?: string
     sizeBytes?: number
@@ -489,40 +514,47 @@ interface CheckLocalTorrentResponse {
 // Status lifecycle: queued -> downloading -> seeding/completed/error
 //                   downloading <-> paused
 //                   queued -> awaiting-file-selection -> downloading
-type QueuedTorrentStatus = 'queued' | 'downloading' | 'seeding' | 'paused' | 'completed' | 'error' | 'awaiting-file-selection'
+type QueuedTorrentStatus =
+  | 'queued'
+  | 'downloading'
+  | 'seeding'
+  | 'paused'
+  | 'completed'
+  | 'error'
+  | 'awaiting-file-selection'
 
 interface TorrentContentFile {
   path: string
   name: string
-  size: number                      // bytes
-  downloaded: number                // bytes
-  progress: number                  // 0-100
+  size: number // bytes
+  downloaded: number // bytes
+  progress: number // 0-100
   selected: boolean
 }
 
 interface QueuedTorrent {
-  id: string                        // UUID
+  id: string // UUID
   projectId: string
   magnetUri: string
   infoHash: string
   name: string
   status: QueuedTorrentStatus
-  progress: number                  // 0-100
-  downloadSpeed: number             // bytes/sec
-  uploadSpeed: number               // bytes/sec
-  downloaded: number                // bytes
-  uploaded: number                  // bytes
-  totalSize: number                 // bytes
+  progress: number // 0-100
+  downloadSpeed: number // bytes/sec
+  uploadSpeed: number // bytes/sec
+  downloaded: number // bytes
+  uploaded: number // bytes
+  totalSize: number // bytes
   files: TorrentContentFile[]
   seeders: number
   leechers: number
   ratio: number
-  addedAt: string                   // ISO
+  addedAt: string // ISO
   startedAt?: string
   completedAt?: string
   downloadPath: string
   fromCollectedTorrentId?: string
-  torrentFilePath?: string          // .torrent file path if used
+  torrentFilePath?: string // .torrent file path if used
   error?: string
 }
 
@@ -558,8 +590,8 @@ interface AddTorrentResponse {
 }
 
 interface SelectTorrentFilesRequest {
-  id: string                        // QueuedTorrent.id
-  selectedFileIndices: number[]     // 0-based
+  id: string // QueuedTorrent.id
+  selectedFileIndices: number[] // 0-based
 }
 
 interface SelectTorrentFilesResponse {
@@ -568,10 +600,10 @@ interface SelectTorrentFilesResponse {
 }
 
 interface WebTorrentSettings {
-  maxConcurrentDownloads: number    // 1-10, default 3
-  seedAfterDownload: boolean        // default false
-  maxUploadSpeed: number            // bytes/sec, 0 = unlimited
-  maxDownloadSpeed: number          // bytes/sec, 0 = unlimited
+  maxConcurrentDownloads: number // 1-10, default 3
+  seedAfterDownload: boolean // default false
+  maxUploadSpeed: number // bytes/sec, 0 = unlimited
+  maxDownloadSpeed: number // bytes/sec, 0 = unlimited
 }
 
 interface TorrentActivityLogEntry {
@@ -596,23 +628,50 @@ interface TorrentMetadataResponse {
 }
 ```
 
+### Duplicate Detection (`duplicateDetection.types.ts`)
+
+```typescript
+interface AudioFileEntry {
+  normalizedName: string // Lowercase, no extension, no track number prefix
+  originalName: string // Original file name with extension
+}
+
+interface DuplicateCheckRequest {
+  projectDirectory: string
+  titles: { id: string; title: string }[]
+}
+
+interface DuplicateMatch {
+  resultId: string // Search result ID
+  matchedFiles: string[] // Matched audio files in the project
+  confidence: number // 0-100
+}
+
+interface DuplicateCheckResponse {
+  success: boolean
+  matches: DuplicateMatch[]
+  indexedFileCount: number // Number of audio files indexed
+  error?: string
+}
+```
+
 ### Audio Player (Zustand store, not in shared types)
 
 ```typescript
 interface Track {
   filePath: string
   name: string
-  duration?: number                 // seconds
+  duration?: number // seconds
 }
 
 interface AudioPlayerState {
   currentTrack: Track | null
   isPlaying: boolean
-  currentTime: number               // seconds
-  duration: number                  // seconds
-  volume: number                    // 0-1
+  currentTime: number // seconds
+  duration: number // seconds
+  volume: number // 0-1
   playlist: Track[]
-  currentIndex: number              // -1 if no playlist
+  currentIndex: number // -1 if no playlist
 
   // Actions
   playTrack: (track: Track) => void

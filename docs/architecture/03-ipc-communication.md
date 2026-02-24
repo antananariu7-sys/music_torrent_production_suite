@@ -46,6 +46,7 @@ All channel name constants are defined in `src/shared/constants.ts` under `IPC_C
 | `search:results`                   | --        | --                                                       | Partial results update                            | **[not implemented]**                                                            |
 | `search:error`                     | --        | --                                                       | Search error notification                         | **[not implemented]**                                                            |
 | `search:open-url`                  | R->M      | `api.search.openUrl(url)`                                | Open URL in external browser                      | `string` -> `{ success: boolean; error?: string }`                               |
+| `search:load-more`                 | R->M      | `api.search.loadMore(request)`                           | Load additional search result pages on demand     | `LoadMoreRequest` -> `LoadMoreResponse`                                          |
 | **Discography Search**             |           |                                                          |                                                   |                                                                                  |
 | `discography:search`               | R->M      | `api.discography.search(request)`                        | Search full discography for artist                | `DiscographySearchRequest` -> `DiscographySearchResponse`                        |
 | `discography:search-progress`      | M->R      | `api.discography.onProgress(callback)`                   | Discography search progress push event            | `DiscographySearchProgress` (returns cleanup fn)                                 |
@@ -86,6 +87,9 @@ All channel name constants are defined in `src/shared/constants.ts` under `IPC_C
 | `webtorrent:progress`              | M->R      | `api.webtorrent.onProgress(callback)`                    | Real-time progress broadcast (~1s interval)       | `QueuedTorrentProgress[]` (returns cleanup fn)                                   |
 | `webtorrent:status-change`         | M->R      | `api.webtorrent.onStatusChange(callback)`                | Torrent status change notification                | `QueuedTorrent` (returns cleanup fn)                                             |
 | `webtorrent:file-selection-needed` | M->R      | `api.webtorrent.onFileSelectionNeeded(callback)`         | Prompt user to select files for a torrent         | `{ id: string; name: string; files: TorrentContentFile[] }` (returns cleanup fn) |
+| **Duplicate Detection**            |           |                                                          |                                                   |                                                                                  |
+| `duplicate:check`                  | R->M      | `api.duplicate.check(request)`                           | Check search results against project audio files  | `DuplicateCheckRequest` -> `DuplicateCheckResponse`                              |
+| `duplicate:rescan`                 | R->M      | `api.duplicate.rescan(projectDirectory)`                 | Re-index project audio directory                  | `string` -> `DuplicateCheckResponse`                                             |
 | **Audio Playback**                 |           |                                                          |                                                   |                                                                                  |
 | `audio:read-file`                  | R->M      | `api.audio.readFile(filePath)`                           | Read audio file as base64 data URL                | `string` -> `{ success: boolean; dataUrl?: string; error?: string }`             |
 | **Stream Preview**                 |           |                                                          |                                                   |                                                                                  |
@@ -208,6 +212,7 @@ window.api.search.start() // Search namespace
 window.api.search.startProgressive()
 window.api.search.onProgress()
 window.api.search.openUrl()
+window.api.search.loadMore()
 window.api.discography.search() // Discography namespace
 window.api.discography.onProgress()
 window.api.musicBrainz.classifySearch() // MusicBrainz namespace
@@ -246,6 +251,8 @@ window.api.streamPreview.stop()
 window.api.streamPreview.onReady()
 window.api.streamPreview.onBuffering()
 window.api.streamPreview.onError()
+window.api.duplicate.check() // Duplicate detection namespace
+window.api.duplicate.rescan()
 ```
 
 ### IPC Handler Registration
@@ -256,7 +263,7 @@ All handlers are registered in `src/main/ipc/index.ts`, which calls registration
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/main/ipc/appHandlers.ts`             | `app:ready`, `settings:get`, `settings:set`, `file:select-directory`, `file:open-path`                                                                                                       |
 | `src/main/ipc/authHandlers.ts`            | `auth:login`, `auth:logout`, `auth:status`, `auth:debug`                                                                                                                                     |
-| `src/main/ipc/searchHandlers.ts`          | `search:start`, `search:start-progressive`, `search:open-url`, `discography:search`                                                                                                          |
+| `src/main/ipc/searchHandlers.ts`          | `search:start`, `search:start-progressive`, `search:open-url`, `search:load-more`, `discography:search`                                                                                      |
 | `src/main/ipc/projectHandlers.ts`         | `project:create`, `project:load`, `project:close`, `project:list`, `project:delete`, `project:delete-from-disk`                                                                              |
 | `src/main/ipc/torrentHandlers.ts`         | `torrent:download`, `torrent:get-history`, `torrent:clear-history`, `torrent:get-settings`, `torrent:update-settings`, `torrent:check-local-file`, `torrent:collection:*`, `searchHistory:*` |
 | `src/main/ipc/torrentMetadataHandlers.ts` | `torrent:parse-metadata`                                                                                                                                                                     |
@@ -264,6 +271,7 @@ All handlers are registered in `src/main/ipc/index.ts`, which calls registration
 | `src/main/ipc/musicBrainzHandlers.ts`     | `musicbrainz:*`                                                                                                                                                                              |
 | `src/main/ipc/audioHandlers.ts`           | `audio:read-file`                                                                                                                                                                            |
 | `src/main/ipc/streamPreviewHandlers.ts`   | `stream-preview:start`, `stream-preview:stop`, `stream-preview:ready`, `stream-preview:buffering`, `stream-preview:error`                                                                    |
+| `src/main/ipc/duplicateHandlers.ts`       | `duplicate:check`, `duplicate:rescan`                                                                                                                                                        |
 
 ### Validation Strategy
 

@@ -23,7 +23,10 @@
 | ----------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
 | Stream preview service        | `StreamPreviewService.ts`                                                                                 | New feature, 253 lines, zero tests                       |
 | Mix export orchestrator       | `MixExportService.ts`                                                                                     | 310 lines, sub-components tested but coordination is not |
-| Shared utils                  | `resultClassifier.ts`, `songMatcher.ts`                                                                   | Pure functions, trivially testable                       |
+| Shared utils                  | `resultClassifier.ts`, `songMatcher.ts`, `flacImageDetector.ts`, `trackMatcher.ts`                        | Pure functions, trivially testable                       |
+| Search table hook             | `useSearchTableState.ts`                                                                                  | Complex business logic: sort, filter, pagination, groups |
+| Duplicate detection           | `DuplicateDetectionService.ts`                                                                            | FS scanning, fuzzy matching, cache logic                 |
+| Load more results             | `RuTrackerSearchService.loadMoreResults()`                                                                | Pagination, batching, deduplication                      |
 | Shared schemas                | `project.schema.ts`, `torrent.schema.ts`, `search.schema.ts`, `mixExport.schema.ts`, `waveform.schema.ts` | Zod `refine()` validators untested                       |
 | Torrent metadata service      | `TorrentMetadataService.ts`                                                                               | Cache logic + auth guard                                 |
 | MusicBrainz API client        | `MusicBrainzApiClient.ts`, `albumSearch.ts`, `classifySearch.ts`, `artistAlbums.ts`                       | Rate limiting, retry, classification                     |
@@ -398,19 +401,189 @@ export function parseFfmpegVersion(output: string): string | null
 
 ---
 
-## Implementation Order
+---
 
-| Phase | Files                                                                                            | New test cases | Effort                          |
-| ----- | ------------------------------------------------------------------------------------------------ | -------------- | ------------------------------- |
-| **1** | `resultClassifier.spec.ts`, `songMatcher.spec.ts`, `urlBuilder.spec.ts`                          | ~33            | Low — pure functions, no mocks  |
-| **2** | `StreamPreviewService.spec.ts`                                                                   | ~18            | Medium — mock WebTorrent client |
-| **3** | `MixExportService.spec.ts`                                                                       | ~14            | Medium — mock sub-services      |
-| **4** | `project.schema.spec.ts`, `torrent.schema.spec.ts`, `mixExport.schema.spec.ts`                   | ~17            | Low — `.safeParse()` calls      |
-| **5** | `torrentFileFinder.spec.ts`, `audioFolderSync.spec.ts`, `ffmpegVersion.spec.ts`                  | ~19            | Medium — extract + test         |
-| **6** | `TorrentMetadataService.spec.ts`, `DownloadHistoryManager.spec.ts`, `SessionPersistence.spec.ts` | ~22            | Medium — mock FS/browser        |
-| **7** | `MusicBrainzApiClient.spec.ts`                                                                   | ~8             | Medium — mock HTTP              |
+## Search Results Table — Test Coverage Extension
 
-**Total: ~131 new test cases across 13 new spec files + 3 extracted utility modules**
+Added 2026-02-24 after the Search Results Table feature (9 phases) was completed. The feature introduced new shared utils, a service, and a React hook with significant business logic.
+
+**Existing coverage**: `nonAudioDetector.spec.ts` (81 test cases in `src/shared/utils/__tests__/`).
+
+### ST-1: Pure Functions — `flacImageDetector.spec.ts`
+
+**Target:** `src/shared/utils/flacImageDetector.ts`
+**Exports:** `isFlacImage(result: SearchResult): boolean`
+
+**Test cases (~12):**
+
+- **Keyword detection (title):**
+  - Title contains "image" → true
+  - Title contains "img" → true
+  - Title contains "cue" → true
+  - Title contains "образ" (Cyrillic) → true
+  - Title contains "ape+cue" → true
+  - Title contains "flac+cue" → true
+  - Title with keyword as substring in unrelated word → verify behavior
+  - Title without any keywords, small size → false
+
+- **Large file detection (size + format):**
+  - FLAC format, 600MB → true
+  - APE format, 600MB → true
+  - FLAC format, 400MB (below threshold) → false
+  - MP3 format, 600MB → false (only FLAC/APE trigger size check)
+  - FLAC format, no sizeBytes → false
+
+### ST-2: Pure Functions — `trackMatcher.spec.ts`
+
+**Target:** `src/shared/utils/trackMatcher.ts`
+**Exports:** `normalizeForComparison(name)`, `calculateSimilarity(a, b)`, `DUPLICATE_THRESHOLD`
+
+**Test cases (~18):**
+
+- **normalizeForComparison:**
+  - Strips file extension: `"song.mp3"` → `"song"`
+  - Strips leading track number: `"01 - Song Name"` → `"song name"`
+  - Strips bracketed content: `"Song [Bonus]"` → `"song"`
+  - Strips parenthetical content: `"Song (Live)"` → `"song"`
+  - Strips format tags: `"Song FLAC 320kbps"` → `"song"`
+  - Replaces punctuation: `"don't"` → `"don t"`
+  - Collapses whitespace: `"  Song   Name  "` → `"song name"`
+  - Empty string → `""`
+  - Complex combined: `"01. Artist - Song Name [FLAC].flac"` → `"artist song name"`
+
+- **calculateSimilarity:**
+  - Empty strings → 0
+  - Identical strings → 100
+  - One contains the other → ratio-based score (>0, <100)
+  - Completely different → low score
+  - Token overlap: shared 2 of 3 tokens → ~67
+  - Single-character tokens filtered out → 0 if only short tokens
+  - Symmetry: `similarity(a, b) === similarity(b, a)`
+
+- **DUPLICATE_THRESHOLD:** equals 85
+
+### ST-3: Pure Functions — `resultClassifier.spec.ts` + `songMatcher.spec.ts`
+
+Already covered in original Tier 1 (sections 1.1 and 1.2). No changes needed.
+
+### ST-4: Service — `DuplicateDetectionService.spec.ts`
+
+**Target:** `src/main/services/DuplicateDetectionService.ts`
+**Mock:** `fs.readdirSync`, `fs.statSync` (or use temp dir with real FS)
+
+**Test cases (~14):**
+
+- **indexAudioDirectory (via check):**
+  - Directory with mixed files → only audio extensions indexed (.mp3, .flac, .wav, .ogg, .m4a, .aac, .opus, .ape, .wma, .alac)
+  - Non-audio files (.txt, .jpg, .pdf) → excluded
+  - Empty directory → empty index
+  - Non-existent directory → returns empty, no throw
+  - Cache hit: same mtime → reuses cached entries
+  - Cache miss: changed mtime → re-scans
+
+- **check:**
+  - No audio files in directory → `{ success: true, matches: [], indexedFileCount: 0 }`
+  - Title matches file at ≥85% similarity → included in matches with confidence
+  - Title below threshold → not included
+  - Multiple files match same title → all listed in matchedFiles
+  - Multiple titles checked → independent matches for each
+  - Best score tracked correctly (highest similarity wins)
+
+- **rescan:**
+  - Invalidates cache → next check re-indexes
+  - Returns `indexedFileCount` from fresh scan
+
+### ST-5: Service Method — `RuTrackerSearchService.loadMoreResults` (add to existing spec)
+
+**Target:** `src/main/services/RuTrackerSearchService.ts` → `loadMoreResults()`
+**Add to:** `src/main/services/RuTrackerSearchService.spec.ts`
+
+**Test cases (~12):**
+
+- Not logged in → `{ success: false, error: "User is not logged in." }`
+- Valid request (pages 11-15) → creates correct page range array
+- First page determines totalPagesAvailable via `getTotalPages()`
+- Relevance scores applied to loaded results
+- Filters applied when provided
+- Deduplication: results with same ID from different pages → only first kept
+- Batch concurrency: max 3 concurrent browser pages created
+- Page navigation error in batch → skipped, other pages still processed
+- `isComplete: true` when `toPage >= totalPagesAvailable`
+- `isComplete: false` when more pages available
+- Empty results from a page → no error, loadedCount still incremented
+- Browser/session error → returns `{ success: false }` with error message
+
+### ST-6: React Hook — `useSearchTableState` (business logic extraction)
+
+**Target:** `src/renderer/components/features/search/hooks/useSearchTableState.ts`
+
+The hook contains significant business logic: filtering, grouping, sorting (3-level priority), pagination, and row flattening. Two testing approaches:
+
+**Option A: Test with `@testing-library/react` renderHook** (recommended — tests the actual hook)
+
+**Test cases (~20):**
+
+- **Filtering:**
+  - Empty filter → all results visible
+  - Filter "foo" → only results with "foo" in title (case-insensitive)
+  - Filter change resets page to 1 and collapses expanded row
+
+- **Non-audio hiding:**
+  - Non-audio results excluded from rows by default
+  - `hiddenCount` reflects excluded count
+  - `onToggleHidden()` → hidden results appear as separate group at bottom
+
+- **Grouping:**
+  - Results classified into studio/live/compilation/other groups
+  - Fixed group order: studio → live → compilation → other
+  - Groups with 0 results hidden (no group header row)
+  - Total results < 5 → flat table (no group headers)
+
+- **Sorting:**
+  - Default sort: relevance descending
+  - Click column → ascending
+  - Click same column again → descending
+  - Click same column third time → reset to default (relevance desc)
+  - Click different column → ascending on new column, click count resets
+  - FLAC images always at bottom within group regardless of sort
+  - Discography tab: matched results above unmatched (3-level sort)
+
+- **Pagination:**
+  - Default page size 20
+  - Results sliced correctly for page 1, page 2, etc.
+  - `totalPages` computed correctly (ceil of filteredCount / pageSize)
+  - Sort change resets to page 1
+
+- **Row expansion:**
+  - `expandedRowId` null by default
+  - `onToggleExpand(id)` → expands row
+  - Expand different row → previous collapses
+  - Expand same row → collapses
+
+**Option B: Extract sorting/grouping into pure functions** (lower effort but less coverage)
+Extract `sortWithinGroup`, `buildRows`, `classifyAndGroup` into testable pure functions.
+
+**Recommendation:** Option A with renderHook for full coverage.
+
+---
+
+## Implementation Order (Updated)
+
+| Phase  | Files                                                                                            | New test cases | Effort                          |
+| ------ | ------------------------------------------------------------------------------------------------ | -------------- | ------------------------------- |
+| **1**  | `resultClassifier.spec.ts`, `songMatcher.spec.ts`, `urlBuilder.spec.ts`                          | ~33            | Low — pure functions, no mocks  |
+| **1b** | `flacImageDetector.spec.ts`, `trackMatcher.spec.ts`                                              | ~30            | Low — pure functions, no mocks  |
+| **2**  | `StreamPreviewService.spec.ts`                                                                   | ~18            | Medium — mock WebTorrent client |
+| **2b** | `DuplicateDetectionService.spec.ts`                                                              | ~14            | Medium — mock FS                |
+| **2c** | `RuTrackerSearchService.spec.ts` — add `loadMoreResults` tests                                   | ~12            | Medium — extend existing spec   |
+| **3**  | `MixExportService.spec.ts`                                                                       | ~14            | Medium — mock sub-services      |
+| **3b** | `useSearchTableState.spec.ts` (renderHook)                                                       | ~20            | Medium — @testing-library/react |
+| **4**  | `project.schema.spec.ts`, `torrent.schema.spec.ts`, `mixExport.schema.spec.ts`                   | ~17            | Low — `.safeParse()` calls      |
+| **5**  | `torrentFileFinder.spec.ts`, `audioFolderSync.spec.ts`, `ffmpegVersion.spec.ts`                  | ~19            | Medium — extract + test         |
+| **6**  | `TorrentMetadataService.spec.ts`, `DownloadHistoryManager.spec.ts`, `SessionPersistence.spec.ts` | ~22            | Medium — mock FS/browser        |
+| **7**  | `MusicBrainzApiClient.spec.ts`                                                                   | ~8             | Medium — mock HTTP              |
+
+**Total: ~207 new test cases across 17 new spec files + 3 extracted utility modules**
 
 ---
 
@@ -428,3 +601,4 @@ After each phase:
 - Test runner: `yarn test:main` with `jest.config.main.ts`
 - Flag: `--testPathPatterns <pattern>` for running specific tests
 - Mock patterns: follow existing specs (e.g., `ProjectService.spec.ts` for service mocking, `torrentHelpers.spec.ts` for pure function testing)
+- React hook testing: `@testing-library/react` `renderHook` for `useSearchTableState`

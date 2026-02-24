@@ -1,8 +1,9 @@
 # Search Results Table — Implementation Plan
 
 **Date:** 2026-02-24
-**Status:** Draft
-**Feature spec:** [docs/features/search-results-table.md](../search-results-table.md)
+**Status:** Done (2026-02-24)
+**Feature spec:** [docs/features/done/search-results-table.md](../search-results-table.md)
+**Note:** Page size ConfigService persistence (Phase 5) deferred as minor follow-up.
 
 ---
 
