@@ -1,6 +1,11 @@
 import { memo } from 'react'
-import { Box, Table, Text } from '@chakra-ui/react'
-import type { SearchResult } from '@shared/types/search.types'
+import { Box, Table, Text, HStack, Icon } from '@chakra-ui/react'
+import { FiChevronDown, FiChevronRight } from 'react-icons/fi'
+import type { SearchResult, ResultGroup } from '@shared/types/search.types'
+import {
+  useSearchTableState,
+  type SortColumn,
+} from './hooks/useSearchTableState'
 import { SearchResultsRow } from './SearchResultsRow'
 
 interface SearchResultsTableProps {
@@ -9,11 +14,63 @@ interface SearchResultsTableProps {
   isDownloading?: boolean
 }
 
+const GROUP_LABELS: Record<ResultGroup, string> = {
+  studio: 'Studio Albums',
+  live: 'Live / Concerts',
+  compilation: 'Compilations',
+  discography: 'Discography',
+  other: 'Other',
+}
+
+const SORTABLE_COLUMNS: {
+  key: SortColumn
+  label: string
+  w?: string
+  tooltip?: string
+}[] = [
+  { key: 'title', label: 'Title' },
+  { key: 'size', label: 'Size', w: '90px' },
+  { key: 'seeders', label: 'S/L', w: '110px' },
+  {
+    key: 'relevance',
+    label: 'Relevance',
+    w: '80px',
+    tooltip:
+      'Score 0\u2013100: title match (up to +40), seeder count (+1\u201330 log scale), lossless format bonus (+10)',
+  },
+]
+
+function SortIndicator({
+  column,
+  activeColumn,
+  direction,
+}: {
+  column: SortColumn
+  activeColumn: SortColumn
+  direction: 'asc' | 'desc'
+}) {
+  if (column !== activeColumn) return null
+  return (
+    <Text as="span" ml={1} fontSize="xs">
+      {direction === 'asc' ? '▲' : '▼'}
+    </Text>
+  )
+}
+
 export const SearchResultsTable = memo(function SearchResultsTable({
   results,
   onSelectTorrent,
   isDownloading,
 }: SearchResultsTableProps) {
+  const {
+    rows,
+    sortColumn,
+    sortDirection,
+    onSort,
+    onToggleGroup,
+    isGroupCollapsed,
+  } = useSearchTableState(results)
+
   if (results.length === 0) {
     return (
       <Box py={8} textAlign="center">
@@ -29,23 +86,72 @@ export const SearchResultsTable = memo(function SearchResultsTable({
       <Table.Root size="sm" variant="outline">
         <Table.Header>
           <Table.Row>
-            <Table.ColumnHeader>Title</Table.ColumnHeader>
-            <Table.ColumnHeader w="90px">Size</Table.ColumnHeader>
-            <Table.ColumnHeader w="110px">S/L</Table.ColumnHeader>
-            <Table.ColumnHeader w="80px">Relevance</Table.ColumnHeader>
+            {SORTABLE_COLUMNS.map((col) => (
+              <Table.ColumnHeader
+                key={col.key}
+                w={col.w}
+                cursor="pointer"
+                onClick={() => onSort(col.key)}
+                _hover={{ color: 'text.primary' }}
+                userSelect="none"
+                title={col.tooltip}
+              >
+                {col.label}
+                <SortIndicator
+                  column={col.key}
+                  activeColumn={sortColumn}
+                  direction={sortDirection}
+                />
+              </Table.ColumnHeader>
+            ))}
             <Table.ColumnHeader w="70px">Format</Table.ColumnHeader>
             <Table.ColumnHeader w="100px">Actions</Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
         <Table.Body>
-          {results.map((torrent) => (
-            <SearchResultsRow
-              key={torrent.id}
-              torrent={torrent}
-              onSelect={onSelectTorrent}
-              isDownloading={isDownloading}
-            />
-          ))}
+          {rows.map((row) => {
+            if (row.type === 'group') {
+              const collapsed = isGroupCollapsed(row.group)
+              return (
+                <Table.Row
+                  key={`group-${row.group}`}
+                  bg="bg.surface"
+                  cursor="pointer"
+                  onClick={() => onToggleGroup(row.group)}
+                  _hover={{ bg: 'bg.elevated' }}
+                >
+                  <Table.Cell colSpan={6} py={1.5}>
+                    <HStack gap={2} color="text.muted">
+                      <Icon
+                        as={collapsed ? FiChevronRight : FiChevronDown}
+                        boxSize={3.5}
+                      />
+                      <Text
+                        fontSize="xs"
+                        fontWeight="semibold"
+                        textTransform="uppercase"
+                        letterSpacing="wide"
+                      >
+                        {GROUP_LABELS[row.group]}
+                      </Text>
+                      <Text fontSize="xs" color="text.muted">
+                        ({row.count})
+                      </Text>
+                    </HStack>
+                  </Table.Cell>
+                </Table.Row>
+              )
+            }
+
+            return (
+              <SearchResultsRow
+                key={row.result.id}
+                torrent={row.result}
+                onSelect={onSelectTorrent}
+                isDownloading={isDownloading}
+              />
+            )
+          })}
         </Table.Body>
       </Table.Root>
     </Box>
