@@ -8,15 +8,11 @@ const config: Config = {
   // Test file patterns for main process
   testMatch: [
     '<rootDir>/src/main/**/*.{test,spec}.{ts,tsx}',
+    '<rootDir>/src/shared/**/*.{test,spec}.{ts,tsx}',
   ],
 
   // Files to ignore
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    '/dist/',
-    '/build/',
-    '/.claude/',
-  ],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '/build/', '/.claude/'],
 
   // Module resolution
   moduleNameMapper: {
@@ -34,13 +30,16 @@ const config: Config = {
 
   // Transform configuration
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: {
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        isolatedModules: true,
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          esModuleInterop: true,
+          allowSyntheticDefaultImports: true,
+          isolatedModules: true,
+        },
       },
-    }],
+    ],
   },
 
   // Module file extensions
