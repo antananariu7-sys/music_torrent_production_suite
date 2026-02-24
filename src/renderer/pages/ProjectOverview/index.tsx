@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { VStack, HStack, Box, Icon, Text, Button } from '@chakra-ui/react'
+import {
+  VStack,
+  HStack,
+  Box,
+  Icon,
+  Text,
+  Button,
+  Spinner,
+} from '@chakra-ui/react'
 import { FiSearch, FiDownload, FiMusic, FiActivity } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useCollectionCount } from '@/store/torrentCollectionStore'
@@ -22,22 +30,35 @@ interface ProjectOverviewProps {
   appInfo: AppInfo | null
 }
 
-export default function ProjectOverview({ appInfo }: ProjectOverviewProps): JSX.Element | null {
+export default function ProjectOverview({
+  appInfo,
+}: ProjectOverviewProps): JSX.Element | null {
   const navigate = useNavigate()
   const currentProject = useProjectStore((state) => state.currentProject)
+  const isLoading = useProjectStore((state) => state.isLoading)
   const collectionCount = useCollectionCount()
   const [activeTab, setActiveTab] = useState<TabValue>('search')
 
-  // Route guard: redirect to launcher if no project loaded
+  // Route guard: redirect to launcher if no project loaded (but not during loading)
   useEffect(() => {
-    if (!currentProject) {
+    if (!currentProject && !isLoading) {
       navigate('/', { replace: true })
     }
-  }, [currentProject, navigate])
+  }, [currentProject, isLoading, navigate])
 
-  // Return null while redirecting
   if (!currentProject) {
-    return null
+    return (
+      <PageLayout appInfo={appInfo} customStyles={projectOverviewStyles}>
+        <Box textAlign="center" py={20}>
+          <VStack gap={4}>
+            <Spinner size="xl" color="brand.500" borderWidth="3px" />
+            <Text fontSize="sm" fontFamily="monospace" color="text.secondary">
+              LOADING PROJECT...
+            </Text>
+          </VStack>
+        </Box>
+      </PageLayout>
+    )
   }
 
   // Calculate statistics
@@ -45,15 +66,29 @@ export default function ProjectOverview({ appInfo }: ProjectOverviewProps): JSX.
   const totalSize = calculateTotalSize(currentProject.songs)
   const formats = getUniqueFormats(currentProject.songs)
 
-  const tabs: { value: TabValue; label: string; icon: typeof FiSearch; badge?: number }[] = [
+  const tabs: {
+    value: TabValue
+    label: string
+    icon: typeof FiSearch
+    badge?: number
+  }[] = [
     { value: 'search', label: 'Search', icon: FiSearch },
-    { value: 'torrent', label: 'Torrent', icon: FiDownload, badge: collectionCount },
+    {
+      value: 'torrent',
+      label: 'Torrent',
+      icon: FiDownload,
+      badge: collectionCount,
+    },
     { value: 'mix', label: 'Mix', icon: FiMusic },
     { value: 'timeline', label: 'Timeline', icon: FiActivity },
   ]
 
   return (
-    <PageLayout appInfo={appInfo} maxW="container.xl" customStyles={projectOverviewStyles}>
+    <PageLayout
+      appInfo={appInfo}
+      maxW="container.xl"
+      customStyles={projectOverviewStyles}
+    >
       <VStack gap={6} align="stretch">
         {/* Project Header */}
         <ProjectHeader
@@ -98,7 +133,9 @@ export default function ProjectOverview({ appInfo }: ProjectOverviewProps): JSX.
                   {tab.badge !== undefined && tab.badge > 0 && (
                     <Text
                       fontSize="xs"
-                      bg={activeTab === tab.value ? 'white' : 'interactive.base'}
+                      bg={
+                        activeTab === tab.value ? 'white' : 'interactive.base'
+                      }
                       color={activeTab === tab.value ? 'blue.600' : 'white'}
                       px={1.5}
                       py={0.5}

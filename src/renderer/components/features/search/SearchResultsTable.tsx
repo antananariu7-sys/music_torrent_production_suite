@@ -2,23 +2,36 @@ import { memo } from 'react'
 import { Box, Table, Text, HStack, Icon } from '@chakra-ui/react'
 import { FiChevronDown, FiChevronRight } from 'react-icons/fi'
 import type { SearchResult, ResultGroup } from '@shared/types/search.types'
+import type { PageContentScanResult } from '@shared/types/discography.types'
 import {
   useSearchTableState,
   type SortColumn,
 } from './hooks/useSearchTableState'
 import { SearchResultsRow } from './SearchResultsRow'
+import type { SearchTabType } from './SearchResultsTabs'
 
 interface SearchResultsTableProps {
   results: SearchResult[]
   onSelectTorrent?: (torrent: SearchResult) => void
   isDownloading?: boolean
+  tabType?: SearchTabType
+  scanResultsMap?: Map<string, PageContentScanResult>
+  emptyMessage?: string
 }
 
-const GROUP_LABELS: Record<ResultGroup, string> = {
+const ALBUM_GROUP_LABELS: Record<ResultGroup, string> = {
   studio: 'Studio Albums',
   live: 'Live / Concerts',
   compilation: 'Compilations',
   discography: 'Discography',
+  other: 'Other',
+}
+
+const DISCO_GROUP_LABELS: Record<ResultGroup, string> = {
+  studio: 'Studio Releases',
+  live: 'Live Recordings',
+  compilation: 'Compilations',
+  discography: 'Collections',
   other: 'Other',
 }
 
@@ -61,6 +74,9 @@ export const SearchResultsTable = memo(function SearchResultsTable({
   results,
   onSelectTorrent,
   isDownloading,
+  tabType,
+  scanResultsMap,
+  emptyMessage = 'No results found.',
 }: SearchResultsTableProps) {
   const {
     rows,
@@ -71,11 +87,15 @@ export const SearchResultsTable = memo(function SearchResultsTable({
     isGroupCollapsed,
   } = useSearchTableState(results)
 
+  const groupLabels =
+    tabType === 'discography' ? DISCO_GROUP_LABELS : ALBUM_GROUP_LABELS
+  const isDiscographyTab = tabType === 'discography'
+
   if (results.length === 0) {
     return (
       <Box py={8} textAlign="center">
         <Text color="text.muted" fontSize="sm">
-          No results found.
+          {emptyMessage}
         </Text>
       </Box>
     )
@@ -104,7 +124,9 @@ export const SearchResultsTable = memo(function SearchResultsTable({
                 />
               </Table.ColumnHeader>
             ))}
-            <Table.ColumnHeader w="70px">Format</Table.ColumnHeader>
+            <Table.ColumnHeader w={isDiscographyTab ? '100px' : '70px'}>
+              {isDiscographyTab ? 'Match' : 'Format'}
+            </Table.ColumnHeader>
             <Table.ColumnHeader w="100px">Actions</Table.ColumnHeader>
           </Table.Row>
         </Table.Header>
@@ -132,7 +154,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
                         textTransform="uppercase"
                         letterSpacing="wide"
                       >
-                        {GROUP_LABELS[row.group]}
+                        {groupLabels[row.group]}
                       </Text>
                       <Text fontSize="xs" color="text.muted">
                         ({row.count})
@@ -149,6 +171,8 @@ export const SearchResultsTable = memo(function SearchResultsTable({
                 torrent={row.result}
                 onSelect={onSelectTorrent}
                 isDownloading={isDownloading}
+                tabType={tabType}
+                scanResult={scanResultsMap?.get(row.result.id)}
               />
             )
           })}

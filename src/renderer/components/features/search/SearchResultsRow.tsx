@@ -2,11 +2,15 @@ import { memo, useCallback } from 'react'
 import { Table, Text, HStack, IconButton, Badge } from '@chakra-ui/react'
 import { FiExternalLink, FiChevronDown, FiDownload } from 'react-icons/fi'
 import type { SearchResult } from '@shared/types/search.types'
+import type { PageContentScanResult } from '@shared/types/discography.types'
+import type { SearchTabType } from './SearchResultsTabs'
 
 interface SearchResultsRowProps {
   torrent: SearchResult
   onSelect?: (torrent: SearchResult) => void
   isDownloading?: boolean
+  tabType?: SearchTabType
+  scanResult?: PageContentScanResult
 }
 
 function formatSize(bytes: number): string {
@@ -44,10 +48,22 @@ function getRelevanceColor(score?: number): string {
   return 'red'
 }
 
+function getMatchBadgeText(scanResult?: PageContentScanResult): string | null {
+  if (!scanResult?.albumFound) return null
+  const firstMatch = scanResult.matchedAlbums[0]
+  return firstMatch?.title ?? null
+}
+
+function truncate(text: string, maxLen: number): string {
+  return text.length > maxLen ? text.slice(0, maxLen) + '\u2026' : text
+}
+
 export const SearchResultsRow = memo(function SearchResultsRow({
   torrent,
   onSelect,
   isDownloading,
+  tabType,
+  scanResult,
 }: SearchResultsRowProps) {
   const handleOpenPage = useCallback(
     (e: React.MouseEvent) => {
@@ -64,6 +80,9 @@ export const SearchResultsRow = memo(function SearchResultsRow({
     },
     [isDownloading, onSelect, torrent]
   )
+
+  const isDiscographyTab = tabType === 'discography'
+  const matchText = isDiscographyTab ? getMatchBadgeText(scanResult) : null
 
   return (
     <Table.Row _hover={{ bg: 'bg.elevated' }} cursor="pointer">
@@ -118,9 +137,25 @@ export const SearchResultsRow = memo(function SearchResultsRow({
         )}
       </Table.Cell>
 
-      {/* Format */}
+      {/* Format (album tab) or Match (discography tab) */}
       <Table.Cell>
-        {torrent.format ? (
+        {isDiscographyTab ? (
+          matchText ? (
+            <Badge
+              size="sm"
+              colorPalette="green"
+              variant="subtle"
+              title={matchText}
+            >
+              {'\u2705 '}
+              {truncate(matchText, 15)}
+            </Badge>
+          ) : (
+            <Text fontSize="sm" color="text.muted">
+              —
+            </Text>
+          )
+        ) : torrent.format ? (
           <Badge
             size="sm"
             colorPalette={getFormatBadgeColor(torrent.format)}

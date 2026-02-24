@@ -23,7 +23,7 @@ import type {
 import { DiscographyScanPanel } from './DiscographyScanPanel'
 import { ClassificationItem } from './components/ClassificationItem'
 import { AlbumItem } from './components/AlbumItem'
-import { SearchResultsTable } from './SearchResultsTable'
+import { SearchResultsTabs } from './SearchResultsTabs'
 
 interface InlineSearchResultsProps {
   step: 'classification' | 'albums' | 'torrents'
@@ -211,10 +211,11 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
               />
             )}
 
-          <SearchResultsTable
+          <SearchResultsTabs
             results={torrents}
             onSelectTorrent={onSelectTorrent}
             isDownloading={isDownloading}
+            discographyScanResults={discographyScanResults}
           />
         </VStack>
       )}

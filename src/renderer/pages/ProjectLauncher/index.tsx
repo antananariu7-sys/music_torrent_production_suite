@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, SimpleGrid, VStack, Spinner, Text } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
@@ -48,15 +48,22 @@ export default function ProjectLauncher({
 
   const allTorrents = useQueuedTorrents()
 
+  // Track when navigating away to prevent loading spinner flash
+  const isOpeningProject = useRef(false)
+
   const handleCreateProject = async (
     name: string,
     location: string,
     description?: string
   ) => {
+    isOpeningProject.current = true
+    navigate('/project')
     await createProject(name, location, description)
   }
 
   const handleOpenRecent = async (projectDirectory: string) => {
+    isOpeningProject.current = true
+    navigate('/project')
     const filePath = `${projectDirectory}/project.json`
     await openProject(filePath)
   }
@@ -64,83 +71,85 @@ export default function ProjectLauncher({
   const handleBrowseProject = async () => {
     const directory = await window.api.selectDirectory()
     if (directory) {
+      isOpeningProject.current = true
+      navigate('/project')
       const filePath = `${directory}/project.json`
       await openProject(filePath)
     }
   }
 
   return (
-    <PageLayout appInfo={appInfo} maxW="container.xl" customStyles={projectLauncherStyles} showFrequencyBars>
-        {/* Header Section */}
-        <LauncherHeader />
+    <PageLayout
+      appInfo={appInfo}
+      maxW="container.xl"
+      customStyles={projectLauncherStyles}
+      showFrequencyBars
+    >
+      {/* Header Section */}
+      <LauncherHeader />
 
-        {/* Error Message */}
-        <ErrorAlert
-          error={error}
-          onClose={clearError}
-          testId="launcher-error"
+      {/* Error Message */}
+      <ErrorAlert error={error} onClose={clearError} testId="launcher-error" />
+
+      {/* Loading State (only for initial load, not when opening a project) */}
+      {isLoading && !isOpeningProject.current && (
+        <Box
+          data-testid="launcher-section-loading"
+          textAlign="center"
+          py={16}
+          className="action-section"
+        >
+          <VStack gap={4}>
+            <Spinner
+              data-testid="launcher-spinner"
+              size="xl"
+              color="brand.500"
+              borderWidth="3px"
+            />
+            <Text
+              data-testid="launcher-text-loading"
+              fontSize="sm"
+              fontFamily="monospace"
+              color="text.secondary"
+              letterSpacing="wide"
+            >
+              LOADING PROJECTS...
+            </Text>
+          </VStack>
+        </Box>
+      )}
+
+      {/* Main Actions */}
+      {(!isLoading || isOpeningProject.current) && (
+        <Box className="action-section" mb={16}>
+          <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
+            <CreateProjectCard
+              onCreateProject={handleCreateProject}
+              isLoading={isLoading}
+            />
+            <OpenProjectCard
+              onBrowseProject={handleBrowseProject}
+              isLoading={isLoading}
+            />
+          </SimpleGrid>
+        </Box>
+      )}
+
+      {/* Active Downloads */}
+      {(!isLoading || isOpeningProject.current) && allTorrents.length > 0 && (
+        <Box mb={10}>
+          <DownloadQueue />
+        </Box>
+      )}
+
+      {/* Recent Projects */}
+      {(!isLoading || isOpeningProject.current) && (
+        <RecentProjectsSection
+          projects={recentProjects}
+          onOpenProject={handleOpenRecent}
+          isLoading={isLoading}
         />
-
-        {/* Loading State */}
-        {isLoading && (
-          <Box
-            data-testid="launcher-section-loading"
-            textAlign="center"
-            py={16}
-            className="action-section"
-          >
-            <VStack gap={4}>
-              <Spinner
-                data-testid="launcher-spinner"
-                size="xl"
-                color="brand.500"
-                borderWidth="3px"
-              />
-              <Text
-                data-testid="launcher-text-loading"
-                fontSize="sm"
-                fontFamily="monospace"
-                color="text.secondary"
-                letterSpacing="wide"
-              >
-                LOADING PROJECTS...
-              </Text>
-            </VStack>
-          </Box>
-        )}
-
-        {/* Main Actions */}
-        {!isLoading && (
-          <Box className="action-section" mb={16}>
-            <SimpleGrid columns={{ base: 1, md: 2 }} gap={6}>
-              <CreateProjectCard
-                onCreateProject={handleCreateProject}
-                isLoading={isLoading}
-              />
-              <OpenProjectCard
-                onBrowseProject={handleBrowseProject}
-                isLoading={isLoading}
-              />
-            </SimpleGrid>
-          </Box>
-        )}
-
-        {/* Active Downloads */}
-        {!isLoading && allTorrents.length > 0 && (
-          <Box mb={10}>
-            <DownloadQueue />
-          </Box>
-        )}
-
-        {/* Recent Projects */}
-        {!isLoading && (
-          <RecentProjectsSection
-            projects={recentProjects}
-            onOpenProject={handleOpenRecent}
-            isLoading={isLoading}
-          />
-        )}
-
+      )}
     </PageLayout>
   )
 }
