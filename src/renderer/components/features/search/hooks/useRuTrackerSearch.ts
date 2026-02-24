@@ -1,10 +1,18 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
 
 export interface UseRuTrackerSearchDeps {
-  addActivityLog: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void
+  addActivityLog: (
+    message: string,
+    type: 'info' | 'success' | 'warning' | 'error'
+  ) => void
   setRuTrackerResults: (query: string, results: SearchResult[]) => void
+  setDiscoSearchMeta: (
+    query: string,
+    loadedPages: number,
+    totalPages: number
+  ) => void
   setError: (error: string) => void
 }
 
@@ -14,13 +22,25 @@ export interface UseRuTrackerSearchDeps {
  * Handles the parallel RuTracker search: direct album search + progressive discography search.
  * Returns a `searchRuTracker` callback and the current progress state.
  */
-export function useRuTrackerSearch({ addActivityLog, setRuTrackerResults, setError }: UseRuTrackerSearchDeps) {
-  const [searchProgress, setSearchProgress] = useState<{ currentPage: number; totalPages: number } | null>(null)
+export function useRuTrackerSearch({
+  addActivityLog,
+  setRuTrackerResults,
+  setDiscoSearchMeta,
+  setError,
+}: UseRuTrackerSearchDeps) {
+  const [searchProgress, setSearchProgress] = useState<{
+    currentPage: number
+    totalPages: number
+  } | null>(null)
+  const discoTotalPagesRef = useRef(0)
 
   const searchRuTracker = async (album: MusicBrainzAlbum) => {
+    discoTotalPagesRef.current = 0
     try {
       addActivityLog('Creating optimized RuTracker search query...', 'info')
-      const queryResponse = await window.api.musicBrainz.createRuTrackerQuery(album.id)
+      const queryResponse = await window.api.musicBrainz.createRuTrackerQuery(
+        album.id
+      )
 
       if (!queryResponse.success || !queryResponse.data) {
         addActivityLog('Failed to create RuTracker query', 'error')
@@ -31,11 +51,21 @@ export function useRuTrackerSearch({ addActivityLog, setRuTrackerResults, setErr
       const albumQuery = queryResponse.data
       const discographyQuery = album.artist
 
-      console.log('[SmartSearch] RuTracker search queries:', { albumQuery, discographyQuery })
-      addActivityLog(`Searching RuTracker: "${albumQuery}" + artist pages...`, 'info')
+      console.log('[SmartSearch] RuTracker search queries:', {
+        albumQuery,
+        discographyQuery,
+      })
+      addActivityLog(
+        `Searching RuTracker: "${albumQuery}" + artist pages...`,
+        'info'
+      )
 
       const cleanupProgress = window.api.search.onProgress((progress) => {
-        setSearchProgress({ currentPage: progress.currentPage, totalPages: progress.totalPages })
+        setSearchProgress({
+          currentPage: progress.currentPage,
+          totalPages: progress.totalPages,
+        })
+        discoTotalPagesRef.current = progress.totalPages
       })
 
       const [albumResponse, discographyResponse] = await Promise.allSettled([
@@ -57,12 +87,16 @@ export function useRuTrackerSearch({ addActivityLog, setRuTrackerResults, setErr
 
       const albumResults: SearchResult[] =
         albumResponse.status === 'fulfilled' && albumResponse.value.success
-          ? (albumResponse.value.results || []).map(r => ({ ...r, searchSource: 'album' as const }))
+          ? (albumResponse.value.results || []).map((r) => ({
+              ...r,
+              searchSource: 'album' as const,
+            }))
           : []
 
       const discographyResults: SearchResult[] =
-        discographyResponse.status === 'fulfilled' && discographyResponse.value.success
-          ? (discographyResponse.value.results || [])
+        discographyResponse.status === 'fulfilled' &&
+        discographyResponse.value.success
+          ? discographyResponse.value.results || []
           : []
 
       // Merge results, deduplicate by ID
@@ -85,7 +119,9 @@ export function useRuTrackerSearch({ addActivityLog, setRuTrackerResults, setErr
 
       if (finalResults.length > 0) {
         const albumCount = albumResults.length
-        const discographyCount = finalResults.filter(r => r.searchSource === 'discography').length
+        const discographyCount = finalResults.filter(
+          (r) => r.searchSource === 'discography'
+        ).length
 
         if (albumCount === 0 && discographyCount > 0) {
           addActivityLog(
@@ -93,19 +129,29 @@ export function useRuTrackerSearch({ addActivityLog, setRuTrackerResults, setErr
             'warning'
           )
         } else {
-          const logMsg = discographyCount > 0
-            ? `Found ${albumCount} direct + ${discographyCount} from artist search`
-            : `Found ${albumCount} torrents on RuTracker`
+          const logMsg =
+            discographyCount > 0
+              ? `Found ${albumCount} direct + ${discographyCount} from artist search`
+              : `Found ${albumCount} torrents on RuTracker`
           addActivityLog(logMsg, 'success')
         }
         setRuTrackerResults(albumQuery, finalResults)
+
+        // Store disco search metadata for "Load More"
+        const maxPagesUsed = 50 // matches maxPages in startProgressive call
+        setDiscoSearchMeta(
+          discographyQuery,
+          Math.min(maxPagesUsed, discoTotalPagesRef.current),
+          discoTotalPagesRef.current
+        )
       } else {
         const errorMsg = 'No torrents found on RuTracker'
         addActivityLog(errorMsg, 'warning')
         setError(errorMsg)
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to search RuTracker'
+      const errorMsg =
+        err instanceof Error ? err.message : 'Failed to search RuTracker'
       addActivityLog(errorMsg, 'error')
       setError(errorMsg)
     }

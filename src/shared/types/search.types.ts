@@ -1,6 +1,14 @@
 // Search types for RuTracker integration
 
-export type FileFormat = 'mp3' | 'flac' | 'wav' | 'aac' | 'ogg' | 'alac' | 'ape' | 'any'
+export type FileFormat =
+  | 'mp3'
+  | 'flac'
+  | 'wav'
+  | 'aac'
+  | 'ogg'
+  | 'alac'
+  | 'ape'
+  | 'any'
 export type SortBy = 'relevance' | 'seeders' | 'date' | 'size' | 'title'
 export type SortOrder = 'asc' | 'desc'
 
@@ -92,7 +100,12 @@ export interface ProgressiveSearchRequest {
 }
 
 /** Result group category for RuTracker results */
-export type ResultGroup = 'studio' | 'live' | 'compilation' | 'discography' | 'other'
+export type ResultGroup =
+  | 'studio'
+  | 'live'
+  | 'compilation'
+  | 'discography'
+  | 'other'
 
 /** Search results grouped by category */
 export interface GroupedSearchResults {
@@ -114,5 +127,32 @@ export interface SearchProgressEvent {
   /** Whether search is complete */
   isComplete: boolean
   /** Error message if any */
+  error?: string
+}
+
+/** Request to load additional search result pages */
+export interface LoadMoreRequest {
+  /** Original search query */
+  query: string
+  /** First page to fetch (1-indexed) */
+  fromPage: number
+  /** Last page to fetch (inclusive) */
+  toPage: number
+  /** Optional filters to apply */
+  filters?: SearchFilters
+}
+
+/** Response from load-more operation */
+export interface LoadMoreResponse {
+  success: boolean
+  /** New results from fetched pages */
+  results: SearchResult[]
+  /** Number of pages successfully loaded */
+  loadedPages: number
+  /** Total available pages on the tracker */
+  totalPages: number
+  /** Whether all available pages have been loaded */
+  isComplete: boolean
+  /** Error if the operation failed */
   error?: string
 }

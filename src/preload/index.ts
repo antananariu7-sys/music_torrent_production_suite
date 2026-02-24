@@ -20,6 +20,8 @@ import type {
   SearchResponse,
   ProgressiveSearchRequest,
   SearchProgressEvent,
+  LoadMoreRequest,
+  LoadMoreResponse,
 } from '@shared/types/search.types'
 import type {
   AlbumSearchRequest,
@@ -196,6 +198,9 @@ const api = {
 
     openUrl: (url: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke(IPC_CHANNELS.SEARCH_OPEN_URL, url),
+
+    loadMore: (request: LoadMoreRequest): Promise<LoadMoreResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.SEARCH_LOAD_MORE, request),
   },
 
   // Discography search methods

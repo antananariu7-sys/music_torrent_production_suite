@@ -71,6 +71,13 @@ interface SmartSearchState {
   ruTrackerResults: SearchResult[]
   selectedTorrent: SearchResult | null
 
+  // Load-more pagination state (discography search)
+  discoQuery: string
+  discoLoadedPages: number
+  discoTotalPages: number
+  isLoadingMore: boolean
+  loadMoreError: string | null
+
   // Download state
   downloadedFilePath: string | null
 
@@ -98,8 +105,15 @@ interface SmartSearchState {
   projectDirectory?: string
 
   // Actions
-  setProjectContext: (projectId: string, projectName: string, projectDirectory: string) => void
-  loadHistoryFromProject: (projectId: string, projectDirectory: string) => Promise<void>
+  setProjectContext: (
+    projectId: string,
+    projectName: string,
+    projectDirectory: string
+  ) => void
+  loadHistoryFromProject: (
+    projectId: string,
+    projectDirectory: string
+  ) => Promise<void>
   startSearch: (query: string) => void
   setClassificationResults: (results: SearchClassificationResult[]) => void
   selectClassification: (result: SearchClassificationResult) => void
@@ -119,9 +133,24 @@ interface SmartSearchState {
   clearActivityLog: () => void
   reset: () => void
 
+  // Load-more actions
+  setDiscoSearchMeta: (
+    query: string,
+    loadedPages: number,
+    totalPages: number
+  ) => void
+  appendRuTrackerResults: (
+    newResults: SearchResult[],
+    searchSource: 'album' | 'discography'
+  ) => void
+  setLoadingMore: (loading: boolean) => void
+  setLoadMoreError: (error: string | null) => void
+
   // Discography scan actions
   startDiscographyScan: () => void
-  setDiscographyScanProgress: (progress: DiscographySearchProgress | null) => void
+  setDiscographyScanProgress: (
+    progress: DiscographySearchProgress | null
+  ) => void
   setDiscographyScanResults: (results: PageContentScanResult[]) => void
   stopDiscographyScan: () => void
 }
@@ -137,6 +166,11 @@ const initialState = {
   ruTrackerQuery: '',
   ruTrackerResults: [],
   selectedTorrent: null,
+  discoQuery: '',
+  discoLoadedPages: 0,
+  discoTotalPages: 0,
+  isLoadingMore: false,
+  loadMoreError: null,
   downloadedFilePath: null,
   error: null,
   isLoading: false,
@@ -165,10 +199,12 @@ async function saveSearchHistoryToDisk(
 
   try {
     // Convert Date objects to ISO strings for serialization
-    const persistentHistory: PersistentSearchHistoryEntry[] = history.map((entry) => ({
-      ...entry,
-      timestamp: entry.timestamp.toISOString(),
-    }))
+    const persistentHistory: PersistentSearchHistoryEntry[] = history.map(
+      (entry) => ({
+        ...entry,
+        timestamp: entry.timestamp.toISOString(),
+      })
+    )
 
     await window.api.searchHistory.save({
       projectId,
@@ -212,10 +248,16 @@ export async function loadSearchHistoryFromDisk(
 export const useSmartSearchStore = create<SmartSearchState>((set) => ({
   ...initialState,
 
-  setProjectContext: (projectId: string, projectName: string, projectDirectory: string) =>
-    set({ projectId, projectName, projectDirectory }),
+  setProjectContext: (
+    projectId: string,
+    projectName: string,
+    projectDirectory: string
+  ) => set({ projectId, projectName, projectDirectory }),
 
-  loadHistoryFromProject: async (projectId: string, projectDirectory: string) => {
+  loadHistoryFromProject: async (
+    projectId: string,
+    projectDirectory: string
+  ) => {
     const history = await loadSearchHistoryFromDisk(projectId, projectDirectory)
     set({ searchHistory: history })
   },
@@ -269,7 +311,8 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
     set((state) => ({
       userAction: action,
       step:
-        action === 'discography' || state.selectedClassification?.type === 'album'
+        action === 'discography' ||
+        state.selectedClassification?.type === 'album'
           ? 'searching-rutracker'
           : 'selecting-album',
       isLoading: true,
@@ -305,11 +348,9 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
       isLoading: false,
     }),
 
-  setStep: (step: SearchWorkflowStep) =>
-    set({ step }),
+  setStep: (step: SearchWorkflowStep) => set({ step }),
 
-  setLoading: (isLoading: boolean) =>
-    set({ isLoading }),
+  setLoading: (isLoading: boolean) => set({ isLoading }),
 
   addActivityLog: (message: string, type: ActivityLogEntry['type']) =>
     set((state) => ({
@@ -362,11 +403,9 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
       return { searchHistory: newHistory }
     }),
 
-  clearHistory: () =>
-    set({ searchHistory: [] }),
+  clearHistory: () => set({ searchHistory: [] }),
 
-  clearActivityLog: () =>
-    set({ activityLog: [] }),
+  clearActivityLog: () => set({ activityLog: [] }),
 
   reset: () =>
     set({
@@ -374,6 +413,40 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
       searchHistory: useSmartSearchStore.getState().searchHistory,
       activityLog: useSmartSearchStore.getState().activityLog,
     }),
+
+  // Load-more actions
+  setDiscoSearchMeta: (
+    query: string,
+    loadedPages: number,
+    totalPages: number
+  ) =>
+    set({
+      discoQuery: query,
+      discoLoadedPages: loadedPages,
+      discoTotalPages: totalPages,
+    }),
+
+  appendRuTrackerResults: (
+    newResults: SearchResult[],
+    searchSource: 'album' | 'discography'
+  ) =>
+    set((state) => {
+      const existingIds = new Set(state.ruTrackerResults.map((r) => r.id))
+      const unique = newResults
+        .filter((r) => !existingIds.has(r.id))
+        .map((r) => ({ ...r, searchSource }))
+      return {
+        ruTrackerResults: [...state.ruTrackerResults, ...unique],
+        isLoadingMore: false,
+        loadMoreError: null,
+      }
+    }),
+
+  setLoadingMore: (loading: boolean) =>
+    set({ isLoadingMore: loading, loadMoreError: null }),
+
+  setLoadMoreError: (error: string | null) =>
+    set({ loadMoreError: error, isLoadingMore: false }),
 
   // Discography scan actions
   startDiscographyScan: () =>
@@ -409,18 +482,36 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
 
 // Selector hooks for better performance
 export const useSearchStep = () => useSmartSearchStore((state) => state.step)
-export const useIsSearching = () => useSmartSearchStore((state) => state.isLoading)
+export const useIsSearching = () =>
+  useSmartSearchStore((state) => state.isLoading)
 export const useSearchError = () => useSmartSearchStore((state) => state.error)
 export const useClassificationResults = () =>
   useSmartSearchStore((state) => state.classificationResults)
 export const useSelectedClassification = () =>
   useSmartSearchStore((state) => state.selectedClassification)
 export const useAlbums = () => useSmartSearchStore((state) => state.albums)
-export const useSelectedAlbum = () => useSmartSearchStore((state) => state.selectedAlbum)
-export const useRuTrackerResults = () => useSmartSearchStore((state) => state.ruTrackerResults)
-export const useSelectedTorrent = () => useSmartSearchStore((state) => state.selectedTorrent)
-export const useSearchHistory = () => useSmartSearchStore((state) => state.searchHistory)
-export const useActivityLog = () => useSmartSearchStore((state) => state.activityLog)
+export const useSelectedAlbum = () =>
+  useSmartSearchStore((state) => state.selectedAlbum)
+export const useRuTrackerResults = () =>
+  useSmartSearchStore((state) => state.ruTrackerResults)
+export const useSelectedTorrent = () =>
+  useSmartSearchStore((state) => state.selectedTorrent)
+export const useSearchHistory = () =>
+  useSmartSearchStore((state) => state.searchHistory)
+export const useActivityLog = () =>
+  useSmartSearchStore((state) => state.activityLog)
+
+// Load-more selectors
+export const useDiscoSearchMeta = () =>
+  useSmartSearchStore((state) => ({
+    discoQuery: state.discoQuery,
+    discoLoadedPages: state.discoLoadedPages,
+    discoTotalPages: state.discoTotalPages,
+  }))
+export const useIsLoadingMore = () =>
+  useSmartSearchStore((state) => state.isLoadingMore)
+export const useLoadMoreError = () =>
+  useSmartSearchStore((state) => state.loadMoreError)
 
 // Discography scan selectors
 export const useIsScannningDiscography = () =>

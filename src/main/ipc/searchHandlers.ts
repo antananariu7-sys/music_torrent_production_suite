@@ -3,7 +3,11 @@ import { IPC_CHANNELS } from '@shared/constants'
 import type { RuTrackerSearchService } from '../services/RuTrackerSearchService'
 import type { DiscographySearchService } from '../services/DiscographySearchService'
 import { searchHistoryService } from '../services/SearchHistoryService'
-import type { SearchRequest, ProgressiveSearchRequest } from '@shared/types/search.types'
+import type {
+  SearchRequest,
+  ProgressiveSearchRequest,
+  LoadMoreRequest,
+} from '@shared/types/search.types'
 import type { DiscographySearchRequest } from '@shared/types/discography.types'
 import type {
   SaveSearchHistoryRequest,
@@ -16,18 +20,21 @@ export function registerSearchHandlers(
   discographySearchService: DiscographySearchService
 ): void {
   // Search
-  ipcMain.handle(IPC_CHANNELS.SEARCH_START, async (_event, request: SearchRequest) => {
-    try {
-      const response = await searchService.search(request)
-      return response
-    } catch (error) {
-      console.error('Search failed:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Search failed',
+  ipcMain.handle(
+    IPC_CHANNELS.SEARCH_START,
+    async (_event, request: SearchRequest) => {
+      try {
+        const response = await searchService.search(request)
+        return response
+      } catch (error) {
+        console.error('Search failed:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Search failed',
+        }
       }
     }
-  })
+  )
 
   ipcMain.handle(IPC_CHANNELS.SEARCH_OPEN_URL, async (_event, url: string) => {
     try {
@@ -46,15 +53,41 @@ export function registerSearchHandlers(
     IPC_CHANNELS.SEARCH_START_PROGRESSIVE,
     async (event, request: ProgressiveSearchRequest) => {
       try {
-        const response = await searchService.searchProgressive(request, (progress) => {
-          event.sender.send(IPC_CHANNELS.SEARCH_PROGRESS, progress)
-        })
+        const response = await searchService.searchProgressive(
+          request,
+          (progress) => {
+            event.sender.send(IPC_CHANNELS.SEARCH_PROGRESS, progress)
+          }
+        )
         return response
       } catch (error) {
         console.error('Progressive search failed:', error)
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Progressive search failed',
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Progressive search failed',
+        }
+      }
+    }
+  )
+
+  // Load more results (additional pages)
+  ipcMain.handle(
+    IPC_CHANNELS.SEARCH_LOAD_MORE,
+    async (_event, request: LoadMoreRequest) => {
+      try {
+        return await searchService.loadMoreResults(request)
+      } catch (error) {
+        console.error('Load more failed:', error)
+        return {
+          success: false,
+          results: [],
+          loadedPages: 0,
+          totalPages: 0,
+          isComplete: false,
+          error: error instanceof Error ? error.message : 'Load more failed',
         }
       }
     }
@@ -65,9 +98,15 @@ export function registerSearchHandlers(
     IPC_CHANNELS.DISCOGRAPHY_SEARCH,
     async (event, request: DiscographySearchRequest) => {
       try {
-        const response = await discographySearchService.searchInPages(request, (progress) => {
-          event.sender.send(IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS, progress)
-        })
+        const response = await discographySearchService.searchInPages(
+          request,
+          (progress) => {
+            event.sender.send(
+              IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS,
+              progress
+            )
+          }
+        )
         return response
       } catch (error) {
         console.error('Discography search failed:', error)
@@ -77,7 +116,10 @@ export function registerSearchHandlers(
           matchedPages: [],
           totalScanned: 0,
           matchCount: 0,
-          error: error instanceof Error ? error.message : 'Discography search failed',
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Discography search failed',
         }
       }
     }
@@ -86,7 +128,10 @@ export function registerSearchHandlers(
   // Search history
   ipcMain.handle(
     'searchHistory:load',
-    async (_event, request: LoadSearchHistoryRequest & { projectDirectory: string }): Promise<SearchHistoryResponse> => {
+    async (
+      _event,
+      request: LoadSearchHistoryRequest & { projectDirectory: string }
+    ): Promise<SearchHistoryResponse> => {
       try {
         const { projectId, projectDirectory } = request
 
@@ -97,7 +142,10 @@ export function registerSearchHandlers(
           }
         }
 
-        const history = await searchHistoryService.loadHistory(projectId, projectDirectory)
+        const history = await searchHistoryService.loadHistory(
+          projectId,
+          projectDirectory
+        )
 
         return {
           success: true,
@@ -107,7 +155,10 @@ export function registerSearchHandlers(
         console.error('Error loading search history:', error)
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to load search history',
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to load search history',
         }
       }
     }
@@ -115,7 +166,10 @@ export function registerSearchHandlers(
 
   ipcMain.handle(
     'searchHistory:save',
-    async (_event, request: SaveSearchHistoryRequest & { projectDirectory: string }): Promise<SearchHistoryResponse> => {
+    async (
+      _event,
+      request: SaveSearchHistoryRequest & { projectDirectory: string }
+    ): Promise<SearchHistoryResponse> => {
       try {
         const { projectId, projectName, history, projectDirectory } = request
 
@@ -140,7 +194,10 @@ export function registerSearchHandlers(
         console.error('Error saving search history:', error)
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Failed to save search history',
+          error:
+            error instanceof Error
+              ? error.message
+              : 'Failed to save search history',
         }
       }
     }

@@ -1,8 +1,23 @@
 import { z } from 'zod'
 
-export const FileFormatSchema = z.enum(['mp3', 'flac', 'wav', 'aac', 'ogg', 'alac', 'ape', 'any'])
+export const FileFormatSchema = z.enum([
+  'mp3',
+  'flac',
+  'wav',
+  'aac',
+  'ogg',
+  'alac',
+  'ape',
+  'any',
+])
 
-export const SortBySchema = z.enum(['relevance', 'seeders', 'date', 'size', 'title'])
+export const SortBySchema = z.enum([
+  'relevance',
+  'seeders',
+  'date',
+  'size',
+  'title',
+])
 
 export const SortOrderSchema = z.enum(['asc', 'desc'])
 
@@ -50,4 +65,20 @@ export const SearchResponseSchema = z.object({
   query: z.string().optional(),
   appliedFilters: SearchFiltersSchema.optional(),
   totalResults: z.number().int().nonnegative().optional(),
+})
+
+export const LoadMoreRequestSchema = z.object({
+  query: z.string().min(1),
+  fromPage: z.number().int().positive(),
+  toPage: z.number().int().positive(),
+  filters: SearchFiltersSchema.optional(),
+})
+
+export const LoadMoreResponseSchema = z.object({
+  success: z.boolean(),
+  results: z.array(SearchResultSchema),
+  loadedPages: z.number().int().nonnegative(),
+  totalPages: z.number().int().nonnegative(),
+  isComplete: z.boolean(),
+  error: z.string().optional(),
 })

@@ -29,6 +29,7 @@ export const IPC_CHANNELS = {
   SEARCH_RESULTS: 'search:results',
   SEARCH_ERROR: 'search:error',
   SEARCH_OPEN_URL: 'search:open-url',
+  SEARCH_LOAD_MORE: 'search:load-more',
 
   // Torrent operations
   TORRENT_DOWNLOAD: 'torrent:download',

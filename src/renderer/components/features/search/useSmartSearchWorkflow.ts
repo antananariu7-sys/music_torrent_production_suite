@@ -15,7 +15,10 @@ interface UseSmartSearchWorkflowOptions {
   onCancel?: () => void
 }
 
-export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchWorkflowOptions) {
+export function useSmartSearchWorkflow({
+  onComplete,
+  onCancel,
+}: UseSmartSearchWorkflowOptions) {
   const autoScanDiscography = useSettingsStore((s) => s.autoScanDiscography)
   const autoScanFiredRef = useRef(false)
 
@@ -37,6 +40,7 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     selectAlbum,
     selectAction,
     setRuTrackerResults,
+    setDiscoSearchMeta,
     selectTorrent,
     setDownloadComplete,
     setError,
@@ -57,30 +61,33 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
   const { searchRuTracker, searchProgress } = useRuTrackerSearch({
     addActivityLog,
     setRuTrackerResults,
+    setDiscoSearchMeta,
     setError,
   })
 
-  const { handleClassify, handleSelectClassification } = useSearchClassification({
-    addActivityLog,
-    setClassificationResults,
-    selectClassification,
-    setAlbums,
-    selectAlbum,
-    setError,
-    addToHistory,
-    searchRuTracker,
-  })
+  const { handleClassify, handleSelectClassification } =
+    useSearchClassification({
+      addActivityLog,
+      setClassificationResults,
+      selectClassification,
+      setAlbums,
+      selectAlbum,
+      setError,
+      addToHistory,
+      searchRuTracker,
+    })
 
-  const { handleStartDiscographyScan, handleStopDiscographyScan } = useDiscographyScan({
-    selectedAlbum,
-    ruTrackerResults,
-    isScannningDiscography,
-    addActivityLog,
-    startDiscographyScan,
-    stopDiscographyScan,
-    setDiscographyScanProgress,
-    setDiscographyScanResults,
-  })
+  const { handleStartDiscographyScan, handleStopDiscographyScan } =
+    useDiscographyScan({
+      selectedAlbum,
+      ruTrackerResults,
+      isScannningDiscography,
+      addActivityLog,
+      startDiscographyScan,
+      stopDiscographyScan,
+      setDiscographyScanProgress,
+      setDiscographyScanResults,
+    })
 
   // ====================================
   // ALBUM HANDLERS
@@ -96,7 +103,8 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
     if (!selectedClassification) return
 
     selectAction('discography')
-    const artistName = selectedClassification.artist || selectedClassification.name
+    const artistName =
+      selectedClassification.artist || selectedClassification.name
 
     try {
       const discographyQuery = `${artistName} discography`
@@ -117,14 +125,27 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
         error: discographyResponse.error,
       })
 
-      if (discographyResponse.success && discographyResponse.results && discographyResponse.results.length > 0) {
-        addActivityLog(`Found ${discographyResponse.results.length} discography torrents`, 'success')
+      if (
+        discographyResponse.success &&
+        discographyResponse.results &&
+        discographyResponse.results.length > 0
+      ) {
+        addActivityLog(
+          `Found ${discographyResponse.results.length} discography torrents`,
+          'success'
+        )
         setRuTrackerResults(discographyQuery, discographyResponse.results)
         return
       }
 
-      addActivityLog('No discography torrents found, searching by artist name...', 'warning')
-      console.log('[SmartSearch] Falling back to artist name search:', artistName)
+      addActivityLog(
+        'No discography torrents found, searching by artist name...',
+        'warning'
+      )
+      console.log(
+        '[SmartSearch] Falling back to artist name search:',
+        artistName
+      )
 
       const artistResponse = await window.api.search.start({
         query: artistName,
@@ -139,8 +160,15 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
         error: artistResponse.error,
       })
 
-      if (artistResponse.success && artistResponse.results && artistResponse.results.length > 0) {
-        addActivityLog(`Found ${artistResponse.results.length} torrents for ${artistName}`, 'success')
+      if (
+        artistResponse.success &&
+        artistResponse.results &&
+        artistResponse.results.length > 0
+      ) {
+        addActivityLog(
+          `Found ${artistResponse.results.length} torrents for ${artistName}`,
+          'success'
+        )
         setRuTrackerResults(artistName, artistResponse.results)
       } else {
         const errorMsg = `No torrents found for ${artistName}`
@@ -148,7 +176,8 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
         setError(errorMsg)
       }
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to search RuTracker'
+      const errorMsg =
+        err instanceof Error ? err.message : 'Failed to search RuTracker'
       addActivityLog(errorMsg, 'error')
       setError(errorMsg)
     }
@@ -190,7 +219,8 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
         reset()
       }, 2000)
     } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Failed to add to collection'
+      const errorMsg =
+        err instanceof Error ? err.message : 'Failed to add to collection'
       addActivityLog(errorMsg, 'error')
       setError(errorMsg)
       addToHistory({ query: originalQuery, status: 'error' })
@@ -247,7 +277,13 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
       handleStartDiscographyScan()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, selectedAlbum, ruTrackerResults, autoScanDiscography, isScannningDiscography])
+  }, [
+    step,
+    selectedAlbum,
+    ruTrackerResults,
+    autoScanDiscography,
+    isScannningDiscography,
+  ])
 
   useEffect(() => {
     if (error) {
@@ -270,7 +306,12 @@ export function useSmartSearchWorkflow({ onComplete, onCancel }: UseSmartSearchW
   const getInlineStep = (): 'classification' | 'albums' | 'torrents' | null => {
     if (step === 'user-choice') return 'classification'
     if (step === 'selecting-album') return 'albums'
-    if (step === 'selecting-torrent' || step === 'collecting' || step === 'downloading') return 'torrents'
+    if (
+      step === 'selecting-torrent' ||
+      step === 'collecting' ||
+      step === 'downloading'
+    )
+      return 'torrents'
     return null
   }
 

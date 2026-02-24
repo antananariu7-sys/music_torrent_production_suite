@@ -6,6 +6,8 @@ import type {
   SearchResponse,
   ProgressiveSearchRequest,
   SearchProgressEvent,
+  LoadMoreRequest,
+  LoadMoreResponse,
 } from '@shared/types/search.types'
 import type { AuthService } from './AuthService'
 import {
@@ -420,6 +422,125 @@ export class RuTrackerSearchService {
         success: false,
         error: error instanceof Error ? error.message : 'Search failed',
         query: request.query,
+      }
+    }
+  }
+
+  /**
+   * Load additional search result pages beyond the initial search.
+   * Fetches pages fromPage..toPage in parallel batches.
+   */
+  async loadMoreResults(request: LoadMoreRequest): Promise<LoadMoreResponse> {
+    const pages: Page[] = []
+    try {
+      const authState = this.authService.getAuthStatus()
+      if (!authState.isLoggedIn) {
+        return {
+          success: false,
+          results: [],
+          loadedPages: 0,
+          totalPages: 0,
+          isComplete: false,
+          error: 'User is not logged in.',
+        }
+      }
+
+      const sessionCookies = this.getSessionCookies()
+      const browser = await this.initBrowser()
+
+      const { query, fromPage, toPage, filters } = request
+      const pageRange = Array.from(
+        { length: toPage - fromPage + 1 },
+        (_, i) => fromPage + i
+      )
+
+      console.log(
+        `[RuTrackerSearchService] Load more: pages ${fromPage}-${toPage} for "${query}"`
+      )
+
+      // Create browser pages for parallel fetching (max 3 concurrent)
+      const concurrentPages = Math.min(3, pageRange.length)
+      for (let i = 0; i < concurrentPages; i++) {
+        pages.push(
+          await this.pageScraper.createPageWithCookies(browser, sessionCookies)
+        )
+      }
+
+      // Detect total pages from first page in range
+      const firstPage = pages[0]
+      const firstUrl = buildSearchUrl(query, pageRange[0])
+      await this.pageScraper.navigateToSearchUrl(firstPage, firstUrl)
+      const totalPagesAvailable =
+        await this.resultParser.getTotalPages(firstPage)
+
+      // Parse results from the first page
+      let firstResults = await this.resultParser.parseSearchResults(firstPage)
+      firstResults = calculateRelevanceScores(firstResults, query)
+      if (filters) {
+        firstResults = this.filtersApplier.applyFilters(firstResults, filters)
+      }
+
+      const allResults = [...firstResults]
+      const existingIds = new Set(allResults.map((r) => r.id))
+      let loadedCount = 1
+
+      // Fetch remaining pages in batches
+      const remaining = pageRange.slice(1)
+      while (remaining.length > 0) {
+        const batch = remaining.splice(0, pages.length)
+        const batchPromises = batch.map(async (pageNum, idx) => {
+          const browserPage = pages[idx % pages.length]
+          try {
+            const pageUrl = buildSearchUrl(query, pageNum)
+            await this.pageScraper.navigateToSearchUrl(browserPage, pageUrl)
+            let results =
+              await this.resultParser.parseSearchResults(browserPage)
+            results = calculateRelevanceScores(results, query)
+            if (filters) {
+              results = this.filtersApplier.applyFilters(results, filters)
+            }
+            return { results, error: null }
+          } catch (err) {
+            return { results: [] as typeof allResults, error: err }
+          }
+        })
+
+        const batchResults = await Promise.all(batchPromises)
+        for (const { results, error } of batchResults) {
+          if (error) continue
+          const unique = results.filter((r) => !existingIds.has(r.id))
+          unique.forEach((r) => existingIds.add(r.id))
+          allResults.push(...unique)
+          loadedCount++
+        }
+      }
+
+      const isComplete = toPage >= totalPagesAvailable
+
+      console.log(
+        `[RuTrackerSearchService] Load more complete: ${allResults.length} results from ${loadedCount} pages (total available: ${totalPagesAvailable})`
+      )
+
+      return {
+        success: true,
+        results: allResults,
+        loadedPages: loadedCount,
+        totalPages: totalPagesAvailable,
+        isComplete,
+      }
+    } catch (error) {
+      console.error('[RuTrackerSearchService] Load more failed:', error)
+      return {
+        success: false,
+        results: [],
+        loadedPages: 0,
+        totalPages: 0,
+        isComplete: false,
+        error: error instanceof Error ? error.message : 'Load more failed',
+      }
+    } finally {
+      for (const page of pages) {
+        await page.close().catch(() => {})
       }
     }
   }

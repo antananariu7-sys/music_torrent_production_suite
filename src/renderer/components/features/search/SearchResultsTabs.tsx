@@ -3,6 +3,7 @@ import { Box, HStack, Button, Text } from '@chakra-ui/react'
 import type { SearchResult } from '@shared/types/search.types'
 import type { PageContentScanResult } from '@shared/types/discography.types'
 import { SearchResultsTable } from './SearchResultsTable'
+import { SearchResultsLoadMore } from './SearchResultsLoadMore'
 
 export type SearchTabType = 'album' | 'discography'
 
@@ -97,6 +98,9 @@ export function SearchResultsTabs({
           highlightAlbumName={highlightAlbumName}
         />
       )}
+
+      {/* Load More button (for discography search) */}
+      <SearchResultsLoadMore />
     </Box>
   )
 }
