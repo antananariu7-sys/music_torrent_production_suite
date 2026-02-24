@@ -221,6 +221,7 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
                 ? selectedClassification.name
                 : undefined
             }
+            highlightAlbumName={selectedAlbum?.title}
           />
         </VStack>
       )}

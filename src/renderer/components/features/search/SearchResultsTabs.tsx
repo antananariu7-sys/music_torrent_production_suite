@@ -12,6 +12,7 @@ interface SearchResultsTabsProps {
   isDownloading?: boolean
   discographyScanResults?: PageContentScanResult[]
   highlightSongName?: string
+  highlightAlbumName?: string
 }
 
 export function SearchResultsTabs({
@@ -20,6 +21,7 @@ export function SearchResultsTabs({
   isDownloading,
   discographyScanResults = [],
   highlightSongName,
+  highlightAlbumName,
 }: SearchResultsTabsProps) {
   const albumResults = useMemo(
     () => results.filter((r) => r.searchSource === 'album'),
@@ -92,6 +94,7 @@ export function SearchResultsTabs({
           scanResultsMap={scanResultsMap}
           emptyMessage="No discography results."
           highlightSongName={highlightSongName}
+          highlightAlbumName={highlightAlbumName}
         />
       )}
     </Box>

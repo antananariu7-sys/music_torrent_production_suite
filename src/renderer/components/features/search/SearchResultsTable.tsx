@@ -20,6 +20,7 @@ interface SearchResultsTableProps {
   scanResultsMap?: Map<string, PageContentScanResult>
   emptyMessage?: string
   highlightSongName?: string
+  highlightAlbumName?: string
 }
 
 const ALBUM_GROUP_LABELS: Record<ResultGroup, string> = {
@@ -81,6 +82,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
   scanResultsMap,
   emptyMessage = 'No results found.',
   highlightSongName,
+  highlightAlbumName,
 }: SearchResultsTableProps) {
   const {
     rows,
@@ -104,7 +106,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
     hiddenCount,
     hiddenResults,
     onToggleHidden,
-  } = useSearchTableState(results)
+  } = useSearchTableState(results, { scanResultsMap, tabType })
 
   const groupLabels =
     tabType === 'discography' ? DISCO_GROUP_LABELS : ALBUM_GROUP_LABELS
@@ -227,6 +229,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
                       isExpanded={expandedRowId === row.result.id}
                       onToggleExpand={onToggleExpand}
                       highlightSongName={highlightSongName}
+                      highlightAlbumName={highlightAlbumName}
                       filterText={filterText}
                     />
                   )
@@ -281,6 +284,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
                           isExpanded={expandedRowId === result.id}
                           onToggleExpand={onToggleExpand}
                           highlightSongName={highlightSongName}
+                          highlightAlbumName={highlightAlbumName}
                           filterText={filterText}
                         />
                       ))}

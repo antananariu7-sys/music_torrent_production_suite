@@ -26,6 +26,7 @@ interface SearchResultsRowProps {
   isExpanded?: boolean
   onToggleExpand?: (id: string) => void
   highlightSongName?: string
+  highlightAlbumName?: string
   filterText?: string
 }
 
@@ -121,6 +122,7 @@ export const SearchResultsRow = memo(function SearchResultsRow({
   isExpanded,
   onToggleExpand,
   highlightSongName,
+  highlightAlbumName,
   filterText,
 }: SearchResultsRowProps) {
   const [previewState, setPreviewState] = useState<
@@ -335,6 +337,7 @@ export const SearchResultsRow = memo(function SearchResultsRow({
                 <TorrentTrackListPreview
                   metadata={metadata}
                   highlightSongName={highlightSongName}
+                  highlightAlbumName={highlightAlbumName}
                 />
               )}
             </Box>

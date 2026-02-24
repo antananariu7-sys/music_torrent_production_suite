@@ -1,8 +1,10 @@
 import { useState, useMemo, useCallback } from 'react'
 import type { SearchResult, ResultGroup } from '@shared/types/search.types'
+import type { PageContentScanResult } from '@shared/types/discography.types'
 import { classifyResult } from '@shared/utils/resultClassifier'
 import { isFlacImage } from '@shared/utils/flacImageDetector'
 import { isNonAudioResult } from '@shared/utils/nonAudioDetector'
+import type { SearchTabType } from '../SearchResultsTabs'
 
 export type SortColumn = 'title' | 'size' | 'seeders' | 'relevance'
 export type SortDirection = 'asc' | 'desc'
@@ -99,7 +101,15 @@ function compareResults(
   }
 }
 
-export function useSearchTableState(results: SearchResult[]): SearchTableState {
+export function useSearchTableState(
+  results: SearchResult[],
+  options?: {
+    scanResultsMap?: Map<string, PageContentScanResult>
+    tabType?: SearchTabType
+  }
+): SearchTableState {
+  const scanResultsMap = options?.scanResultsMap
+  const isDiscographyTab = options?.tabType === 'discography'
   const [sortColumn, setSortColumn] = useState<SortColumn>(DEFAULT_SORT_COLUMN)
   const [sortDirection, setSortDirection] = useState<SortDirection>(
     DEFAULT_SORT_DIRECTION
@@ -172,7 +182,7 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     return groups
   }, [filteredResults])
 
-  // Sort within each group: FLAC images to bottom, then by active sort column
+  // Sort within each group: FLAC images to bottom, match presence (disco), then by active sort column
   const sortedGroups = useMemo(() => {
     const sorted: Record<string, SearchResult[]> = {}
 
@@ -181,17 +191,31 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
       if (items.length === 0) continue
 
       sorted[group] = [...items].sort((a, b) => {
-        // FLAC images always sort to bottom
+        // 1. FLAC images always sort to bottom
         const aIsImage = isFlacImage(a)
         const bIsImage = isFlacImage(b)
         if (aIsImage !== bIsImage) return aIsImage ? 1 : -1
 
+        // 2. Match presence (discography tab only) — matched first
+        if (isDiscographyTab && scanResultsMap) {
+          const aMatch = scanResultsMap.get(a.id)?.albumFound ?? false
+          const bMatch = scanResultsMap.get(b.id)?.albumFound ?? false
+          if (aMatch !== bMatch) return aMatch ? -1 : 1
+        }
+
+        // 3. Active sort column
         return compareResults(a, b, sortColumn, sortDirection)
       })
     }
 
     return sorted
-  }, [groupedResults, sortColumn, sortDirection])
+  }, [
+    groupedResults,
+    sortColumn,
+    sortDirection,
+    isDiscographyTab,
+    scanResultsMap,
+  ])
 
   // Build flat row list for rendering (all rows, before pagination)
   const allRows = useMemo<TableRow[]>(() => {
@@ -203,6 +227,13 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
         const aIsImage = isFlacImage(a)
         const bIsImage = isFlacImage(b)
         if (aIsImage !== bIsImage) return aIsImage ? 1 : -1
+
+        if (isDiscographyTab && scanResultsMap) {
+          const aMatch = scanResultsMap.get(a.id)?.albumFound ?? false
+          const bMatch = scanResultsMap.get(b.id)?.albumFound ?? false
+          if (aMatch !== bMatch) return aMatch ? -1 : 1
+        }
+
         return compareResults(a, b, sortColumn, sortDirection)
       })
       return allSorted.map((result) => ({ type: 'result' as const, result }))
@@ -230,6 +261,8 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     sortColumn,
     sortDirection,
     collapsedGroups,
+    isDiscographyTab,
+    scanResultsMap,
   ])
 
   // Paginate: slice result rows only, keeping group headers for visible results
