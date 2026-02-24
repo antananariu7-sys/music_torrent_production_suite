@@ -83,6 +83,10 @@ import type {
   BpmProgressEvent,
 } from '@shared/types/waveform.types'
 import type {
+  DuplicateCheckRequest,
+  DuplicateCheckResponse,
+} from '@shared/types/duplicateDetection.types'
+import type {
   StreamPreviewStartRequest,
   StreamPreviewReadyEvent,
   StreamPreviewBufferingEvent,
@@ -666,6 +670,15 @@ const api = {
       newCount?: number
       error?: string
     }> => ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SYNC_AUDIO_FOLDER, projectId),
+  },
+
+  // Duplicate detection
+  duplicate: {
+    check: (request: DuplicateCheckRequest): Promise<DuplicateCheckResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DUPLICATE_CHECK, request),
+
+    rescan: (projectDirectory: string): Promise<DuplicateCheckResponse> =>
+      ipcRenderer.invoke(IPC_CHANNELS.DUPLICATE_RESCAN, projectDirectory),
   },
 }
 

@@ -9,6 +9,7 @@ import {
 import type { SearchResult } from '@shared/types/search.types'
 import type { TorrentPageMetadata } from '@shared/types/torrentMetadata.types'
 import type { PageContentScanResult } from '@shared/types/discography.types'
+import type { DuplicateMatch } from '@shared/types/duplicateDetection.types'
 import { isFlacImage } from '@shared/utils/flacImageDetector'
 import type { SearchTabType } from './SearchResultsTabs'
 import {
@@ -16,6 +17,7 @@ import {
   TorrentTrackListLoading,
   TorrentTrackListError,
 } from './TorrentTrackListPreview'
+import { DuplicateWarningBadge } from './DuplicateWarningBadge'
 
 interface SearchResultsRowProps {
   torrent: SearchResult
@@ -28,6 +30,7 @@ interface SearchResultsRowProps {
   highlightSongName?: string
   highlightAlbumName?: string
   filterText?: string
+  duplicateMatch?: DuplicateMatch
 }
 
 /** Highlight matching filter text segments in a string */
@@ -124,6 +127,7 @@ export const SearchResultsRow = memo(function SearchResultsRow({
   highlightSongName,
   highlightAlbumName,
   filterText,
+  duplicateMatch,
 }: SearchResultsRowProps) {
   const [previewState, setPreviewState] = useState<
     'idle' | 'loading' | 'loaded' | 'error'
@@ -193,14 +197,24 @@ export const SearchResultsRow = memo(function SearchResultsRow({
       >
         {/* Title */}
         <Table.Cell>
-          <Text
-            fontSize="sm"
-            lineClamp={1}
-            title={torrent.title}
-            color="text.primary"
-          >
-            <HighlightedText text={torrent.title} highlight={filterText} />
-          </Text>
+          <HStack gap={1.5} minW={0}>
+            <Text
+              fontSize="sm"
+              lineClamp={1}
+              title={torrent.title}
+              color="text.primary"
+              flex={1}
+              minW={0}
+            >
+              <HighlightedText text={torrent.title} highlight={filterText} />
+            </Text>
+            {duplicateMatch && (
+              <DuplicateWarningBadge
+                matchedFiles={duplicateMatch.matchedFiles}
+                confidence={duplicateMatch.confidence}
+              />
+            )}
+          </HStack>
         </Table.Cell>
 
         {/* Size */}

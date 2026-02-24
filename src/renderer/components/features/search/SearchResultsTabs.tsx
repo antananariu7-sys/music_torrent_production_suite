@@ -2,8 +2,10 @@ import { useState, useMemo } from 'react'
 import { Box, HStack, Button, Text } from '@chakra-ui/react'
 import type { SearchResult } from '@shared/types/search.types'
 import type { PageContentScanResult } from '@shared/types/discography.types'
+import { useSmartSearchStore } from '@/store/smartSearchStore'
 import { SearchResultsTable } from './SearchResultsTable'
 import { SearchResultsLoadMore } from './SearchResultsLoadMore'
+import { useDuplicateCheck } from './hooks/useDuplicateCheck'
 
 export type SearchTabType = 'album' | 'discography'
 
@@ -24,6 +26,8 @@ export function SearchResultsTabs({
   highlightSongName,
   highlightAlbumName,
 }: SearchResultsTabsProps) {
+  const projectDirectory = useSmartSearchStore((s) => s.projectDirectory)
+
   const albumResults = useMemo(
     () => results.filter((r) => r.searchSource === 'album'),
     [results]
@@ -32,6 +36,9 @@ export function SearchResultsTabs({
     () => results.filter((r) => r.searchSource === 'discography'),
     [results]
   )
+
+  // Background duplicate check against project audio files
+  const duplicateMap = useDuplicateCheck(results, projectDirectory)
 
   const defaultTab: SearchTabType =
     albumResults.length > 0 ? 'album' : 'discography'
@@ -84,6 +91,7 @@ export function SearchResultsTabs({
           tabType="album"
           emptyMessage="No direct album results."
           highlightSongName={highlightSongName}
+          duplicateMap={duplicateMap}
         />
       )}
       {activeTab === 'discography' && (
@@ -96,6 +104,7 @@ export function SearchResultsTabs({
           emptyMessage="No discography results."
           highlightSongName={highlightSongName}
           highlightAlbumName={highlightAlbumName}
+          duplicateMap={duplicateMap}
         />
       )}
 

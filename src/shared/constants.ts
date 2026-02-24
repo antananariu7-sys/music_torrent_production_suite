@@ -31,6 +31,10 @@ export const IPC_CHANNELS = {
   SEARCH_OPEN_URL: 'search:open-url',
   SEARCH_LOAD_MORE: 'search:load-more',
 
+  // Duplicate detection
+  DUPLICATE_CHECK: 'duplicate:check',
+  DUPLICATE_RESCAN: 'duplicate:rescan',
+
   // Torrent operations
   TORRENT_DOWNLOAD: 'torrent:download',
   TORRENT_GET_HISTORY: 'torrent:get-history',

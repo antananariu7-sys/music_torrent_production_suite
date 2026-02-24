@@ -3,6 +3,7 @@ import { Box, Table, Text, HStack, Icon } from '@chakra-ui/react'
 import { FiChevronDown, FiChevronRight } from 'react-icons/fi'
 import type { SearchResult, ResultGroup } from '@shared/types/search.types'
 import type { PageContentScanResult } from '@shared/types/discography.types'
+import type { DuplicateMatch } from '@shared/types/duplicateDetection.types'
 import {
   useSearchTableState,
   type SortColumn,
@@ -21,6 +22,7 @@ interface SearchResultsTableProps {
   emptyMessage?: string
   highlightSongName?: string
   highlightAlbumName?: string
+  duplicateMap?: Map<string, DuplicateMatch>
 }
 
 const ALBUM_GROUP_LABELS: Record<ResultGroup, string> = {
@@ -83,6 +85,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
   emptyMessage = 'No results found.',
   highlightSongName,
   highlightAlbumName,
+  duplicateMap,
 }: SearchResultsTableProps) {
   const {
     rows,
@@ -231,6 +234,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
                       highlightSongName={highlightSongName}
                       highlightAlbumName={highlightAlbumName}
                       filterText={filterText}
+                      duplicateMatch={duplicateMap?.get(row.result.id)}
                     />
                   )
                 })}
@@ -286,6 +290,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
                           highlightSongName={highlightSongName}
                           highlightAlbumName={highlightAlbumName}
                           filterText={filterText}
+                          duplicateMatch={duplicateMap?.get(result.id)}
                         />
                       ))}
                     </Table.Body>

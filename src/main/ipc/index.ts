@@ -26,6 +26,7 @@ import { BpmDetector } from '../services/waveform/BpmDetector'
 import { registerBpmHandlers } from './bpmHandlers'
 import { StreamPreviewService } from '../services/StreamPreviewService'
 import { registerStreamPreviewHandlers } from './streamPreviewHandlers'
+import { registerDuplicateHandlers } from './duplicateHandlers'
 
 // Service instances (initialized in registerIpcHandlers)
 let fileSystemService: FileSystemService
@@ -82,6 +83,7 @@ export function registerIpcHandlers(): void {
   registerBpmHandlers(bpmDetector)
   streamPreviewService = new StreamPreviewService()
   registerStreamPreviewHandlers(streamPreviewService)
+  registerDuplicateHandlers()
 
   // Resume any persisted WebTorrent downloads
   webtorrentService.resumePersistedDownloads()
