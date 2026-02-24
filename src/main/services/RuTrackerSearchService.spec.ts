@@ -6,7 +6,7 @@ import {
   afterEach,
   jest,
 } from '@jest/globals'
-import type { SearchRequest } from '@shared/types/search.types'
+import type { SearchRequest, SearchResult } from '@shared/types/search.types'
 
 // Create mock objects that will be used throughout the tests
 const mockPage = {
@@ -456,6 +456,199 @@ describe('RuTrackerSearchService', () => {
 
       expect(response.success).toBe(true)
       expect(mockPage.setCookie).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('loadMoreResults', () => {
+    /** Helper to create a mock SearchResult */
+    function makeResult(id: string, title: string): SearchResult {
+      return {
+        id,
+        title,
+        author: 'Test',
+        size: '100 MB',
+        seeders: 10,
+        leechers: 2,
+        url: `https://rutracker.org/forum/viewtopic.php?t=${id}`,
+      }
+    }
+
+    /**
+     * Set up mockPage.evaluate to return the correct sequence for loadMoreResults:
+     * For the first page in range:
+     *   - evaluate call 1 → getTotalPages → return totalPages number
+     *   - evaluate call 2 → parseSearchResults → return results array
+     * For each subsequent page:
+     *   - evaluate call N → parseSearchResults → return results array
+     */
+    function setupEvaluateSequence(
+      totalPages: number,
+      ...pageResults: SearchResult[][]
+    ) {
+      // getTotalPages evaluate call
+      ;(mockPage.evaluate as jest.Mock<any>).mockResolvedValueOnce(
+        totalPages as any
+      )
+      // parseSearchResults for first page
+      ;(mockPage.evaluate as jest.Mock<any>).mockResolvedValueOnce(
+        (pageResults[0] || []) as any
+      )
+      // parseSearchResults for remaining pages
+      for (let i = 1; i < pageResults.length; i++) {
+        ;(mockPage.evaluate as jest.Mock<any>).mockResolvedValueOnce(
+          (pageResults[i] || []) as any
+        )
+      }
+    }
+
+    it('should return error when not logged in', async () => {
+      ;(mockAuthService.getAuthStatus as jest.Mock<any>).mockReturnValue({
+        isLoggedIn: false,
+      })
+
+      const response = await searchService.loadMoreResults({
+        query: 'test',
+        fromPage: 2,
+        toPage: 5,
+      })
+
+      expect(response.success).toBe(false)
+      expect(response.error).toBe('User is not logged in.')
+    })
+
+    it('should create correct page range from fromPage to toPage', async () => {
+      setupEvaluateSequence(20, [makeResult('1', 'Result 1')])
+
+      const response = await searchService.loadMoreResults({
+        query: 'test',
+        fromPage: 11,
+        toPage: 11,
+      })
+
+      expect(response.success).toBe(true)
+      expect(response.loadedPages).toBe(1)
+    })
+
+    it('should detect totalPagesAvailable from first page', async () => {
+      setupEvaluateSequence(25, [makeResult('1', 'Result 1')])
+
+      const response = await searchService.loadMoreResults({
+        query: 'test',
+        fromPage: 2,
+        toPage: 2,
+      })
+
+      expect(response.totalPages).toBe(25)
+    })
+
+    it('should deduplicate results with same ID across pages', async () => {
+      const sharedResult = makeResult('shared-1', 'Same Result')
+      setupEvaluateSequence(
+        20,
+        [makeResult('1', 'First'), sharedResult],
+        [sharedResult, makeResult('2', 'Second')]
+      )
+
+      const response = await searchService.loadMoreResults({
+        query: 'test',
+        fromPage: 1,
+        toPage: 2,
+      })
+
+      expect(response.success).toBe(true)
+      // "shared-1" should appear only once
+      const ids = response.results.map((r) => r.id)
+      expect(ids.filter((id) => id === 'shared-1')).toHaveLength(1)
+    })
+
+    it('should set isComplete=true when toPage >= totalPagesAvailable', async () => {
+      setupEvaluateSequence(5, [makeResult('1', 'Result')])
+
+      const response = await searchService.loadMoreResults({
+        query: 'test',
+        fromPage: 5,
+        toPage: 5,
+      })
+
+      expect(response.isComplete).toBe(true)
+    })
+
+    it('should set isComplete=false when more pages available', async () => {
+      setupEvaluateSequence(20, [makeResult('1', 'Result')])
+
+      const response = await searchService.loadMoreResults({
+        query: 'test',
+        fromPage: 2,
+        toPage: 5,
+      })
+
+      expect(response.isComplete).toBe(false)
+    })
+
+    it('should handle empty results from a page without error', async () => {
+      setupEvaluateSequence(10, [], [])
+
+      const response = await searchService.loadMoreResults({
+        query: 'obscure query',
+        fromPage: 1,
+        toPage: 2,
+      })
+
+      expect(response.success).toBe(true)
+      expect(response.results).toHaveLength(0)
+    })
+
+    it('should skip failed pages but continue processing others', async () => {
+      // First page succeeds, second page will fail
+      ;(mockPage.evaluate as jest.Mock<any>)
+        .mockResolvedValueOnce(10 as any) // getTotalPages
+        .mockResolvedValueOnce([makeResult('1', 'Good Result')] as any) // page 1
+        .mockRejectedValueOnce(new Error('Page nav failed') as any) // page 2 error
+
+      const response = await searchService.loadMoreResults({
+        query: 'test',
+        fromPage: 1,
+        toPage: 2,
+      })
+
+      expect(response.success).toBe(true)
+      expect(response.results).toHaveLength(1)
+      expect(response.results[0].id).toBe('1')
+    })
+
+    it('should return error when browser/session fails', async () => {
+      ;(puppeteer.launch as jest.Mock<any>).mockRejectedValueOnce(
+        new Error('Browser crash') as any
+      )
+
+      const response = await searchService.loadMoreResults({
+        query: 'test',
+        fromPage: 2,
+        toPage: 3,
+      })
+
+      expect(response.success).toBe(false)
+      expect(response.error).toContain('Browser crash')
+    })
+
+    it('should create at most 3 concurrent browser pages', async () => {
+      setupEvaluateSequence(
+        20,
+        [makeResult('1', 'R1')],
+        [makeResult('2', 'R2')],
+        [makeResult('3', 'R3')],
+        [makeResult('4', 'R4')],
+        [makeResult('5', 'R5')]
+      )
+
+      await searchService.loadMoreResults({
+        query: 'test',
+        fromPage: 1,
+        toPage: 5,
+      })
+
+      // browser.newPage is called to create pool pages (max 3)
+      expect(mockBrowser.newPage).toHaveBeenCalledTimes(3)
     })
   })
 
