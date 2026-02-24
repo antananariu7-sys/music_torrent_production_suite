@@ -17,6 +17,7 @@ interface SearchResultsTableProps {
   tabType?: SearchTabType
   scanResultsMap?: Map<string, PageContentScanResult>
   emptyMessage?: string
+  highlightSongName?: string
 }
 
 const ALBUM_GROUP_LABELS: Record<ResultGroup, string> = {
@@ -77,6 +78,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
   tabType,
   scanResultsMap,
   emptyMessage = 'No results found.',
+  highlightSongName,
 }: SearchResultsTableProps) {
   const {
     rows,
@@ -85,6 +87,8 @@ export const SearchResultsTable = memo(function SearchResultsTable({
     onSort,
     onToggleGroup,
     isGroupCollapsed,
+    expandedRowId,
+    onToggleExpand,
   } = useSearchTableState(results)
 
   const groupLabels =
@@ -173,6 +177,9 @@ export const SearchResultsTable = memo(function SearchResultsTable({
                 isDownloading={isDownloading}
                 tabType={tabType}
                 scanResult={scanResultsMap?.get(row.result.id)}
+                isExpanded={expandedRowId === row.result.id}
+                onToggleExpand={onToggleExpand}
+                highlightSongName={highlightSongName}
               />
             )
           })}

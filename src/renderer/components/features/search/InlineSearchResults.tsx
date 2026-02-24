@@ -216,6 +216,11 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
             onSelectTorrent={onSelectTorrent}
             isDownloading={isDownloading}
             discographyScanResults={discographyScanResults}
+            highlightSongName={
+              selectedClassification?.type === 'song'
+                ? selectedClassification.name
+                : undefined
+            }
           />
         </VStack>
       )}

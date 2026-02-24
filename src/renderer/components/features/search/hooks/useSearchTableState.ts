@@ -37,6 +37,10 @@ interface SearchTableState {
   onToggleGroup: (group: ResultGroup) => void
   /** Whether a group is collapsed */
   isGroupCollapsed: (group: ResultGroup) => boolean
+  /** Currently expanded row ID (single expansion) */
+  expandedRowId: string | null
+  /** Toggle row expansion */
+  onToggleExpand: (id: string) => void
 }
 
 const DEFAULT_SORT_COLUMN: SortColumn = 'relevance'
@@ -77,6 +81,7 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<ResultGroup>>(
     () => new Set()
   )
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
 
   // Classify results into groups, merging 'discography' into 'other'
   const groupedResults = useMemo(() => {
@@ -195,6 +200,10 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     [collapsedGroups]
   )
 
+  const onToggleExpand = useCallback((id: string) => {
+    setExpandedRowId((prev) => (prev === id ? null : id))
+  }, [])
+
   return {
     rows,
     sortColumn,
@@ -203,5 +212,7 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     onSort,
     onToggleGroup,
     isGroupCollapsed,
+    expandedRowId,
+    onToggleExpand,
   }
 }

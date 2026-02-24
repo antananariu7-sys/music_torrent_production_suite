@@ -1,9 +1,20 @@
-import { memo, useCallback } from 'react'
-import { Table, Text, HStack, IconButton, Badge } from '@chakra-ui/react'
-import { FiExternalLink, FiChevronDown, FiDownload } from 'react-icons/fi'
+import { memo, useCallback, useState } from 'react'
+import { Table, Text, HStack, IconButton, Badge, Box } from '@chakra-ui/react'
+import {
+  FiExternalLink,
+  FiChevronDown,
+  FiChevronUp,
+  FiDownload,
+} from 'react-icons/fi'
 import type { SearchResult } from '@shared/types/search.types'
+import type { TorrentPageMetadata } from '@shared/types/torrentMetadata.types'
 import type { PageContentScanResult } from '@shared/types/discography.types'
 import type { SearchTabType } from './SearchResultsTabs'
+import {
+  TorrentTrackListPreview,
+  TorrentTrackListLoading,
+  TorrentTrackListError,
+} from './TorrentTrackListPreview'
 
 interface SearchResultsRowProps {
   torrent: SearchResult
@@ -11,6 +22,9 @@ interface SearchResultsRowProps {
   isDownloading?: boolean
   tabType?: SearchTabType
   scanResult?: PageContentScanResult
+  isExpanded?: boolean
+  onToggleExpand?: (id: string) => void
+  highlightSongName?: string
 }
 
 function formatSize(bytes: number): string {
@@ -64,7 +78,16 @@ export const SearchResultsRow = memo(function SearchResultsRow({
   isDownloading,
   tabType,
   scanResult,
+  isExpanded,
+  onToggleExpand,
+  highlightSongName,
 }: SearchResultsRowProps) {
+  const [previewState, setPreviewState] = useState<
+    'idle' | 'loading' | 'loaded' | 'error'
+  >('idle')
+  const [metadata, setMetadata] = useState<TorrentPageMetadata | null>(null)
+  const [previewError, setPreviewError] = useState('')
+
   const handleOpenPage = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation()
@@ -81,128 +104,187 @@ export const SearchResultsRow = memo(function SearchResultsRow({
     [isDownloading, onSelect, torrent]
   )
 
+  const handleToggleExpand = useCallback(
+    async (e?: React.MouseEvent) => {
+      e?.stopPropagation()
+      onToggleExpand?.(torrent.id)
+
+      // Fetch metadata on first expansion
+      if (!isExpanded && previewState === 'idle') {
+        setPreviewState('loading')
+        try {
+          const response = await window.api.torrentMetadata.parse({
+            torrentUrl: torrent.url,
+            torrentId: torrent.id,
+          })
+          if (response.success && response.metadata) {
+            setMetadata(response.metadata)
+            setPreviewState('loaded')
+          } else {
+            setPreviewError(response.error || 'Unknown error')
+            setPreviewState('error')
+          }
+        } catch (err) {
+          setPreviewError(err instanceof Error ? err.message : 'Failed to load')
+          setPreviewState('error')
+        }
+      }
+    },
+    [torrent.id, torrent.url, isExpanded, previewState, onToggleExpand]
+  )
+
+  const handleRowClick = useCallback(() => {
+    handleToggleExpand()
+  }, [handleToggleExpand])
+
   const isDiscographyTab = tabType === 'discography'
   const matchText = isDiscographyTab ? getMatchBadgeText(scanResult) : null
 
   return (
-    <Table.Row _hover={{ bg: 'bg.elevated' }} cursor="pointer">
-      {/* Title */}
-      <Table.Cell>
-        <Text
-          fontSize="sm"
-          lineClamp={1}
-          title={torrent.title}
-          color="text.primary"
-        >
-          {torrent.title}
-        </Text>
-      </Table.Cell>
-
-      {/* Size */}
-      <Table.Cell>
-        <Text fontSize="sm" color="text.secondary" whiteSpace="nowrap">
-          {getDisplaySize(torrent)}
-        </Text>
-      </Table.Cell>
-
-      {/* S/L */}
-      <Table.Cell>
-        <HStack gap={1}>
-          <Text fontSize="sm" color="green.400">
-            {torrent.seeders}↑
-          </Text>
-          <Text fontSize="sm" color="text.muted">
-            /
-          </Text>
-          <Text fontSize="sm" color="text.muted">
-            {torrent.leechers}↓
-          </Text>
-        </HStack>
-      </Table.Cell>
-
-      {/* Relevance */}
-      <Table.Cell>
-        {torrent.relevanceScore != null ? (
-          <Badge
-            size="sm"
-            colorPalette={getRelevanceColor(torrent.relevanceScore)}
-            variant="subtle"
+    <>
+      <Table.Row
+        _hover={{ bg: 'bg.elevated' }}
+        cursor="pointer"
+        onClick={handleRowClick}
+      >
+        {/* Title */}
+        <Table.Cell>
+          <Text
+            fontSize="sm"
+            lineClamp={1}
+            title={torrent.title}
+            color="text.primary"
           >
-            {torrent.relevanceScore}%
-          </Badge>
-        ) : (
-          <Text fontSize="sm" color="text.muted">
-            —
+            {torrent.title}
           </Text>
-        )}
-      </Table.Cell>
+        </Table.Cell>
 
-      {/* Format (album tab) or Match (discography tab) */}
-      <Table.Cell>
-        {isDiscographyTab ? (
-          matchText ? (
+        {/* Size */}
+        <Table.Cell>
+          <Text fontSize="sm" color="text.secondary" whiteSpace="nowrap">
+            {getDisplaySize(torrent)}
+          </Text>
+        </Table.Cell>
+
+        {/* S/L */}
+        <Table.Cell>
+          <HStack gap={1}>
+            <Text fontSize="sm" color="green.400">
+              {torrent.seeders}↑
+            </Text>
+            <Text fontSize="sm" color="text.muted">
+              /
+            </Text>
+            <Text fontSize="sm" color="text.muted">
+              {torrent.leechers}↓
+            </Text>
+          </HStack>
+        </Table.Cell>
+
+        {/* Relevance */}
+        <Table.Cell>
+          {torrent.relevanceScore != null ? (
             <Badge
               size="sm"
-              colorPalette="green"
+              colorPalette={getRelevanceColor(torrent.relevanceScore)}
               variant="subtle"
-              title={matchText}
             >
-              {'\u2705 '}
-              {truncate(matchText, 15)}
+              {torrent.relevanceScore}%
             </Badge>
           ) : (
             <Text fontSize="sm" color="text.muted">
               —
             </Text>
-          )
-        ) : torrent.format ? (
-          <Badge
-            size="sm"
-            colorPalette={getFormatBadgeColor(torrent.format)}
-            variant="subtle"
-          >
-            {torrent.format.toUpperCase()}
-          </Badge>
-        ) : (
-          <Text fontSize="sm" color="text.muted">
-            —
-          </Text>
-        )}
-      </Table.Cell>
+          )}
+        </Table.Cell>
 
-      {/* Actions */}
-      <Table.Cell>
-        <HStack gap={1}>
-          <IconButton
-            aria-label="Open page"
-            size="xs"
-            variant="ghost"
-            onClick={handleOpenPage}
-            title="Open RuTracker page"
-          >
-            <FiExternalLink />
-          </IconButton>
-          <IconButton
-            aria-label="Preview tracks"
-            size="xs"
-            variant="ghost"
-            disabled
-            title="Preview tracks (coming soon)"
-          >
-            <FiChevronDown />
-          </IconButton>
-          <IconButton
-            aria-label="Download"
-            size="xs"
-            variant="ghost"
-            onClick={handleDownload}
-            disabled={isDownloading}
-            title="Add to collection"
-          >
-            <FiDownload />
-          </IconButton>
-        </HStack>
-      </Table.Cell>
-    </Table.Row>
+        {/* Format (album tab) or Match (discography tab) */}
+        <Table.Cell>
+          {isDiscographyTab ? (
+            matchText ? (
+              <Badge
+                size="sm"
+                colorPalette="green"
+                variant="subtle"
+                title={matchText}
+              >
+                {'\u2705 '}
+                {truncate(matchText, 15)}
+              </Badge>
+            ) : (
+              <Text fontSize="sm" color="text.muted">
+                —
+              </Text>
+            )
+          ) : torrent.format ? (
+            <Badge
+              size="sm"
+              colorPalette={getFormatBadgeColor(torrent.format)}
+              variant="subtle"
+            >
+              {torrent.format.toUpperCase()}
+            </Badge>
+          ) : (
+            <Text fontSize="sm" color="text.muted">
+              —
+            </Text>
+          )}
+        </Table.Cell>
+
+        {/* Actions */}
+        <Table.Cell>
+          <HStack gap={1}>
+            <IconButton
+              aria-label="Open page"
+              size="xs"
+              variant="ghost"
+              onClick={handleOpenPage}
+              title="Open RuTracker page"
+            >
+              <FiExternalLink />
+            </IconButton>
+            <IconButton
+              aria-label="Preview tracks"
+              size="xs"
+              variant="ghost"
+              onClick={handleToggleExpand}
+              title={isExpanded ? 'Hide tracks' : 'Preview tracks'}
+            >
+              {isExpanded ? <FiChevronUp /> : <FiChevronDown />}
+            </IconButton>
+            <IconButton
+              aria-label="Download"
+              size="xs"
+              variant="ghost"
+              onClick={handleDownload}
+              disabled={isDownloading}
+              title="Add to collection"
+            >
+              <FiDownload />
+            </IconButton>
+          </HStack>
+        </Table.Cell>
+      </Table.Row>
+
+      {/* Expanded track list */}
+      {isExpanded && (
+        <Table.Row>
+          <Table.Cell colSpan={6} py={2} px={4}>
+            <Box pl={4}>
+              {previewState === 'loading' && <TorrentTrackListLoading />}
+              {previewState === 'error' && (
+                <TorrentTrackListError error={previewError} />
+              )}
+              {previewState === 'loaded' && metadata && (
+                <TorrentTrackListPreview
+                  metadata={metadata}
+                  highlightSongName={highlightSongName}
+                />
+              )}
+            </Box>
+          </Table.Cell>
+        </Table.Row>
+      )}
+    </>
   )
 })

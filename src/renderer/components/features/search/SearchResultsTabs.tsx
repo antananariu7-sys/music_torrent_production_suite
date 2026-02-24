@@ -11,6 +11,7 @@ interface SearchResultsTabsProps {
   onSelectTorrent?: (torrent: SearchResult) => void
   isDownloading?: boolean
   discographyScanResults?: PageContentScanResult[]
+  highlightSongName?: string
 }
 
 export function SearchResultsTabs({
@@ -18,6 +19,7 @@ export function SearchResultsTabs({
   onSelectTorrent,
   isDownloading,
   discographyScanResults = [],
+  highlightSongName,
 }: SearchResultsTabsProps) {
   const albumResults = useMemo(
     () => results.filter((r) => r.searchSource === 'album'),
@@ -78,6 +80,7 @@ export function SearchResultsTabs({
           isDownloading={isDownloading}
           tabType="album"
           emptyMessage="No direct album results."
+          highlightSongName={highlightSongName}
         />
       )}
       {activeTab === 'discography' && (
@@ -88,6 +91,7 @@ export function SearchResultsTabs({
           tabType="discography"
           scanResultsMap={scanResultsMap}
           emptyMessage="No discography results."
+          highlightSongName={highlightSongName}
         />
       )}
     </Box>
