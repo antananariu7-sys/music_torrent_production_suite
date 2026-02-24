@@ -41,6 +41,24 @@ interface SearchTableState {
   expandedRowId: string | null
   /** Toggle row expansion */
   onToggleExpand: (id: string) => void
+  /** Filter text for title search */
+  filterText: string
+  /** Set filter text (resets page to 1, collapses expanded row) */
+  onFilterChange: (text: string) => void
+  /** Current page number (1-indexed) */
+  currentPage: number
+  /** Page size */
+  pageSize: number
+  /** Total number of results after filtering */
+  filteredCount: number
+  /** Total number of results before filtering */
+  totalCount: number
+  /** Total pages */
+  totalPages: number
+  /** Set current page */
+  onPageChange: (page: number) => void
+  /** Set page size (resets to page 1) */
+  onPageSizeChange: (size: number) => void
 }
 
 const DEFAULT_SORT_COLUMN: SortColumn = 'relevance'
@@ -82,8 +100,22 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     () => new Set()
   )
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
+  const [filterText, setFilterText] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
 
-  // Classify results into groups, merging 'discography' into 'other'
+  // Filter results by title substring (case-insensitive)
+  const filteredResults = useMemo(() => {
+    if (!filterText.trim()) return results
+    const lower = filterText.toLowerCase()
+    return results.filter((r) => r.title.toLowerCase().includes(lower))
+  }, [results, filterText])
+
+  const totalCount = results.length
+  const filteredCount = filteredResults.length
+  const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize))
+
+  // Classify filtered results into groups, merging 'discography' into 'other'
   const groupedResults = useMemo(() => {
     const groups: Record<ResultGroup, SearchResult[]> = {
       studio: [],
@@ -93,7 +125,7 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
       other: [],
     }
 
-    for (const result of results) {
+    for (const result of filteredResults) {
       const group = classifyResult(result)
       if (group === 'discography') {
         groups.other.push(result)
@@ -103,7 +135,7 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     }
 
     return groups
-  }, [results])
+  }, [filteredResults])
 
   // Sort within each group: FLAC images to bottom, then by active sort column
   const sortedGroups = useMemo(() => {
@@ -126,13 +158,13 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     return sorted
   }, [groupedResults, sortColumn, sortDirection])
 
-  // Build flat row list for rendering
-  const rows = useMemo<TableRow[]>(() => {
-    const useGroups = results.length >= 5
+  // Build flat row list for rendering (all rows, before pagination)
+  const allRows = useMemo<TableRow[]>(() => {
+    const useGroups = filteredResults.length >= 5
 
     if (!useGroups) {
       // Flat table — sort all results together
-      const allSorted = [...results].sort((a, b) => {
+      const allSorted = [...filteredResults].sort((a, b) => {
         const aIsImage = isFlacImage(a)
         const bIsImage = isFlacImage(b)
         if (aIsImage !== bIsImage) return aIsImage ? 1 : -1
@@ -157,7 +189,37 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     }
 
     return rowList
-  }, [results, sortedGroups, sortColumn, sortDirection, collapsedGroups])
+  }, [
+    filteredResults,
+    sortedGroups,
+    sortColumn,
+    sortDirection,
+    collapsedGroups,
+  ])
+
+  // Paginate: slice result rows only, keeping group headers for visible results
+  const rows = useMemo<TableRow[]>(() => {
+    // Count only result rows for pagination
+    const resultRows = allRows.filter((r) => r.type === 'result')
+    const startIdx = (currentPage - 1) * pageSize
+    const pageResultIds = new Set(
+      resultRows.slice(startIdx, startIdx + pageSize).map((r) => {
+        if (r.type === 'result') return r.result.id
+        return ''
+      })
+    )
+
+    // Include group headers if they have visible results
+    return allRows.filter((row) => {
+      if (row.type === 'result') return pageResultIds.has(row.result.id)
+      // Include group header if at least one of its results is on this page
+      if (row.type === 'group') {
+        const groupItems = sortedGroups[row.group]
+        return groupItems?.some((item) => pageResultIds.has(item.id)) ?? false
+      }
+      return false
+    })
+  }, [allRows, currentPage, pageSize, sortedGroups])
 
   const onSort = useCallback(
     (column: SortColumn) => {
@@ -179,6 +241,7 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
         setSortDirection('asc')
         setSortClicks(1)
       }
+      setCurrentPage(1)
     },
     [sortColumn, sortClicks]
   )
@@ -204,6 +267,24 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     setExpandedRowId((prev) => (prev === id ? null : id))
   }, [])
 
+  const onFilterChange = useCallback((text: string) => {
+    setFilterText(text)
+    setCurrentPage(1)
+    setExpandedRowId(null)
+  }, [])
+
+  const onPageChange = useCallback(
+    (page: number) => {
+      setCurrentPage(Math.max(1, Math.min(page, totalPages)))
+    },
+    [totalPages]
+  )
+
+  const onPageSizeChange = useCallback((size: number) => {
+    setPageSize(size)
+    setCurrentPage(1)
+  }, [])
+
   return {
     rows,
     sortColumn,
@@ -214,5 +295,14 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     isGroupCollapsed,
     expandedRowId,
     onToggleExpand,
+    filterText,
+    onFilterChange,
+    currentPage,
+    pageSize,
+    filteredCount,
+    totalCount,
+    totalPages,
+    onPageChange,
+    onPageSizeChange,
   }
 }

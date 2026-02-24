@@ -8,6 +8,8 @@ import {
   type SortColumn,
 } from './hooks/useSearchTableState'
 import { SearchResultsRow } from './SearchResultsRow'
+import { SearchResultsFilter } from './SearchResultsFilter'
+import { SearchResultsPagination } from './SearchResultsPagination'
 import type { SearchTabType } from './SearchResultsTabs'
 
 interface SearchResultsTableProps {
@@ -89,6 +91,15 @@ export const SearchResultsTable = memo(function SearchResultsTable({
     isGroupCollapsed,
     expandedRowId,
     onToggleExpand,
+    filterText,
+    onFilterChange,
+    currentPage,
+    pageSize,
+    filteredCount,
+    totalCount,
+    totalPages,
+    onPageChange,
+    onPageSizeChange,
   } = useSearchTableState(results)
 
   const groupLabels =
@@ -106,85 +117,117 @@ export const SearchResultsTable = memo(function SearchResultsTable({
   }
 
   return (
-    <Box maxH="500px" overflowY="auto">
-      <Table.Root size="sm" variant="outline">
-        <Table.Header>
-          <Table.Row>
-            {SORTABLE_COLUMNS.map((col) => (
-              <Table.ColumnHeader
-                key={col.key}
-                w={col.w}
-                cursor="pointer"
-                onClick={() => onSort(col.key)}
-                _hover={{ color: 'text.primary' }}
-                userSelect="none"
-                title={col.tooltip}
-              >
-                {col.label}
-                <SortIndicator
-                  column={col.key}
-                  activeColumn={sortColumn}
-                  direction={sortDirection}
-                />
-              </Table.ColumnHeader>
-            ))}
-            <Table.ColumnHeader w={isDiscographyTab ? '100px' : '70px'}>
-              {isDiscographyTab ? 'Match' : 'Format'}
-            </Table.ColumnHeader>
-            <Table.ColumnHeader w="100px">Actions</Table.ColumnHeader>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {rows.map((row) => {
-            if (row.type === 'group') {
-              const collapsed = isGroupCollapsed(row.group)
-              return (
-                <Table.Row
-                  key={`group-${row.group}`}
-                  bg="bg.surface"
-                  cursor="pointer"
-                  onClick={() => onToggleGroup(row.group)}
-                  _hover={{ bg: 'bg.elevated' }}
-                >
-                  <Table.Cell colSpan={6} py={1.5}>
-                    <HStack gap={2} color="text.muted">
-                      <Icon
-                        as={collapsed ? FiChevronRight : FiChevronDown}
-                        boxSize={3.5}
-                      />
-                      <Text
-                        fontSize="xs"
-                        fontWeight="semibold"
-                        textTransform="uppercase"
-                        letterSpacing="wide"
-                      >
-                        {groupLabels[row.group]}
-                      </Text>
-                      <Text fontSize="xs" color="text.muted">
-                        ({row.count})
-                      </Text>
-                    </HStack>
-                  </Table.Cell>
-                </Table.Row>
-              )
-            }
+    <Box>
+      {/* Filter input */}
+      <SearchResultsFilter
+        value={filterText}
+        onChange={onFilterChange}
+        totalCount={totalCount}
+      />
 
-            return (
-              <SearchResultsRow
-                key={row.result.id}
-                torrent={row.result}
-                onSelect={onSelectTorrent}
-                isDownloading={isDownloading}
-                tabType={tabType}
-                scanResult={scanResultsMap?.get(row.result.id)}
-                isExpanded={expandedRowId === row.result.id}
-                onToggleExpand={onToggleExpand}
-                highlightSongName={highlightSongName}
-              />
-            )
-          })}
-        </Table.Body>
-      </Table.Root>
+      {/* Filtered empty state */}
+      {filteredCount === 0 && filterText ? (
+        <Box py={6} textAlign="center">
+          <Text color="text.muted" fontSize="sm">
+            No results match &ldquo;{filterText}&rdquo;
+          </Text>
+        </Box>
+      ) : (
+        <>
+          <Box maxH="500px" overflowY="auto">
+            <Table.Root size="sm" variant="outline">
+              <Table.Header>
+                <Table.Row>
+                  {SORTABLE_COLUMNS.map((col) => (
+                    <Table.ColumnHeader
+                      key={col.key}
+                      w={col.w}
+                      cursor="pointer"
+                      onClick={() => onSort(col.key)}
+                      _hover={{ color: 'text.primary' }}
+                      userSelect="none"
+                      title={col.tooltip}
+                    >
+                      {col.label}
+                      <SortIndicator
+                        column={col.key}
+                        activeColumn={sortColumn}
+                        direction={sortDirection}
+                      />
+                    </Table.ColumnHeader>
+                  ))}
+                  <Table.ColumnHeader w={isDiscographyTab ? '100px' : '70px'}>
+                    {isDiscographyTab ? 'Match' : 'Format'}
+                  </Table.ColumnHeader>
+                  <Table.ColumnHeader w="100px">Actions</Table.ColumnHeader>
+                </Table.Row>
+              </Table.Header>
+              <Table.Body>
+                {rows.map((row) => {
+                  if (row.type === 'group') {
+                    const collapsed = isGroupCollapsed(row.group)
+                    return (
+                      <Table.Row
+                        key={`group-${row.group}`}
+                        bg="bg.surface"
+                        cursor="pointer"
+                        onClick={() => onToggleGroup(row.group)}
+                        _hover={{ bg: 'bg.elevated' }}
+                      >
+                        <Table.Cell colSpan={6} py={1.5}>
+                          <HStack gap={2} color="text.muted">
+                            <Icon
+                              as={collapsed ? FiChevronRight : FiChevronDown}
+                              boxSize={3.5}
+                            />
+                            <Text
+                              fontSize="xs"
+                              fontWeight="semibold"
+                              textTransform="uppercase"
+                              letterSpacing="wide"
+                            >
+                              {groupLabels[row.group]}
+                            </Text>
+                            <Text fontSize="xs" color="text.muted">
+                              ({row.count})
+                            </Text>
+                          </HStack>
+                        </Table.Cell>
+                      </Table.Row>
+                    )
+                  }
+
+                  return (
+                    <SearchResultsRow
+                      key={row.result.id}
+                      torrent={row.result}
+                      onSelect={onSelectTorrent}
+                      isDownloading={isDownloading}
+                      tabType={tabType}
+                      scanResult={scanResultsMap?.get(row.result.id)}
+                      isExpanded={expandedRowId === row.result.id}
+                      onToggleExpand={onToggleExpand}
+                      highlightSongName={highlightSongName}
+                      filterText={filterText}
+                    />
+                  )
+                })}
+              </Table.Body>
+            </Table.Root>
+          </Box>
+
+          {/* Pagination */}
+          <SearchResultsPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalResults={totalCount}
+            filteredCount={filterText ? filteredCount : undefined}
+            onPageChange={onPageChange}
+            onPageSizeChange={onPageSizeChange}
+          />
+        </>
+      )}
     </Box>
   )
 })

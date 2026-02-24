@@ -25,6 +25,45 @@ interface SearchResultsRowProps {
   isExpanded?: boolean
   onToggleExpand?: (id: string) => void
   highlightSongName?: string
+  filterText?: string
+}
+
+/** Highlight matching filter text segments in a string */
+function HighlightedText({
+  text,
+  highlight,
+}: {
+  text: string
+  highlight?: string
+}) {
+  if (!highlight?.trim()) {
+    return <>{text}</>
+  }
+
+  const lower = text.toLowerCase()
+  const query = highlight.toLowerCase()
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let idx = lower.indexOf(query, lastIndex)
+
+  while (idx !== -1) {
+    if (idx > lastIndex) {
+      parts.push(text.slice(lastIndex, idx))
+    }
+    parts.push(
+      <Box key={idx} as="span" bg="yellow.500/30" borderRadius="sm" px={0.5}>
+        {text.slice(idx, idx + query.length)}
+      </Box>
+    )
+    lastIndex = idx + query.length
+    idx = lower.indexOf(query, lastIndex)
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex))
+  }
+
+  return <>{parts}</>
 }
 
 function formatSize(bytes: number): string {
@@ -81,6 +120,7 @@ export const SearchResultsRow = memo(function SearchResultsRow({
   isExpanded,
   onToggleExpand,
   highlightSongName,
+  filterText,
 }: SearchResultsRowProps) {
   const [previewState, setPreviewState] = useState<
     'idle' | 'loading' | 'loaded' | 'error'
@@ -155,7 +195,7 @@ export const SearchResultsRow = memo(function SearchResultsRow({
             title={torrent.title}
             color="text.primary"
           >
-            {torrent.title}
+            <HighlightedText text={torrent.title} highlight={filterText} />
           </Text>
         </Table.Cell>
 
