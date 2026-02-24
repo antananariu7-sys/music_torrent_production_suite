@@ -59,6 +59,23 @@ const NON_AUDIO_PATTERNS: RegExp[] = [
   /\bkaraoke\b/i,
   new RegExp(`${CYR_B}караоке${CYR_E}`, 'i'),
   new RegExp(`${CYR_B}минусовк`, 'i'),
+
+  // E-book formats
+  /\b(?:fb2|epub|djvu?|mobi)\b/i,
+
+  // Video disc formats (skip when audio formats present)
+  new RegExp(`\\b(?:dvd[59]|ntsc)\\b${NOT_AUDIO}`, 'i'),
+  new RegExp(`\\bpal\\b${NOT_AUDIO}`, 'i'),
+
+  // Video game indicators
+  /\bdlc\b/i,
+
+  // Documentary
+  /\bdocumentary\b/i,
+  new RegExp(`${CYR_B}документальн`, 'i'),
+
+  // Low-bitrate MP3 (audiobook indicator: 16–64 kbps)
+  /\b(?:16|24|32|48|56|64)\s*kbps\b/i,
 ]
 
 /** Returns true if the result likely contains non-audio content */

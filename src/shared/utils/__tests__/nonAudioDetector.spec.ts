@@ -60,6 +60,24 @@ describe('isNonAudioResult', () => {
       'Karaoke Collection 2024',
       'Караоке хиты 90-х',
       'Минусовка популярных песен',
+      // E-books (from example.html)
+      'Dave Grohl / Дэйв Грол - The Storyteller [2022, FB2, RUS]',
+      'Guitar Method Book [EPUB]',
+      'Music Theory Guide [DJVU]',
+      'Rock History [MOBI]',
+      // Video games (from example2.html)
+      'AI: The Somnium Files (Build 9637785 + 5 DLC) [Portable]',
+      // DVD video disc formats (from example4.html)
+      'Nirvana - With The Lights Out (NTSC) [2004, DVD5]',
+      'Kurt Cobain - Montage Of Heck [2015, Documentary, DVD9]',
+      'Concert Film [PAL]',
+      // Documentary (from example5.html)
+      'Kurt Cobain Documentary [2015, DVD9 Custom]',
+      'Документальный фильм о Nirvana',
+      // Low-bitrate audiobook (from example3.html)
+      'Голдберг Дэнни - Курт Кобейн [2019, 56 kbps, MP3]',
+      'Audiobook Title [2019, 32 kbps, MP3]',
+      'Мемуары рок-звезды [64 kbps, MP3]',
     ]
 
     test.each(nonAudioTitles)('"%s"', (title) => {
@@ -92,6 +110,13 @@ describe('isNonAudioResult', () => {
       'Greatest Hits Collection [MP3 VBR]',
       // Singles / EPs
       'Smells Like Teen Spirit [Single, FLAC]',
+      // Music with normal bitrates (should NOT be caught by low-bitrate rule)
+      'Nirvana - In Utero [MP3, 320 kbps]',
+      'Album Name [MP3, 192 kbps]',
+      'Album Name [128 kbps, MP3]',
+      // DVD/Blu-ray with audio formats (should NOT be hidden)
+      'Concert DVD5 FLAC',
+      'Live Performance NTSC FLAC',
     ]
 
     test.each(musicTitles)('"%s"', (title) => {
