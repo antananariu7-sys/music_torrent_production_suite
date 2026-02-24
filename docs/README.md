@@ -67,7 +67,7 @@ Feature specifications organized by status:
 **Plans** ([features/plans/](features/plans/)):
 
 - **[search-results-table-plan.md](features/plans/search-results-table-plan.md)** - Search results table implementation plan
-- **[search-refactor-plan.md](features/plans/search-refactor-plan.md)** - Search refactor plan
+- **[mix-preparation-view-plan.md](features/plans/mix-preparation-view-plan.md)** - Mix preparation view implementation plan
 - **[unit-test-coverage-plan.md](features/plans/unit-test-coverage-plan.md)** - Unit test coverage plan
 
 ### [API](api/)

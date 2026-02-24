@@ -450,6 +450,51 @@ Response: { results: SearchResult[], loadedPages: number, totalPages: number, is
 
 ---
 
+## Phase 9 — Duplicate Detection (Optional)
+
+**Goal:** Warn users before downloading content that already exists in their project audio folder. Carried over from the completed [search-refactor-plan](../done/plans/search-refactor-plan.md).
+
+### New files
+
+| File                                                                | Purpose                                                                                                                 |
+| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `src/shared/utils/trackMatcher.ts`                                  | Pure functions: fuzzy string matching for track names (normalized Levenshtein or substring match with confidence score) |
+| `src/main/services/DuplicateDetectionService.ts`                    | Scans project audio directory, builds file index, compares torrent track listings against existing files                |
+| `src/main/ipc/duplicateHandlers.ts`                                 | IPC handlers: `duplicate:check`, `duplicate:rescan`                                                                     |
+| `src/shared/types/duplicateDetection.types.ts`                      | Types: `AudioFileIndex`, `DuplicateCheckRequest`, `DuplicateCheckResponse`                                              |
+| `src/renderer/components/features/search/DuplicateWarningBadge.tsx` | Inline badge on search result rows indicating potential duplicates                                                      |
+
+### Changes to existing files
+
+| File                      | Change                                                         |
+| ------------------------- | -------------------------------------------------------------- |
+| `src/shared/constants.ts` | Add `DUPLICATE_CHECK`, `DUPLICATE_RESCAN` IPC channels         |
+| `src/main/ipc/index.ts`   | Register duplicate handlers                                    |
+| `src/preload/index.ts`    | Add `api.duplicate.check()`, `api.duplicate.rescan()`          |
+| `SearchResultsRow.tsx`    | Show duplicate warning badge when match found                  |
+| `SearchResultsTable.tsx`  | Run duplicate check after results load (debounced, background) |
+
+### Detection approach
+
+1. **Index project audio**: Scan `<projectDir>/assets/audio/` for audio files on project open (or on first duplicate check)
+2. **Cache index**: Store as `<projectDir>/assets/.audio-index.json` — invalidate when directory mtime changes
+3. **Match algorithm**: For each search result title, run fuzzy match against indexed file names
+   - Normalize both: lowercase, strip extensions, strip common prefixes ("01.", "01 -")
+   - Score: Levenshtein-based similarity, threshold ≥ 85% for "likely duplicate"
+4. **Display**: Orange `⚠ DUP` badge on matching rows with tooltip listing matched files
+5. **Non-blocking**: Check runs in background after results render, badges appear as matches are found
+
+### Acceptance criteria
+
+- [ ] Project audio directory scanned and indexed
+- [ ] Index cached to disk, invalidated on directory changes
+- [ ] Search results checked against index after loading
+- [ ] Duplicate badge shown on matching rows with tooltip
+- [ ] "Rescan" button available in settings or inline
+- [ ] False positives acceptable — badge is informational only (user can still download)
+
+---
+
 ## Component Dependency Graph
 
 ```
@@ -487,22 +532,23 @@ Derived (computed in hook):
 
 ## Files Created / Modified per Phase
 
-| Phase | New files                                                | Modified files                                                                                                                                                            |
-| ----- | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1     | `SearchResultsTable.tsx`, `SearchResultsRow.tsx`         | `InlineSearchResults.tsx`                                                                                                                                                 |
-| 2     | `useSearchTableState.ts`, `flacImageDetector.ts`         | `SearchResultsTable.tsx`                                                                                                                                                  |
-| 3     | `SearchResultsTabs.tsx`                                  | `InlineSearchResults.tsx`, `SearchResultsTable.tsx`                                                                                                                       |
-| 4     | —                                                        | `SearchResultsTable.tsx`, `SearchResultsRow.tsx`, `useSearchTableState.ts`                                                                                                |
-| 5     | `SearchResultsFilter.tsx`, `SearchResultsPagination.tsx` | `useSearchTableState.ts`, `SearchResultsTable.tsx`, `SearchResultsRow.tsx`, `constants.ts`                                                                                |
-| 6     | `nonAudioDetector.ts`                                    | `useSearchTableState.ts`, `SearchResultsTable.tsx`, `SearchResultsRow.tsx`                                                                                                |
-| 7     | —                                                        | `useSearchTableState.ts`, `SearchResultsRow.tsx`, `TorrentTrackListPreview.tsx`                                                                                           |
-| 8     | `SearchResultsLoadMore.tsx`                              | `constants.ts`, `search.types.ts`, `search.schema.ts`, `search-handlers`, `RuTrackerSearchService.ts`, `preload/index.ts`, `smartSearchStore.ts`, `SearchResultsTabs.tsx` |
+| Phase | New files                                                                                                                             | Modified files                                                                                                                                                            |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | `SearchResultsTable.tsx`, `SearchResultsRow.tsx`                                                                                      | `InlineSearchResults.tsx`                                                                                                                                                 |
+| 2     | `useSearchTableState.ts`, `flacImageDetector.ts`                                                                                      | `SearchResultsTable.tsx`                                                                                                                                                  |
+| 3     | `SearchResultsTabs.tsx`                                                                                                               | `InlineSearchResults.tsx`, `SearchResultsTable.tsx`                                                                                                                       |
+| 4     | —                                                                                                                                     | `SearchResultsTable.tsx`, `SearchResultsRow.tsx`, `useSearchTableState.ts`                                                                                                |
+| 5     | `SearchResultsFilter.tsx`, `SearchResultsPagination.tsx`                                                                              | `useSearchTableState.ts`, `SearchResultsTable.tsx`, `SearchResultsRow.tsx`, `constants.ts`                                                                                |
+| 6     | `nonAudioDetector.ts`                                                                                                                 | `useSearchTableState.ts`, `SearchResultsTable.tsx`, `SearchResultsRow.tsx`                                                                                                |
+| 7     | —                                                                                                                                     | `useSearchTableState.ts`, `SearchResultsRow.tsx`, `TorrentTrackListPreview.tsx`                                                                                           |
+| 8     | `SearchResultsLoadMore.tsx`                                                                                                           | `constants.ts`, `search.types.ts`, `search.schema.ts`, `search-handlers`, `RuTrackerSearchService.ts`, `preload/index.ts`, `smartSearchStore.ts`, `SearchResultsTabs.tsx` |
+| 9     | `trackMatcher.ts`, `DuplicateDetectionService.ts`, `duplicateHandlers.ts`, `duplicateDetection.types.ts`, `DuplicateWarningBadge.tsx` | `constants.ts`, `ipc/index.ts`, `preload/index.ts`, `SearchResultsRow.tsx`, `SearchResultsTable.tsx`                                                                      |
 
 ## Testing Strategy
 
-- **Utility functions** (phases 2, 6): Unit tests for `flacImageDetector`, `nonAudioDetector`, sorting logic — `.spec.ts` files alongside source
+- **Utility functions** (phases 2, 6, 9): Unit tests for `flacImageDetector`, `nonAudioDetector`, `trackMatcher`, sorting logic — `.spec.ts` files alongside source
 - **Hook** (phases 2-7): Unit tests for `useSearchTableState` — sort, filter, pagination, exclusion logic
-- **IPC** (phase 8): Unit test for `loadMoreResults` handler with mocked Puppeteer
+- **IPC** (phases 8, 9): Unit tests for `loadMoreResults` and `DuplicateDetectionService` with mocked dependencies
 - **UI components**: No UI tests per project convention — verify manually through the SmartSearch workflow
 
 ## Risk Notes
