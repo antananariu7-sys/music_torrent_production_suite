@@ -9,6 +9,7 @@ import {
 import type { SearchResult } from '@shared/types/search.types'
 import type { TorrentPageMetadata } from '@shared/types/torrentMetadata.types'
 import type { PageContentScanResult } from '@shared/types/discography.types'
+import { isFlacImage } from '@shared/utils/flacImageDetector'
 import type { SearchTabType } from './SearchResultsTabs'
 import {
   TorrentTrackListPreview,
@@ -179,6 +180,7 @@ export const SearchResultsRow = memo(function SearchResultsRow({
 
   const isDiscographyTab = tabType === 'discography'
   const matchText = isDiscographyTab ? getMatchBadgeText(scanResult) : null
+  const showFlacImageBadge = !isDiscographyTab && isFlacImage(torrent)
 
   return (
     <>
@@ -256,18 +258,32 @@ export const SearchResultsRow = memo(function SearchResultsRow({
                 —
               </Text>
             )
-          ) : torrent.format ? (
-            <Badge
-              size="sm"
-              colorPalette={getFormatBadgeColor(torrent.format)}
-              variant="subtle"
-            >
-              {torrent.format.toUpperCase()}
-            </Badge>
           ) : (
-            <Text fontSize="sm" color="text.muted">
-              —
-            </Text>
+            <HStack gap={1}>
+              {torrent.format ? (
+                <Badge
+                  size="sm"
+                  colorPalette={getFormatBadgeColor(torrent.format)}
+                  variant="subtle"
+                >
+                  {torrent.format.toUpperCase()}
+                </Badge>
+              ) : (
+                <Text fontSize="sm" color="text.muted">
+                  —
+                </Text>
+              )}
+              {showFlacImageBadge && (
+                <Badge
+                  size="sm"
+                  colorPalette="orange"
+                  variant="subtle"
+                  title="Single-file FLAC/APE image (CUE+FLAC). Needs splitting before adding to mix."
+                >
+                  IMG
+                </Badge>
+              )}
+            </HStack>
           )}
         </Table.Cell>
 

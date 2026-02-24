@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react'
 import type { SearchResult, ResultGroup } from '@shared/types/search.types'
 import { classifyResult } from '@shared/utils/resultClassifier'
 import { isFlacImage } from '@shared/utils/flacImageDetector'
+import { isNonAudioResult } from '@shared/utils/nonAudioDetector'
 
 export type SortColumn = 'title' | 'size' | 'seeders' | 'relevance'
 export type SortDirection = 'asc' | 'desc'
@@ -59,6 +60,14 @@ interface SearchTableState {
   onPageChange: (page: number) => void
   /** Set page size (resets to page 1) */
   onPageSizeChange: (size: number) => void
+  /** Whether hidden (non-audio) results are shown */
+  showHidden: boolean
+  /** Number of hidden non-audio results */
+  hiddenCount: number
+  /** Hidden (non-audio) results sorted for separate section */
+  hiddenResults: SearchResult[]
+  /** Toggle show/hide non-audio results */
+  onToggleHidden: () => void
 }
 
 const DEFAULT_SORT_COLUMN: SortColumn = 'relevance'
@@ -103,13 +112,39 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
   const [filterText, setFilterText] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize, setPageSize] = useState(20)
+  const [showHidden, setShowHidden] = useState(false)
 
   // Filter results by title substring (case-insensitive)
-  const filteredResults = useMemo(() => {
+  const textFiltered = useMemo(() => {
     if (!filterText.trim()) return results
     const lower = filterText.toLowerCase()
     return results.filter((r) => r.title.toLowerCase().includes(lower))
   }, [results, filterText])
+
+  // Identify non-audio results for hiding
+  const hiddenIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const r of textFiltered) {
+      if (isNonAudioResult(r)) ids.add(r.id)
+    }
+    return ids
+  }, [textFiltered])
+
+  const hiddenCount = hiddenIds.size
+
+  // Always exclude non-audio from main table
+  const filteredResults = useMemo(() => {
+    if (hiddenCount === 0) return textFiltered
+    return textFiltered.filter((r) => !hiddenIds.has(r.id))
+  }, [textFiltered, hiddenIds, hiddenCount])
+
+  // Sorted hidden results for separate section
+  const hiddenResults = useMemo(() => {
+    if (hiddenCount === 0) return []
+    return textFiltered
+      .filter((r) => hiddenIds.has(r.id))
+      .sort((a, b) => compareResults(a, b, sortColumn, sortDirection))
+  }, [textFiltered, hiddenIds, hiddenCount, sortColumn, sortDirection])
 
   const totalCount = results.length
   const filteredCount = filteredResults.length
@@ -285,6 +320,11 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     setCurrentPage(1)
   }, [])
 
+  const onToggleHidden = useCallback(() => {
+    setShowHidden((prev) => !prev)
+    setCurrentPage(1)
+  }, [])
+
   return {
     rows,
     sortColumn,
@@ -304,5 +344,9 @@ export function useSearchTableState(results: SearchResult[]): SearchTableState {
     totalPages,
     onPageChange,
     onPageSizeChange,
+    showHidden,
+    hiddenCount,
+    hiddenResults,
+    onToggleHidden,
   }
 }

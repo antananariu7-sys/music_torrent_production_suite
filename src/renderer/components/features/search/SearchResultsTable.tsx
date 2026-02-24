@@ -100,6 +100,10 @@ export const SearchResultsTable = memo(function SearchResultsTable({
     totalPages,
     onPageChange,
     onPageSizeChange,
+    showHidden,
+    hiddenCount,
+    hiddenResults,
+    onToggleHidden,
   } = useSearchTableState(results)
 
   const groupLabels =
@@ -130,6 +134,21 @@ export const SearchResultsTable = memo(function SearchResultsTable({
         <Box py={6} textAlign="center">
           <Text color="text.muted" fontSize="sm">
             No results match &ldquo;{filterText}&rdquo;
+          </Text>
+        </Box>
+      ) : filteredCount === 0 && hiddenCount > 0 ? (
+        <Box py={6} textAlign="center">
+          <Text color="text.muted" fontSize="sm">
+            All results were filtered as non-audio.{' '}
+            <Text
+              as="span"
+              color="blue.400"
+              cursor="pointer"
+              _hover={{ textDecoration: 'underline' }}
+              onClick={onToggleHidden}
+            >
+              Show {hiddenCount} hidden results
+            </Text>
           </Text>
         </Box>
       ) : (
@@ -226,6 +245,51 @@ export const SearchResultsTable = memo(function SearchResultsTable({
             onPageChange={onPageChange}
             onPageSizeChange={onPageSizeChange}
           />
+
+          {/* Hidden (non-audio) results section */}
+          {hiddenCount > 0 && (
+            <Box mt={3}>
+              <HStack
+                gap={2}
+                cursor="pointer"
+                onClick={onToggleHidden}
+                color="text.muted"
+                _hover={{ color: 'text.primary' }}
+                userSelect="none"
+              >
+                <Icon
+                  as={showHidden ? FiChevronDown : FiChevronRight}
+                  boxSize={3.5}
+                />
+                <Text fontSize="xs" fontWeight="semibold">
+                  Non-audio results ({hiddenCount})
+                </Text>
+              </HStack>
+
+              {showHidden && (
+                <Box mt={1} maxH="300px" overflowY="auto" opacity={0.6}>
+                  <Table.Root size="sm" variant="outline">
+                    <Table.Body>
+                      {hiddenResults.map((result) => (
+                        <SearchResultsRow
+                          key={result.id}
+                          torrent={result}
+                          onSelect={onSelectTorrent}
+                          isDownloading={isDownloading}
+                          tabType={tabType}
+                          scanResult={scanResultsMap?.get(result.id)}
+                          isExpanded={expandedRowId === result.id}
+                          onToggleExpand={onToggleExpand}
+                          highlightSongName={highlightSongName}
+                          filterText={filterText}
+                        />
+                      ))}
+                    </Table.Body>
+                  </Table.Root>
+                </Box>
+              )}
+            </Box>
+          )}
         </>
       )}
     </Box>
