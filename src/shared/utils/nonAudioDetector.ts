@@ -1,15 +1,12 @@
 import type { SearchResult } from '../types/search.types'
 
 /**
- * Negative lookahead: skip if common audio formats appear later in the title.
- * Used for video format indicators that could appear alongside audio in
- * music torrents with bonus video (e.g. "[+Video, WEB-DL, 480p] FLAC").
+ * Matches common audio format keywords anywhere in the title.
+ * Used to exempt video-format patterns when audio content is present.
  */
-const NOT_AUDIO = '(?!.*(?:flac|mp3|ape|wav|aac|lossless|dsd))'
+const AUDIO_FORMAT_RE = /\b(?:flac|mp3|ape|wav|aac|lossless|dsd)\b/i
 
 /**
- * Patterns that indicate primarily non-audio content.
- *
  * Notes on boundaries:
  * - \b works for Latin/ASCII words only.
  * - For Cyrillic patterns, use (?:^|[^а-яА-ЯёЁ]) as a leading boundary
@@ -18,7 +15,11 @@ const NOT_AUDIO = '(?!.*(?:flac|mp3|ape|wav|aac|lossless|dsd))'
 const CYR_B = '(?:^|[^а-яА-ЯёЁ])'
 const CYR_E = '(?:[^а-яА-ЯёЁ]|$)'
 
-const NON_AUDIO_PATTERNS: RegExp[] = [
+/**
+ * Patterns that always indicate non-audio content,
+ * regardless of whether audio format keywords are present.
+ */
+const STRICT_NON_AUDIO_PATTERNS: RegExp[] = [
   // PDFs / books / audiobooks
   /\bpdf\b/i,
   new RegExp(`${CYR_B}книг[аи]${CYR_E}`, 'i'),
@@ -27,20 +28,12 @@ const NON_AUDIO_PATTERNS: RegExp[] = [
   /\baudiobook\b/i,
   new RegExp(`${CYR_B}аудиокниг`, 'i'),
 
-  // Movie / TV video rip formats (skip when audio formats present)
-  new RegExp(`\\b(?:BD|HD|WEB|CAM|TV|SAT|DVD)Rip\\b${NOT_AUDIO}`, 'i'),
-  new RegExp(`\\bWEB-DL\\b${NOT_AUDIO}`, 'i'),
-  new RegExp(`\\bBDRemux\\b${NOT_AUDIO}`, 'i'),
-  new RegExp(`\\bRemux\\b${NOT_AUDIO}`, 'i'),
-
   // Movie voice-over / dubbing (uniquely film content in RuTracker)
   /\b[DAM]VO\b/,
 
   // Video-only content (not "+video" bonus in music torrents)
   /(?<!\+)\bvideo\s*(lesson|урок|курс|school)/i,
   new RegExp(`${CYR_B}видео\\s*(урок|курс|школ)`, 'i'),
-  new RegExp(`\\bdvd\\b${NOT_AUDIO}`, 'i'),
-  new RegExp(`\\bblu-ray\\b${NOT_AUDIO}`, 'i'),
   /\bconcert film\b/i,
 
   // Guitar tabs / sheet music
@@ -63,10 +56,6 @@ const NON_AUDIO_PATTERNS: RegExp[] = [
   // E-book formats
   /\b(?:fb2|epub|djvu?|mobi)\b/i,
 
-  // Video disc formats (skip when audio formats present)
-  new RegExp(`\\b(?:dvd[59]|ntsc)\\b${NOT_AUDIO}`, 'i'),
-  new RegExp(`\\bpal\\b${NOT_AUDIO}`, 'i'),
-
   // Video game indicators
   /\bdlc\b/i,
 
@@ -78,8 +67,36 @@ const NON_AUDIO_PATTERNS: RegExp[] = [
   /\b(?:16|24|32|48|56|64)\s*kbps\b/i,
 ]
 
+/**
+ * Patterns that indicate non-audio only when no audio format keyword
+ * (flac, mp3, aac, etc.) appears anywhere in the title.
+ * These are video formats that can co-exist with audio in music torrents.
+ */
+const VIDEO_FORMAT_PATTERNS: RegExp[] = [
+  // Movie / TV video rip formats
+  /\b(?:BD|HD|WEB|CAM|TV|SAT|DVD)Rip\b/i,
+  /\bWEB-DL\b/i,
+  /\bBDRemux\b/i,
+  /\bRemux\b/i,
+
+  // DVD / Blu-ray
+  /\bdvd\b/i,
+  /\bblu-ray\b/i,
+
+  // Video disc formats
+  /\b(?:dvd[59]|ntsc)\b/i,
+  /\bpal\b/i,
+]
+
 /** Returns true if the result likely contains non-audio content */
 export function isNonAudioResult(result: SearchResult): boolean {
   const title = result.title
-  return NON_AUDIO_PATTERNS.some((re) => re.test(title))
+
+  // Strict patterns always indicate non-audio
+  if (STRICT_NON_AUDIO_PATTERNS.some((re) => re.test(title))) return true
+
+  // Video format patterns are only non-audio when no audio format is present
+  // anywhere in the title (fixes false positives like "AAC ... WEB-DL")
+  if (AUDIO_FORMAT_RE.test(title)) return false
+  return VIDEO_FORMAT_PATTERNS.some((re) => re.test(title))
 }

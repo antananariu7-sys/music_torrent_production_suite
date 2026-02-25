@@ -9,8 +9,22 @@ import type { SearchTabType } from '../SearchResultsTabs'
 export type SortColumn = 'title' | 'size' | 'seeders' | 'relevance'
 export type SortDirection = 'asc' | 'desc'
 
-/** Group display order — discography results go into "other" until Phase 3 tabs */
-const GROUP_ORDER: ResultGroup[] = ['studio', 'live', 'compilation', 'other']
+/** Group display order for album tab */
+const ALBUM_GROUP_ORDER: ResultGroup[] = [
+  'studio',
+  'live',
+  'compilation',
+  'other',
+]
+
+/** Group display order for discography tab — album matches first */
+const DISCO_GROUP_ORDER: ResultGroup[] = [
+  'albumMatch',
+  'studio',
+  'live',
+  'compilation',
+  'other',
+]
 
 interface GroupedRow {
   type: 'group'
@@ -110,6 +124,7 @@ export function useSearchTableState(
 ): SearchTableState {
   const scanResultsMap = options?.scanResultsMap
   const isDiscographyTab = options?.tabType === 'discography'
+  const groupOrder = isDiscographyTab ? DISCO_GROUP_ORDER : ALBUM_GROUP_ORDER
   const [sortColumn, setSortColumn] = useState<SortColumn>(DEFAULT_SORT_COLUMN)
   const [sortDirection, setSortDirection] = useState<SortDirection>(
     DEFAULT_SORT_DIRECTION
@@ -121,7 +136,7 @@ export function useSearchTableState(
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null)
   const [filterText, setFilterText] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(20)
+  const [pageSize, setPageSize] = useState(50)
   const [showHidden, setShowHidden] = useState(false)
 
   // Filter results by title substring (case-insensitive)
@@ -160,9 +175,11 @@ export function useSearchTableState(
   const filteredCount = filteredResults.length
   const totalPages = Math.max(1, Math.ceil(filteredCount / pageSize))
 
-  // Classify filtered results into groups, merging 'discography' into 'other'
+  // Classify filtered results into groups, merging 'discography' into 'other'.
+  // In discography tab, results matching the album title go into 'albumMatch'.
   const groupedResults = useMemo(() => {
     const groups: Record<ResultGroup, SearchResult[]> = {
+      albumMatch: [],
       studio: [],
       live: [],
       compilation: [],
@@ -171,6 +188,12 @@ export function useSearchTableState(
     }
 
     for (const result of filteredResults) {
+      // In discography tab, move scan-confirmed album matches to top group
+      if (isDiscographyTab && scanResultsMap?.get(result.id)?.albumFound) {
+        groups.albumMatch.push(result)
+        continue
+      }
+
       const group = classifyResult(result)
       if (group === 'discography') {
         groups.other.push(result)
@@ -180,13 +203,13 @@ export function useSearchTableState(
     }
 
     return groups
-  }, [filteredResults])
+  }, [filteredResults, isDiscographyTab, scanResultsMap])
 
   // Sort within each group: FLAC images to bottom, match presence (disco), then by active sort column
   const sortedGroups = useMemo(() => {
     const sorted: Record<string, SearchResult[]> = {}
 
-    for (const group of GROUP_ORDER) {
+    for (const group of groupOrder) {
       const items = groupedResults[group]
       if (items.length === 0) continue
 
@@ -211,6 +234,7 @@ export function useSearchTableState(
     return sorted
   }, [
     groupedResults,
+    groupOrder,
     sortColumn,
     sortDirection,
     isDiscographyTab,
@@ -241,7 +265,7 @@ export function useSearchTableState(
 
     const rowList: TableRow[] = []
 
-    for (const group of GROUP_ORDER) {
+    for (const group of groupOrder) {
       const items = sortedGroups[group]
       if (!items || items.length === 0) continue
 
@@ -258,6 +282,7 @@ export function useSearchTableState(
   }, [
     filteredResults,
     sortedGroups,
+    groupOrder,
     sortColumn,
     sortDirection,
     collapsedGroups,

@@ -111,6 +111,7 @@ describe('resultClassifier', () => {
       ]
 
       const groups = groupResults(results)
+      expect(groups.albumMatch).toHaveLength(0)
       expect(groups.studio).toHaveLength(2)
       expect(groups.live).toHaveLength(1)
       expect(groups.compilation).toHaveLength(1)
@@ -120,6 +121,7 @@ describe('resultClassifier', () => {
 
     it('should return empty groups for empty input', () => {
       const groups = groupResults([])
+      expect(groups.albumMatch).toHaveLength(0)
       expect(groups.studio).toHaveLength(0)
       expect(groups.live).toHaveLength(0)
       expect(groups.compilation).toHaveLength(0)

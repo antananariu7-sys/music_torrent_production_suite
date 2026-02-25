@@ -101,6 +101,7 @@ export interface ProgressiveSearchRequest {
 
 /** Result group category for RuTracker results */
 export type ResultGroup =
+  | 'albumMatch'
   | 'studio'
   | 'live'
   | 'compilation'
@@ -109,6 +110,7 @@ export type ResultGroup =
 
 /** Search results grouped by category */
 export interface GroupedSearchResults {
+  albumMatch: SearchResult[]
   studio: SearchResult[]
   live: SearchResult[]
   compilation: SearchResult[]

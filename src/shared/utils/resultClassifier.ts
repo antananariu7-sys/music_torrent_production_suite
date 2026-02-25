@@ -3,7 +3,11 @@
  * Can be imported by both main and renderer processes
  */
 
-import type { SearchResult, ResultGroup, GroupedSearchResults } from '@shared/types/search.types'
+import type {
+  SearchResult,
+  ResultGroup,
+  GroupedSearchResults,
+} from '@shared/types/search.types'
 
 /** Keywords for discography detection */
 const DISCOGRAPHY_KEYWORDS = [
@@ -15,13 +19,7 @@ const DISCOGRAPHY_KEYWORDS = [
 ]
 
 /** Keywords for live album detection */
-const LIVE_KEYWORDS = [
-  'live',
-  'concert',
-  'tour',
-  'концерт',
-  'bootleg',
-]
+const LIVE_KEYWORDS = ['live', 'concert', 'tour', 'концерт', 'bootleg']
 
 /** Keywords for compilation detection */
 const COMPILATION_KEYWORDS = [
@@ -38,14 +36,14 @@ const COMPILATION_KEYWORDS = [
  */
 export function isLikelyDiscography(title: string): boolean {
   const titleLower = title.toLowerCase()
-  return DISCOGRAPHY_KEYWORDS.some(keyword => titleLower.includes(keyword))
+  return DISCOGRAPHY_KEYWORDS.some((keyword) => titleLower.includes(keyword))
 }
 
 /**
  * Check if a title matches any keyword from a list
  */
 function titleMatchesKeywords(titleLower: string, keywords: string[]): boolean {
-  return keywords.some(keyword => titleLower.includes(keyword))
+  return keywords.some((keyword) => titleLower.includes(keyword))
 }
 
 /**
@@ -74,6 +72,7 @@ export function classifyResult(result: SearchResult): ResultGroup {
  */
 export function groupResults(results: SearchResult[]): GroupedSearchResults {
   const groups: GroupedSearchResults = {
+    albumMatch: [],
     studio: [],
     live: [],
     compilation: [],
@@ -92,6 +91,36 @@ export function groupResults(results: SearchResult[]): GroupedSearchResults {
 /**
  * Filter search results to find likely discography pages
  */
-export function filterDiscographyPages(results: SearchResult[]): SearchResult[] {
-  return results.filter(result => isLikelyDiscography(result.title))
+export function filterDiscographyPages(
+  results: SearchResult[]
+): SearchResult[] {
+  return results.filter((result) => isLikelyDiscography(result.title))
+}
+
+/**
+ * Normalize a title for album matching: lowercase, strip brackets/parens, collapse whitespace
+ */
+export function normalizeAlbumTitle(title: string): string {
+  return title
+    .toLowerCase()
+    .replace(/\(.*?\)/g, '')
+    .replace(/\[.*?\]/g, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Check if a result title matches an album name (fuzzy substring match)
+ */
+export function isAlbumTitleMatch(
+  resultTitle: string,
+  albumName: string
+): boolean {
+  const a = normalizeAlbumTitle(resultTitle)
+  const b = normalizeAlbumTitle(albumName)
+  if (!b) return false
+  if (a === b) return true
+  if (a.includes(b) || b.includes(a)) return true
+  return false
 }

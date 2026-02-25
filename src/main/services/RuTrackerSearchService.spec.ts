@@ -198,15 +198,13 @@ describe('RuTrackerSearchService', () => {
       expect(mockAuthService.getSessionCookies).toHaveBeenCalled()
     })
 
-    it('should navigate to RuTracker homepage first', async () => {
+    it('should not navigate to homepage (cookies set via url property)', async () => {
       await searchService.search(mockSearchRequest)
 
-      expect(mockPage.goto).toHaveBeenCalledWith(
+      // First goto call should be the search URL, not the homepage
+      expect(mockPage.goto).not.toHaveBeenCalledWith(
         'https://rutracker.org/forum/',
-        expect.objectContaining({
-          waitUntil: 'domcontentloaded',
-          timeout: 45000,
-        })
+        expect.anything()
       )
     })
 
@@ -334,15 +332,13 @@ describe('RuTrackerSearchService', () => {
       expect(mockBrowser.newPage).toHaveBeenCalled()
     })
 
-    it('should navigate to homepage first to set cookies', async () => {
+    it('should not navigate to homepage (cookies set via url property)', async () => {
       await searchService.openUrlWithSession(testUrl)
 
-      expect(mockPage.goto).toHaveBeenCalledWith(
+      // Should go directly to the target URL, not homepage first
+      expect(mockPage.goto).not.toHaveBeenCalledWith(
         'https://rutracker.org/forum/',
-        expect.objectContaining({
-          waitUntil: 'domcontentloaded',
-          timeout: 45000,
-        })
+        expect.anything()
       )
     })
 

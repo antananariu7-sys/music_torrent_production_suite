@@ -26,6 +26,7 @@ interface SearchResultsTableProps {
 }
 
 const ALBUM_GROUP_LABELS: Record<ResultGroup, string> = {
+  albumMatch: 'Album Match',
   studio: 'Studio Albums',
   live: 'Live / Concerts',
   compilation: 'Compilations',
@@ -34,6 +35,7 @@ const ALBUM_GROUP_LABELS: Record<ResultGroup, string> = {
 }
 
 const DISCO_GROUP_LABELS: Record<ResultGroup, string> = {
+  albumMatch: 'Album Match',
   studio: 'Studio Releases',
   live: 'Live Recordings',
   compilation: 'Compilations',
@@ -247,8 +249,7 @@ export const SearchResultsTable = memo(function SearchResultsTable({
             currentPage={currentPage}
             totalPages={totalPages}
             pageSize={pageSize}
-            totalResults={totalCount}
-            filteredCount={filterText ? filteredCount : undefined}
+            totalResults={filteredCount}
             onPageChange={onPageChange}
             onPageSizeChange={onPageSizeChange}
           />

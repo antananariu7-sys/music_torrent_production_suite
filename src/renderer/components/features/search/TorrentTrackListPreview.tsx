@@ -20,28 +20,8 @@ import type {
   ParsedAlbum,
 } from '@shared/types/torrentMetadata.types'
 import { isSongMatch } from '@shared/utils/songMatcher'
+import { isAlbumTitleMatch as isAlbumMatch } from '@shared/utils/resultClassifier'
 import { useStreamPreviewStore } from '@/store/streamPreviewStore'
-
-/** Normalize album title for matching: lowercase, strip brackets/parens, collapse whitespace */
-function normalizeAlbumTitle(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/\(.*?\)/g, '')
-    .replace(/\[.*?\]/g, '')
-    .replace(/[^\w\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
-/** Check if an album/folder title matches the searched album name */
-function isAlbumMatch(folderTitle: string, albumName: string): boolean {
-  const a = normalizeAlbumTitle(folderTitle)
-  const b = normalizeAlbumTitle(albumName)
-  if (!b) return false
-  if (a === b) return true
-  if (a.includes(b) || b.includes(a)) return true
-  return false
-}
 
 /** Audio extensions supported for stream preview */
 const PREVIEWABLE_EXTENSIONS = new Set([

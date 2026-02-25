@@ -99,6 +99,8 @@ describe('isNonAudioResult', () => {
       // Music with bonus video ("+Video" pattern)
       'Nirvana - Nevermind [+Video, FLAC]',
       'Album Name [+Video, WEB-DL, 480p] FLAC',
+      // Audio format BEFORE video keyword (AAC before WEB-DL)
+      '(Grunge, Alternative) Nirvana - Discography 1989 - 2014 [WEB], AAC (tracks), 256 kbps [+Video, WEB-DL, 480p]',
       // DVD with audio formats (should NOT be hidden)
       'Concert DVD FLAC',
       'Live DVD MP3',

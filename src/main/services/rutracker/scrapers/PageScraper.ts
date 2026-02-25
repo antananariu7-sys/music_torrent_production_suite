@@ -25,27 +25,29 @@ export class PageScraper {
    * @param sessionCookies - Session cookies to restore
    * @returns Configured page with cookies
    */
-  async createPageWithCookies(browser: Browser, sessionCookies: SessionCookie[]): Promise<Page> {
+  async createPageWithCookies(
+    browser: Browser,
+    sessionCookies: SessionCookie[]
+  ): Promise<Page> {
     const page = await browser.newPage()
     await page.setViewport({ width: 1280, height: 800 })
 
-    // Navigate to RuTracker to set cookies
-    console.log('[PageScraper] Navigating to RuTracker homepage to set cookies')
-    await page.goto(RUTRACKER_BASE_URL, {
-      waitUntil: 'domcontentloaded', // Faster than networkidle2
-      timeout: 45000, // Increased timeout
-    })
-
-    // Restore session cookies
+    // Set cookies directly without navigating to the homepage first.
+    // Puppeteer's setCookie accepts a `url` property to establish domain context.
     if (sessionCookies.length > 0) {
-      console.log('[PageScraper] Restoring session cookies')
-      await page.setCookie(...sessionCookies.map(cookie => ({
-        name: cookie.name,
-        value: cookie.value,
-        domain: cookie.domain,
-        path: cookie.path,
-        expires: cookie.expires,
-      })))
+      console.log(
+        '[PageScraper] Setting session cookies (no homepage navigation)'
+      )
+      await page.setCookie(
+        ...sessionCookies.map((cookie) => ({
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain,
+          path: cookie.path,
+          expires: cookie.expires,
+          url: RUTRACKER_BASE_URL,
+        }))
+      )
     }
 
     return page
@@ -69,9 +71,6 @@ export class PageScraper {
     // Wait for results table to load (using correct ID: tor-tbl)
     console.log('[PageScraper] Waiting for results table to appear')
     await page.waitForSelector('#tor-tbl', { visible: true, timeout: 15000 })
-
-    // Wait a bit for results to fully render
-    await new Promise(resolve => setTimeout(resolve, 500))
   }
 
   /**

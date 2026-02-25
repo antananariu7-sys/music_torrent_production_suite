@@ -37,18 +37,8 @@ export function useRuTrackerSearch({
   const searchRuTracker = async (album: MusicBrainzAlbum) => {
     discoTotalPagesRef.current = 0
     try {
-      addActivityLog('Creating optimized RuTracker search query...', 'info')
-      const queryResponse = await window.api.musicBrainz.createRuTrackerQuery(
-        album.id
-      )
-
-      if (!queryResponse.success || !queryResponse.data) {
-        addActivityLog('Failed to create RuTracker query', 'error')
-        setError('Failed to create RuTracker query')
-        return
-      }
-
-      const albumQuery = queryResponse.data
+      // Build query client-side — album already has artist and title
+      const albumQuery = `${album.artist} - ${album.title}`
       const discographyQuery = album.artist
 
       console.log('[SmartSearch] RuTracker search queries:', {

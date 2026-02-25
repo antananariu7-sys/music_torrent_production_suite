@@ -1,6 +1,14 @@
-import type { SearchClassificationRequest, SearchClassificationResponse, SearchClassificationResult } from '@shared/types/musicbrainz.types'
+import type {
+  SearchClassificationRequest,
+  SearchClassificationResponse,
+  SearchClassificationResult,
+} from '@shared/types/musicbrainz.types'
 import type { MusicBrainzApiClient } from '../MusicBrainzApiClient'
-import type { MBArtistResponse, MBReleaseResponse, MBRecordingResponse } from '../types'
+import type {
+  MBArtistResponse,
+  MBReleaseResponse,
+  MBRecordingResponse,
+} from '../types'
 
 /**
  * Classify a search term as artist, album, or song using parallel MusicBrainz API calls
@@ -10,18 +18,34 @@ export async function classifySearch(
   request: SearchClassificationRequest
 ): Promise<SearchClassificationResponse> {
   try {
-    console.log(`[MusicBrainzService] Classifying search term: "${request.query}"`)
+    console.log(
+      `[MusicBrainzService] Classifying search term: "${request.query}"`
+    )
 
     const results: SearchClassificationResult[] = []
 
-    // Search for artists
-    try {
-      const artistResponse = await client.request<MBArtistResponse>('artist', {
+    // Fire all three searches in parallel — they are independent
+    const [artistResult, albumResult, songResult] = await Promise.allSettled([
+      client.request<MBArtistResponse>('artist', {
         query: `artist:"${request.query}"`,
         limit: '3',
         fmt: 'json',
-      })
+      }),
+      client.request<MBReleaseResponse>('release', {
+        query: `release:"${request.query}"`,
+        limit: '3',
+        fmt: 'json',
+      }),
+      client.request<MBRecordingResponse>('recording', {
+        query: `recording:"${request.query}"`,
+        limit: '3',
+        fmt: 'json',
+      }),
+    ])
 
+    // Process artist results
+    if (artistResult.status === 'fulfilled') {
+      const artistResponse = artistResult.value
       if (artistResponse.artists && artistResponse.artists.length > 0) {
         for (const artist of artistResponse.artists) {
           results.push({
@@ -33,21 +57,20 @@ export async function classifySearch(
           })
         }
       }
-    } catch (error) {
-      console.warn('[MusicBrainzService] Artist search failed:', error)
+    } else {
+      console.warn(
+        '[MusicBrainzService] Artist search failed:',
+        artistResult.reason
+      )
     }
 
-    // Search for albums
-    try {
-      const albumResponse = await client.request<MBReleaseResponse>('release', {
-        query: `release:"${request.query}"`,
-        limit: '3',
-        fmt: 'json',
-      })
-
+    // Process album results
+    if (albumResult.status === 'fulfilled') {
+      const albumResponse = albumResult.value
       if (albumResponse.releases && albumResponse.releases.length > 0) {
         for (const release of albumResponse.releases) {
-          const artist = release['artist-credit']?.[0]?.artist?.name || 'Unknown Artist'
+          const artist =
+            release['artist-credit']?.[0]?.artist?.name || 'Unknown Artist'
           results.push({
             type: 'album',
             name: release.title,
@@ -57,21 +80,20 @@ export async function classifySearch(
           })
         }
       }
-    } catch (error) {
-      console.warn('[MusicBrainzService] Album search failed:', error)
+    } else {
+      console.warn(
+        '[MusicBrainzService] Album search failed:',
+        albumResult.reason
+      )
     }
 
-    // Search for songs (recordings)
-    try {
-      const songResponse = await client.request<MBRecordingResponse>('recording', {
-        query: `recording:"${request.query}"`,
-        limit: '3',
-        fmt: 'json',
-      })
-
+    // Process song results
+    if (songResult.status === 'fulfilled') {
+      const songResponse = songResult.value
       if (songResponse.recordings && songResponse.recordings.length > 0) {
         for (const recording of songResponse.recordings) {
-          const artist = recording['artist-credit']?.[0]?.artist?.name || 'Unknown Artist'
+          const artist =
+            recording['artist-credit']?.[0]?.artist?.name || 'Unknown Artist'
           results.push({
             type: 'song',
             name: recording.title,
@@ -80,8 +102,11 @@ export async function classifySearch(
           })
         }
       }
-    } catch (error) {
-      console.warn('[MusicBrainzService] Song search failed:', error)
+    } else {
+      console.warn(
+        '[MusicBrainzService] Song search failed:',
+        songResult.reason
+      )
     }
 
     results.sort((a, b) => b.score - a.score)

@@ -1,6 +1,6 @@
 {
   "name": "music-production-suite",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Music Production Suite with integrated torrent search, download management, and mixing capabilities",
   "main": "dist/main/index.cjs",
   "author": "Your Name",

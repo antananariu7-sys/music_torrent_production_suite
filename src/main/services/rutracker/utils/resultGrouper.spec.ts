@@ -1,4 +1,9 @@
-import { classifyResult, groupResults, isLikelyDiscography, filterDiscographyPages } from './resultGrouper'
+import {
+  classifyResult,
+  groupResults,
+  isLikelyDiscography,
+  filterDiscographyPages,
+} from './resultGrouper'
 import type { SearchResult } from '@shared/types/search.types'
 
 describe('resultGrouper', () => {
@@ -14,53 +19,113 @@ describe('resultGrouper', () => {
 
   describe('classifyResult', () => {
     it('should classify discography pages (EN)', () => {
-      expect(classifyResult({ ...baseResult, title: 'Artist - Discography (10 CD)' })).toBe('discography')
-      expect(classifyResult({ ...baseResult, title: 'Complete Albums Collection' })).toBe('discography')
-      expect(classifyResult({ ...baseResult, title: 'Artist - All Albums - 1990-2020' })).toBe('discography')
-      expect(classifyResult({ ...baseResult, title: 'Box Set Edition' })).toBe('discography')
+      expect(
+        classifyResult({ ...baseResult, title: 'Artist - Discography (10 CD)' })
+      ).toBe('discography')
+      expect(
+        classifyResult({ ...baseResult, title: 'Complete Albums Collection' })
+      ).toBe('discography')
+      expect(
+        classifyResult({
+          ...baseResult,
+          title: 'Artist - All Albums - 1990-2020',
+        })
+      ).toBe('discography')
+      expect(classifyResult({ ...baseResult, title: 'Box Set Edition' })).toBe(
+        'discography'
+      )
     })
 
     it('should classify discography pages (RU)', () => {
-      expect(classifyResult({ ...baseResult, title: 'Ноль - Дискография (53 CD)' })).toBe('discography')
+      expect(
+        classifyResult({ ...baseResult, title: 'Ноль - Дискография (53 CD)' })
+      ).toBe('discography')
     })
 
     it('should classify live albums', () => {
-      expect(classifyResult({ ...baseResult, title: 'Artist - Live at Wembley' })).toBe('live')
-      expect(classifyResult({ ...baseResult, title: 'Concert in Moscow' })).toBe('live')
-      expect(classifyResult({ ...baseResult, title: 'World Tour 2020' })).toBe('live')
-      expect(classifyResult({ ...baseResult, title: 'Bootleg Recording 1985' })).toBe('live')
-      expect(classifyResult({ ...baseResult, title: 'Концерт в Лужниках' })).toBe('live')
+      expect(
+        classifyResult({ ...baseResult, title: 'Artist - Live at Wembley' })
+      ).toBe('live')
+      expect(
+        classifyResult({ ...baseResult, title: 'Concert in Moscow' })
+      ).toBe('live')
+      expect(classifyResult({ ...baseResult, title: 'World Tour 2020' })).toBe(
+        'live'
+      )
+      expect(
+        classifyResult({ ...baseResult, title: 'Bootleg Recording 1985' })
+      ).toBe('live')
+      expect(
+        classifyResult({ ...baseResult, title: 'Концерт в Лужниках' })
+      ).toBe('live')
     })
 
     it('should classify compilations', () => {
-      expect(classifyResult({ ...baseResult, title: 'Best Of Artist' })).toBe('compilation')
-      expect(classifyResult({ ...baseResult, title: 'Greatest Hits 2020' })).toBe('compilation')
-      expect(classifyResult({ ...baseResult, title: 'Collection of Songs' })).toBe('compilation')
-      expect(classifyResult({ ...baseResult, title: 'Anthology Volume 1' })).toBe('compilation')
-      expect(classifyResult({ ...baseResult, title: 'Сборник лучших песен' })).toBe('compilation')
-      expect(classifyResult({ ...baseResult, title: 'Compilation Album' })).toBe('compilation')
+      expect(classifyResult({ ...baseResult, title: 'Best Of Artist' })).toBe(
+        'compilation'
+      )
+      expect(
+        classifyResult({ ...baseResult, title: 'Greatest Hits 2020' })
+      ).toBe('compilation')
+      expect(
+        classifyResult({ ...baseResult, title: 'Collection of Songs' })
+      ).toBe('compilation')
+      expect(
+        classifyResult({ ...baseResult, title: 'Anthology Volume 1' })
+      ).toBe('compilation')
+      expect(
+        classifyResult({ ...baseResult, title: 'Сборник лучших песен' })
+      ).toBe('compilation')
+      expect(
+        classifyResult({ ...baseResult, title: 'Compilation Album' })
+      ).toBe('compilation')
     })
 
     it('should classify studio albums as default', () => {
-      expect(classifyResult({ ...baseResult, title: 'Dark Side of the Moon' })).toBe('studio')
-      expect(classifyResult({ ...baseResult, title: 'Artist - Album Name (2020, FLAC)' })).toBe('studio')
-      expect(classifyResult({ ...baseResult, title: '(Rock) [CD] Nevermind - 1991, FLAC' })).toBe('studio')
+      expect(
+        classifyResult({ ...baseResult, title: 'Dark Side of the Moon' })
+      ).toBe('studio')
+      expect(
+        classifyResult({
+          ...baseResult,
+          title: 'Artist - Album Name (2020, FLAC)',
+        })
+      ).toBe('studio')
+      expect(
+        classifyResult({
+          ...baseResult,
+          title: '(Rock) [CD] Nevermind - 1991, FLAC',
+        })
+      ).toBe('studio')
     })
 
     it('should handle case-insensitive matching', () => {
-      expect(classifyResult({ ...baseResult, title: 'DISCOGRAPHY (10 CD)' })).toBe('discography')
-      expect(classifyResult({ ...baseResult, title: 'LIVE AT WEMBLEY' })).toBe('live')
-      expect(classifyResult({ ...baseResult, title: 'BEST OF ARTIST' })).toBe('compilation')
+      expect(
+        classifyResult({ ...baseResult, title: 'DISCOGRAPHY (10 CD)' })
+      ).toBe('discography')
+      expect(classifyResult({ ...baseResult, title: 'LIVE AT WEMBLEY' })).toBe(
+        'live'
+      )
+      expect(classifyResult({ ...baseResult, title: 'BEST OF ARTIST' })).toBe(
+        'compilation'
+      )
     })
 
     it('should prioritize discography over other categories', () => {
       // A discography page with "live" in it should still be classified as discography
-      expect(classifyResult({ ...baseResult, title: 'Complete Discography (Live + Studio)' })).toBe('discography')
+      expect(
+        classifyResult({
+          ...baseResult,
+          title: 'Complete Discography (Live + Studio)',
+        })
+      ).toBe('discography')
     })
 
     it('should prioritize compilation over live', () => {
       // "Best of Live" should be compilation
-      expect(classifyResult({ ...baseResult, title: 'Best Of Live Recordings' })).toBe('compilation')
+      expect(
+        classifyResult({ ...baseResult, title: 'Best Of Live Recordings' })
+      ).toBe('compilation')
     })
   })
 
@@ -76,6 +141,7 @@ describe('resultGrouper', () => {
 
       const groups = groupResults(results)
 
+      expect(groups.albumMatch).toHaveLength(0)
       expect(groups.studio).toHaveLength(2)
       expect(groups.discography).toHaveLength(1)
       expect(groups.live).toHaveLength(1)
@@ -86,6 +152,7 @@ describe('resultGrouper', () => {
     it('should return empty groups when no results', () => {
       const groups = groupResults([])
 
+      expect(groups.albumMatch).toHaveLength(0)
       expect(groups.studio).toHaveLength(0)
       expect(groups.live).toHaveLength(0)
       expect(groups.compilation).toHaveLength(0)

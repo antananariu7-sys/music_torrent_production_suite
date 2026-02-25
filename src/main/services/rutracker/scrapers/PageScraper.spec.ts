@@ -43,7 +43,7 @@ describe('PageScraper', () => {
   })
 
   describe('createPageWithCookies', () => {
-    it('should create page, set viewport, navigate, and restore cookies', async () => {
+    it('should create page, set viewport, and set cookies without navigating', async () => {
       const mockPage = makeMockPage()
       const browser = makeMockBrowser(mockPage)
       const cookies = [makeCookie()]
@@ -55,15 +55,14 @@ describe('PageScraper', () => {
         width: 1280,
         height: 800,
       })
-      expect(mockPage.goto).toHaveBeenCalledWith(
-        'https://rutracker.org/forum/',
-        {
-          waitUntil: 'domcontentloaded',
-          timeout: 45000,
-        }
-      )
+      // Should NOT navigate to homepage — cookies are set with url property
+      expect(mockPage.goto).not.toHaveBeenCalled()
       expect(mockPage.setCookie).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'bb_session', value: 'abc123' })
+        expect.objectContaining({
+          name: 'bb_session',
+          value: 'abc123',
+          url: 'https://rutracker.org/forum/',
+        })
       )
     })
 
@@ -76,7 +75,7 @@ describe('PageScraper', () => {
       expect(mockPage.setCookie).not.toHaveBeenCalled()
     })
 
-    it('should set multiple cookies', async () => {
+    it('should set multiple cookies with url property', async () => {
       const mockPage = makeMockPage()
       const browser = makeMockBrowser(mockPage)
       const cookies = [
@@ -87,8 +86,14 @@ describe('PageScraper', () => {
       await scraper.createPageWithCookies(browser, cookies)
 
       expect(mockPage.setCookie).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'cookie1' }),
-        expect.objectContaining({ name: 'cookie2' })
+        expect.objectContaining({
+          name: 'cookie1',
+          url: 'https://rutracker.org/forum/',
+        }),
+        expect.objectContaining({
+          name: 'cookie2',
+          url: 'https://rutracker.org/forum/',
+        })
       )
     })
   })
