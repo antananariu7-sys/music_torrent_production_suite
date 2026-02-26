@@ -453,7 +453,7 @@ Response: { results: SearchResult[], loadedPages: number, totalPages: number, is
 
 ## Phase 9 — Duplicate Detection (Optional)
 
-**Goal:** Warn users before downloading content that already exists in their project audio folder. Carried over from the completed [search-refactor-plan](../done/plans/search-refactor-plan.md).
+**Goal:** Warn users before downloading content that already exists in their project audio folder. Carried over from the completed [search-refactor-plan](search-refactor-plan.md).
 
 ### New files
 

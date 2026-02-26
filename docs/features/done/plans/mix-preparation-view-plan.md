@@ -2,8 +2,8 @@
 
 **Date:** 2026-02-24
 **Status:** Done
-**Feature spec:** [docs/features/mix-preparation-view.md](../mix-preparation-view.md)
-**v2 roadmap:** [docs/features/mix-preparation-v2.md](../mix-preparation-v2.md)
+**Feature spec:** [docs/features/done/mix-preparation-view.md](../mix-preparation-view.md)
+**v2 roadmap:** [docs/features/mix-preparation-v2.md](../../mix-preparation-v2.md)
 
 ---
 

@@ -60,15 +60,20 @@ Feature specifications organized by status:
 
 **In Progress**:
 
-- **[search-results-table.md](features/search-results-table.md)** - Search results table overhaul
-- **[mix-preparation-view.md](features/mix-preparation-view.md)** - Mix preparation view
 - **[mix-preparation-v2.md](features/mix-preparation-v2.md)** - Mix preparation v2
+
+**Done**:
+
+- **[search-results-table.md](features/done/search-results-table.md)** - Search results table overhaul (Done)
+- **[mix-preparation-view.md](features/done/mix-preparation-view.md)** - Mix preparation view (Done)
 
 **Plans** ([features/plans/](features/plans/)):
 
-- **[search-results-table-plan.md](features/plans/search-results-table-plan.md)** - Search results table implementation plan
-- **[mix-preparation-view-plan.md](features/plans/mix-preparation-view-plan.md)** - Mix preparation view implementation plan
+- **[mix-preparation-v2-plan.md](features/plans/mix-preparation-v2-plan.md)** - Mix preparation v2 implementation plan
 - **[unit-test-coverage-plan.md](features/plans/unit-test-coverage-plan.md)** - Unit test coverage plan
+- **[search-results-table-plan.md](features/done/plans/search-results-table-plan.md)** - Search results table implementation plan (Done)
+- **[mix-preparation-view-plan.md](features/done/plans/mix-preparation-view-plan.md)** - Mix preparation view implementation plan (Done)
+- **[code-size-refactoring-plan.md](features/done/plans/code-size-refactoring-plan.md)** - Code size refactoring plan (Done)
 
 ### [API](api/)
 
