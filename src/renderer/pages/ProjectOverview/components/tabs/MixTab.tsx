@@ -3,7 +3,6 @@ import { VStack } from '@chakra-ui/react'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useMixExportStore } from '@/store/mixExportStore'
 import { useMixExportListener } from '@/hooks/useMixExportListener'
-import { MetadataSection } from '../MetadataSection'
 import { MixPrepView } from '@/components/features/mix-prep/MixPrepView'
 import { ExportConfigModal } from '@/components/features/mix/ExportConfigModal'
 import { ExportProgressBar } from '@/components/features/mix/ExportProgressBar'
@@ -32,13 +31,6 @@ export function MixTab(): JSX.Element {
 
       {/* Mix Preparation View (split-panel layout) */}
       <MixPrepView onOpenExportModal={() => setIsExportModalOpen(true)} />
-
-      {/* Metadata Section */}
-      <MetadataSection
-        genre={currentProject.mixMetadata?.genre}
-        tags={currentProject.mixMetadata?.tags || []}
-        directory={currentProject.projectDirectory}
-      />
 
       {/* Export Config Modal */}
       <ExportConfigModal
