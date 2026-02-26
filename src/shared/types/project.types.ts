@@ -46,6 +46,7 @@ export interface Song {
   musicalKeyConfidence?: number // Key detection confidence 0–1
   trimStart?: number // Effective start time (derived from trim-start cue point)
   trimEnd?: number // Effective end time (derived from trim-end cue point)
+  energyProfile?: number[] // Smoothed energy profile (0–1), ~200 points, computed from waveform peaks
 }
 
 /**

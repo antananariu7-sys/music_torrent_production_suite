@@ -1,7 +1,9 @@
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useState, useEffect, useMemo } from 'react'
 import { Box, Flex, Text, Badge, Skeleton } from '@chakra-ui/react'
 import { WaveformCanvas } from '@/components/features/timeline/WaveformCanvas'
+import { EnergyOverlay } from './EnergyOverlay'
 import { useTimelineStore } from '@/store/timelineStore'
+import { computeEnergyProfile } from '@shared/utils/energyAnalyzer'
 import type { Song } from '@shared/types/project.types'
 import type { WaveformData } from '@shared/types/waveform.types'
 
@@ -41,6 +43,14 @@ export function TransitionWaveformPanel({
   }, [])
 
   const duration = peaks?.duration ?? song.duration ?? 0
+
+  // Compute energy profile from peaks (memoized)
+  const energyProfile = useMemo(() => {
+    if (song.energyProfile && song.energyProfile.length > 0)
+      return song.energyProfile
+    if (!peaks?.peaks || peaks.peaks.length === 0) return []
+    return computeEnergyProfile(peaks.peaks)
+  }, [song.energyProfile, peaks?.peaks])
 
   return (
     <Box
@@ -129,6 +139,15 @@ export function TransitionWaveformPanel({
               color={color}
               fullTrack
             />
+
+            {/* Energy overlay */}
+            {energyProfile.length > 0 && (
+              <EnergyOverlay
+                energyProfile={energyProfile}
+                width={containerWidth - 8}
+                height={100}
+              />
+            )}
 
             {/* Trim dimming overlays */}
             {duration > 0 && song.trimStart != null && song.trimStart > 0 && (

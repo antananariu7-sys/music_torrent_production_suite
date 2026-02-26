@@ -1,10 +1,14 @@
-import { Flex, VStack, Text, Icon } from '@chakra-ui/react'
-import { FiMusic } from 'react-icons/fi'
+import { useCallback, useState } from 'react'
+import { Flex, VStack, HStack, Text, Icon, Button } from '@chakra-ui/react'
+import { FiMusic, FiZap } from 'react-icons/fi'
 import { TransitionWaveformPanel } from './TransitionWaveformPanel'
 import { ComparisonStrip } from './ComparisonStrip'
 import { TransitionCrossfadeControl } from './TransitionCrossfadeControl'
 import { PairNavigationBar } from './PairNavigationBar'
 import { useTransitionData } from './hooks/useTransitionData'
+import { suggestMixPoint } from './MixPointSuggester'
+import { useProjectStore } from '@/store/useProjectStore'
+import { toaster } from '@/components/ui/toaster'
 import type { Song } from '@shared/types/project.types'
 import type { PairNavigation } from './hooks/usePairNavigation'
 
@@ -33,6 +37,58 @@ export function TransitionDetail({
   pairNav,
 }: TransitionDetailProps): JSX.Element {
   const { outgoing, incoming } = useTransitionData(outgoingTrack, incomingTrack)
+  const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
+  const [isSuggesting, setIsSuggesting] = useState(false)
+
+  const handleSuggestMixPoint = useCallback(async () => {
+    if (!outgoing?.peaks || !incoming?.peaks || !outgoingTrack) return
+
+    setIsSuggesting(true)
+    try {
+      const suggestion = suggestMixPoint(
+        {
+          duration: outgoing.peaks.duration ?? outgoingTrack.duration ?? 0,
+          peaks: outgoing.peaks.peaks,
+          energyProfile: outgoingTrack.energyProfile,
+          bpm: outgoingTrack.bpm,
+          firstBeatOffset: outgoingTrack.firstBeatOffset,
+          trimEnd: outgoingTrack.trimEnd,
+        },
+        {
+          duration: incoming.peaks.duration ?? incomingTrack!.duration ?? 0,
+          peaks: incoming.peaks.peaks,
+          energyProfile: incomingTrack!.energyProfile,
+          bpm: incomingTrack!.bpm,
+          firstBeatOffset: incomingTrack!.firstBeatOffset,
+          trimStart: incomingTrack!.trimStart,
+        }
+      )
+
+      // Apply suggestion: update crossfade duration on outgoing track
+      const response = await window.api.mix.updateSong({
+        projectId,
+        songId: outgoingTrack.id,
+        updates: { crossfadeDuration: suggestion.crossfadeDuration },
+      })
+      if (response.success && response.data) {
+        setCurrentProject(response.data)
+        toaster.create({
+          title: `Crossfade set to ${suggestion.crossfadeDuration}s`,
+          description: suggestion.reason,
+          type: 'success',
+        })
+      }
+    } finally {
+      setIsSuggesting(false)
+    }
+  }, [
+    outgoing,
+    incoming,
+    outgoingTrack,
+    incomingTrack,
+    projectId,
+    setCurrentProject,
+  ])
 
   // ── Empty state: no songs ──────────────────────────────────────────────────
   if (songCount === 0) {
@@ -106,14 +162,28 @@ export function TransitionDetail({
           color="#3b82f6"
         />
 
-        {/* Comparison strip + crossfade controls */}
-        <VStack my={2} gap={0} align="stretch">
+        {/* Comparison strip + crossfade controls + suggest button */}
+        <VStack my={2} gap={1} align="stretch">
           <ComparisonStrip outgoing={outgoing.song} incoming={incoming.song} />
           <TransitionCrossfadeControl
             outgoing={outgoing.song}
             incoming={incoming.song}
             projectId={projectId}
           />
+          <HStack justify="center">
+            <Button
+              size="2xs"
+              variant="outline"
+              colorPalette="blue"
+              onClick={handleSuggestMixPoint}
+              disabled={!outgoing.peaks || !incoming.peaks || isSuggesting}
+              loading={isSuggesting}
+              title="Analyze energy profiles to suggest optimal crossfade duration"
+            >
+              <Icon as={FiZap} boxSize={3} />
+              Suggest Mix Point
+            </Button>
+          </HStack>
         </VStack>
 
         {/* Incoming waveform */}
