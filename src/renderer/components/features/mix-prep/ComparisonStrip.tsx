@@ -7,6 +7,9 @@ import type { Song } from '@shared/types/project.types'
 interface ComparisonStripProps {
   outgoing: Song
   incoming: Song
+  tempoAdjustment?: number
+  onApplySync?: (rate: number) => void
+  onResetSync?: () => void
 }
 
 /**
@@ -16,6 +19,9 @@ interface ComparisonStripProps {
 export function ComparisonStrip({
   outgoing,
   incoming,
+  tempoAdjustment,
+  onApplySync,
+  onResetSync,
 }: ComparisonStripProps): JSX.Element {
   return (
     <Box
@@ -23,12 +29,18 @@ export function ComparisonStrip({
       borderWidth="1px"
       borderColor="border.base"
       borderRadius="md"
-      px={4}
-      py={2}
+      px={3}
+      py={1}
     >
       <Flex align="center" justify="center" gap={6} wrap="wrap">
         {/* Tempo sync indicator (replaces simple BPM comparison) */}
-        <TempoSyncIndicator outBpm={outgoing.bpm} inBpm={incoming.bpm} />
+        <TempoSyncIndicator
+          outBpm={outgoing.bpm}
+          inBpm={incoming.bpm}
+          tempoAdjustment={tempoAdjustment}
+          onApplySync={onApplySync}
+          onResetSync={onResetSync}
+        />
 
         {/* Key comparison */}
         <KeyComparison

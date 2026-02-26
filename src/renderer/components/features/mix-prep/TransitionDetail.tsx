@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
-import { Flex, VStack, HStack, Text, Icon, Button } from '@chakra-ui/react'
-import { FiMusic, FiZap } from 'react-icons/fi'
+import { useCallback, useEffect, useState } from 'react'
+import { Flex, VStack, Text, Icon } from '@chakra-ui/react'
+import { FiMusic } from 'react-icons/fi'
 import { TransitionWaveformPanel } from './TransitionWaveformPanel'
 import { ComparisonStrip } from './ComparisonStrip'
 import { TransitionCrossfadeControl } from './TransitionCrossfadeControl'
@@ -93,6 +93,48 @@ export function TransitionDetail({
     setCurrentProject,
   ])
 
+  // ── Tempo sync handlers ─────────────────────────────────────────────────────
+
+  const handleApplySync = useCallback(
+    async (rate: number) => {
+      dualDeck.setPlaybackRate('B', rate)
+
+      if (!incomingTrack) return
+      const response = await window.api.mix.updateSong({
+        projectId,
+        songId: incomingTrack.id,
+        updates: { tempoAdjustment: rate },
+      })
+      if (response.success && response.data) {
+        setCurrentProject(response.data)
+      }
+    },
+    [dualDeck, incomingTrack, projectId, setCurrentProject]
+  )
+
+  const handleResetSync = useCallback(async () => {
+    dualDeck.setPlaybackRate('B', 1.0)
+
+    if (!incomingTrack) return
+    const response = await window.api.mix.updateSong({
+      projectId,
+      songId: incomingTrack.id,
+      updates: { tempoAdjustment: undefined },
+    })
+    if (response.success && response.data) {
+      setCurrentProject(response.data)
+    }
+  }, [dualDeck, incomingTrack, projectId, setCurrentProject])
+
+  // Restore persisted tempo adjustment when pair changes
+  useEffect(() => {
+    if (incomingTrack?.tempoAdjustment) {
+      dualDeck.setPlaybackRate('B', incomingTrack.tempoAdjustment)
+    } else {
+      dualDeck.setPlaybackRate('B', 1.0)
+    }
+  }, [incomingTrack?.id, incomingTrack?.tempoAdjustment, dualDeck])
+
   // ── Empty state: no songs ──────────────────────────────────────────────────
   if (songCount === 0) {
     return (
@@ -177,28 +219,23 @@ export function TransitionDetail({
           isPlaybackActive={dualDeck.deckA.isPlaying}
         />
 
-        {/* Comparison strip + crossfade controls + suggest button + dual deck */}
-        <VStack my={2} gap={1} align="stretch">
-          <ComparisonStrip outgoing={outgoing.song} incoming={incoming.song} />
+        {/* Comparison strip + crossfade controls + dual deck */}
+        <VStack my={1} gap={1} align="stretch">
+          <ComparisonStrip
+            outgoing={outgoing.song}
+            incoming={incoming.song}
+            tempoAdjustment={incomingTrack?.tempoAdjustment}
+            onApplySync={handleApplySync}
+            onResetSync={handleResetSync}
+          />
           <TransitionCrossfadeControl
             outgoing={outgoing.song}
             incoming={incoming.song}
             projectId={projectId}
+            onSuggestMixPoint={handleSuggestMixPoint}
+            isSuggesting={isSuggesting}
+            canSuggest={!!outgoing.peaks && !!incoming.peaks}
           />
-          <HStack justify="center" gap={2}>
-            <Button
-              size="2xs"
-              variant="outline"
-              colorPalette="blue"
-              onClick={handleSuggestMixPoint}
-              disabled={!outgoing.peaks || !incoming.peaks || isSuggesting}
-              loading={isSuggesting}
-              title="Analyze energy profiles to suggest optimal crossfade duration"
-            >
-              <Icon as={FiZap} boxSize={3} />
-              Suggest Mix Point
-            </Button>
-          </HStack>
           <DualDeckControls
             outgoing={outgoing.song}
             incoming={incoming.song}

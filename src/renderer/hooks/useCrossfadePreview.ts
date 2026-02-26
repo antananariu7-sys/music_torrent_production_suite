@@ -165,15 +165,17 @@ export function useCrossfadePreview(
         }
       }
 
-      // Compute playback window
+      // Compute playback window (clamp crossfade to track length)
       const aEnd = trackA.trimEnd ?? trackA.duration
-      const crossfadeStart = aEnd - crossfadeDuration
+      const effectiveCrossfade = Math.min(crossfadeDuration, aEnd)
+      if (effectiveCrossfade <= 0) return
+      const crossfadeStart = aEnd - effectiveCrossfade
       const aOffset = Math.max(0, crossfadeStart - LEAD_SECONDS)
       const aDuration = aEnd - aOffset
 
       const bTrimStart = trackB.trimStart ?? 0
       const bOffset = bTrimStart
-      const bDuration = crossfadeDuration + LEAD_SECONDS
+      const bDuration = effectiveCrossfade + LEAD_SECONDS
 
       // Time within the preview when the crossfade zone begins
       const fadeStartTime = crossfadeStart - aOffset
@@ -200,12 +202,12 @@ export function useCrossfadePreview(
       gainA.gain.setValueCurveAtTime(
         fadeOut,
         now + fadeStartTime,
-        crossfadeDuration
+        effectiveCrossfade
       )
       gainB.gain.setValueCurveAtTime(
         fadeIn,
         now + fadeStartTime,
-        crossfadeDuration
+        effectiveCrossfade
       )
 
       // Start sources
@@ -219,7 +221,7 @@ export function useCrossfadePreview(
       setIsLoading(false)
 
       // Auto-stop when both sources finish
-      const totalDuration = fadeStartTime + crossfadeDuration + LEAD_SECONDS
+      const totalDuration = fadeStartTime + effectiveCrossfade + LEAD_SECONDS
       sourceB.onended = () => {
         setIsPlaying(false)
         sourceARef.current = null

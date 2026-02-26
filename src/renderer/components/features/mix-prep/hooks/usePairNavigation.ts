@@ -18,6 +18,8 @@ export interface PairNavigation {
   goPrev: () => void
   /** Select a specific track by index */
   selectIndex: (index: number) => void
+  /** Navigate directly to a track index (alias for selectIndex, used by dashboard) */
+  goToIndex: (index: number) => void
   /** Total number of transition pairs (songs.length - 1) */
   pairCount: number
   /** Current pair number (1-based, 0 if first track or no pair) */
@@ -109,6 +111,7 @@ export function usePairNavigation(songs: Song[]): PairNavigation {
     goNext,
     goPrev,
     selectIndex,
+    goToIndex: selectIndex,
     pairCount,
     currentPairNumber,
   }

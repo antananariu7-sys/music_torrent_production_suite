@@ -1,10 +1,21 @@
 import { useMemo } from 'react'
-import { Box, HStack, VStack, Text, Icon } from '@chakra-ui/react'
+import {
+  Badge,
+  Box,
+  Button,
+  HStack,
+  VStack,
+  Text,
+  Icon,
+} from '@chakra-ui/react'
 import { FiCheck, FiAlertTriangle } from 'react-icons/fi'
 
 interface TempoSyncIndicatorProps {
   outBpm?: number
   inBpm?: number
+  tempoAdjustment?: number
+  onApplySync?: (rate: number) => void
+  onResetSync?: () => void
 }
 
 /** Half-range of the visual BPM slider (±MAX_RANGE BPM) */
@@ -23,6 +34,9 @@ const MAX_RANGE = 10
 export function TempoSyncIndicator({
   outBpm,
   inBpm,
+  tempoAdjustment,
+  onApplySync,
+  onResetSync,
 }: TempoSyncIndicatorProps): JSX.Element {
   const { delta, absDelta, pctAdjust, zone, needlePosition } = useMemo(() => {
     if (!outBpm || !inBpm) {
@@ -157,12 +171,46 @@ export function TempoSyncIndicator({
         />
       </Box>
 
-      {/* Suggestion text */}
-      {absDelta > 1 && suggestionText && (
-        <Text fontSize="2xs" color="text.muted" textAlign="center">
-          {suggestionText}
-        </Text>
-      )}
+      {/* Suggestion text or sync controls */}
+      {absDelta > 1 &&
+        (tempoAdjustment ? (
+          <HStack justify="center" gap={1} mt={1}>
+            <Badge colorPalette="green" variant="subtle" fontSize="2xs">
+              <Icon as={FiCheck} boxSize={3} />
+              Synced ({((tempoAdjustment - 1) * 100).toFixed(1)}%)
+            </Badge>
+            <Button
+              size="2xs"
+              variant="ghost"
+              colorPalette="red"
+              onClick={onResetSync}
+            >
+              Reset
+            </Button>
+          </HStack>
+        ) : (
+          <>
+            {suggestionText && (
+              <Text fontSize="2xs" color="text.muted" textAlign="center">
+                {suggestionText}
+              </Text>
+            )}
+            <HStack justify="center" gap={1} mt={1}>
+              <Button
+                size="2xs"
+                variant="outline"
+                colorPalette="green"
+                onClick={() => {
+                  const rate = Math.round((outBpm! / inBpm!) * 10000) / 10000
+                  onApplySync?.(rate)
+                }}
+              >
+                <Icon as={FiCheck} boxSize={3} />
+                Apply Sync
+              </Button>
+            </HStack>
+          </>
+        ))}
     </VStack>
   )
 }

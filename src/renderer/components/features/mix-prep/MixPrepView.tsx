@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Flex,
   Box,
@@ -7,14 +7,16 @@ import {
   Text,
   Icon,
   IconButton,
+  Button,
 } from '@chakra-ui/react'
-import { FiPlay, FiDownload } from 'react-icons/fi'
+import { FiPlay, FiDownload, FiActivity } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import { useMixExportStore } from '@/store/mixExportStore'
 import { toaster } from '@/components/ui/toaster'
 import { MixPrepTracklist } from './MixPrepTracklist'
 import { TransitionDetail } from './TransitionDetail'
+import { MixHealthDashboard } from './MixHealthDashboard'
 import { usePairNavigation } from './hooks/usePairNavigation'
 import { AddFilesDropZone } from '@/components/features/mix/AddFilesDropZone'
 import { useKeyData } from '@/hooks/useKeyData'
@@ -75,6 +77,7 @@ export function MixPrepView({
 
   const pairNav = usePairNavigation(songs)
   const { selectedIndex, outgoingTrack, incomingTrack, selectIndex } = pairNav
+  const [showDashboard, setShowDashboard] = useState(false)
 
   if (!currentProject) return <></>
 
@@ -147,6 +150,16 @@ export function MixPrepView({
               >
                 <Icon as={FiPlay} boxSize={3} />
               </IconButton>
+              <Button
+                size="2xs"
+                variant={showDashboard ? 'solid' : 'ghost'}
+                colorPalette="teal"
+                onClick={() => setShowDashboard((prev) => !prev)}
+                title="Toggle mix health dashboard"
+                disabled={songs.length < 2}
+              >
+                <Icon as={FiActivity} boxSize={3} />
+              </Button>
             </HStack>
           </Flex>
 
@@ -163,14 +176,24 @@ export function MixPrepView({
           </Box>
         </Box>
 
-        {/* Right panel: Transition detail */}
-        <TransitionDetail
-          outgoingTrack={outgoingTrack}
-          incomingTrack={incomingTrack}
-          songCount={songs.length}
-          projectId={currentProject.id}
-          pairNav={pairNav}
-        />
+        {/* Right panel: Transition detail or Mix Health dashboard */}
+        {showDashboard ? (
+          <MixHealthDashboard
+            songs={songs}
+            onNavigateToPair={(idx) => {
+              pairNav.goToIndex(idx)
+              setShowDashboard(false)
+            }}
+          />
+        ) : (
+          <TransitionDetail
+            outgoingTrack={outgoingTrack}
+            incomingTrack={incomingTrack}
+            songCount={songs.length}
+            projectId={currentProject.id}
+            pairNav={pairNav}
+          />
+        )}
       </Flex>
     </VStack>
   )
