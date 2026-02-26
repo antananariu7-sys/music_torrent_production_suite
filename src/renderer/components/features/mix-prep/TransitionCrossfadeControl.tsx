@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Box, VStack, HStack, Text, Button, Icon } from '@chakra-ui/react'
 import { FiCheck, FiZap } from 'react-icons/fi'
 import { Slider } from '@/components/ui/slider'
 import { useProjectStore } from '@/store/useProjectStore'
-import { useCrossfadePreview } from '@/hooks/useCrossfadePreview'
 import { CrossfadeCurveCanvas } from '../timeline/CrossfadeCurveCanvas'
+import type { CrossfadePreviewReturn } from '@/hooks/useCrossfadePreview'
 import type { Song, CrossfadeCurveType } from '@shared/types/project.types'
 
 const CURVE_OPTIONS: { value: CrossfadeCurveType; label: string }[] = [
@@ -22,6 +22,8 @@ interface TransitionCrossfadeControlProps {
   onSuggestMixPoint?: () => void
   isSuggesting?: boolean
   canSuggest?: boolean
+  /** Crossfade preview state (lifted from parent) */
+  preview: CrossfadePreviewReturn
 }
 
 /**
@@ -30,11 +32,11 @@ interface TransitionCrossfadeControlProps {
  */
 export function TransitionCrossfadeControl({
   outgoing,
-  incoming,
   projectId,
   onSuggestMixPoint,
   isSuggesting,
   canSuggest,
+  preview,
 }: TransitionCrossfadeControlProps): JSX.Element {
   const [duration, setDuration] = useState(outgoing.crossfadeDuration ?? 5)
   const [curveType, setCurveType] = useState<CrossfadeCurveType>(
@@ -99,40 +101,6 @@ export function TransitionCrossfadeControl({
     setCurveType(newCurve)
     persistUpdates({ crossfadeCurveType: newCurve })
   }
-
-  // ── Preview ──────────────────────────────────────────────────────────────
-
-  const outFilePath = outgoing.localFilePath ?? outgoing.externalFilePath ?? ''
-  const inFilePath = incoming.localFilePath ?? incoming.externalFilePath ?? ''
-
-  const previewOptions = useMemo(
-    () =>
-      outFilePath && inFilePath
-        ? {
-            trackA: {
-              filePath: outFilePath,
-              duration: outgoing.duration ?? 0,
-              trimEnd: outgoing.trimEnd,
-            },
-            trackB: {
-              filePath: inFilePath,
-              trimStart: incoming.trimStart,
-            },
-            crossfadeDuration: duration,
-            curveType,
-          }
-        : null,
-    [
-      outFilePath,
-      inFilePath,
-      outgoing.duration,
-      outgoing.trimEnd,
-      incoming.trimStart,
-      duration,
-      curveType,
-    ]
-  )
-  const preview = useCrossfadePreview(previewOptions)
 
   return (
     <Box
@@ -232,7 +200,7 @@ export function TransitionCrossfadeControl({
           colorPalette="purple"
           w="100%"
           onClick={preview.isPlaying ? preview.stop : preview.play}
-          disabled={!previewOptions || preview.isLoading}
+          disabled={preview.isLoading}
           loading={preview.isLoading}
         >
           {preview.isPlaying ? 'Stop Preview' : 'Preview Crossfade'}

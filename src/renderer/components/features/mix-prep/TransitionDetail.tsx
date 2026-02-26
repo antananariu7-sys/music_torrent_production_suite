@@ -9,6 +9,7 @@ import { PairNavigationBar } from './PairNavigationBar'
 import { useTransitionData } from './hooks/useTransitionData'
 import { useDualDeck } from './hooks/useDualDeck'
 import { useTrimDrag } from '@/components/features/timeline/hooks/useTrimDrag'
+import { useCrossfadePreview } from '@/hooks/useCrossfadePreview'
 import { suggestMixPoint } from './MixPointSuggester'
 import { useProjectStore } from '@/store/useProjectStore'
 import { toaster } from '@/components/ui/toaster'
@@ -64,6 +65,33 @@ export function TransitionDetail({
     const preview = previewTrims[incoming.song.id]
     return preview ? { ...incoming.song, ...preview } : incoming.song
   }, [incoming, previewTrims])
+
+  // ── Crossfade preview (lifted here so playheads reach waveform panels) ────
+  const outFilePath =
+    outgoingTrack?.localFilePath ?? outgoingTrack?.externalFilePath ?? ''
+  const inFilePath =
+    incomingTrack?.localFilePath ?? incomingTrack?.externalFilePath ?? ''
+
+  const previewOptions = useMemo(
+    () =>
+      outFilePath && inFilePath
+        ? {
+            trackA: {
+              filePath: outFilePath,
+              duration: outgoingTrack?.duration ?? 0,
+              trimEnd: outgoingTrack?.trimEnd,
+            },
+            trackB: {
+              filePath: inFilePath,
+              trimStart: incomingTrack?.trimStart,
+            },
+            crossfadeDuration: outgoingTrack?.crossfadeDuration ?? 5,
+            curveType: outgoingTrack?.crossfadeCurveType ?? 'linear',
+          }
+        : null,
+    [outFilePath, inFilePath, outgoingTrack, incomingTrack]
+  )
+  const crossfadePreview = useCrossfadePreview(previewOptions)
 
   const handleSuggestMixPoint = useCallback(async () => {
     if (!outgoing?.peaks || !incoming?.peaks || !outgoingTrack) return
@@ -220,10 +248,12 @@ export function TransitionDetail({
 
   // Stop playback when navigating pairs
   const handlePrev = () => {
+    crossfadePreview.stop()
     dualDeck.stopAll()
     pairNav.goPrev()
   }
   const handleNext = () => {
+    crossfadePreview.stop()
     dualDeck.stopAll()
     pairNav.goNext()
   }
@@ -237,8 +267,14 @@ export function TransitionDetail({
           peaks={outgoing.peaks}
           isLoading={outgoing.isLoading}
           color="#3b82f6"
-          playheadTime={dualDeck.deckA.currentTime}
-          isPlaybackActive={dualDeck.deckA.isPlaying}
+          playheadTime={
+            crossfadePreview.isPlaying
+              ? crossfadePreview.trackATime
+              : dualDeck.deckA.currentTime
+          }
+          isPlaybackActive={
+            crossfadePreview.isPlaying || dualDeck.deckA.isPlaying
+          }
           trimHandleSide="end"
           onTrimDrag={(ts) => handleTrimEndDrag(outgoing.song.id, ts)}
           onTrimDragEnd={() => handleTrimDragEnd(outgoing.song.id)}
@@ -260,6 +296,7 @@ export function TransitionDetail({
             onSuggestMixPoint={handleSuggestMixPoint}
             isSuggesting={isSuggesting}
             canSuggest={!!outgoing.peaks && !!incoming.peaks}
+            preview={crossfadePreview}
           />
           <DualDeckControls
             outgoing={outgoing.song}
@@ -274,8 +311,14 @@ export function TransitionDetail({
           peaks={incoming.peaks}
           isLoading={incoming.isLoading}
           color="#8b5cf6"
-          playheadTime={dualDeck.deckB.currentTime}
-          isPlaybackActive={dualDeck.deckB.isPlaying}
+          playheadTime={
+            crossfadePreview.isPlaying
+              ? crossfadePreview.trackBTime
+              : dualDeck.deckB.currentTime
+          }
+          isPlaybackActive={
+            crossfadePreview.isPlaying || dualDeck.deckB.isPlaying
+          }
           trimHandleSide="start"
           onTrimDrag={(ts) => handleTrimStartDrag(incoming.song.id, ts)}
           onTrimDragEnd={() => handleTrimDragEnd(incoming.song.id)}

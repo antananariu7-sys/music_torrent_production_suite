@@ -9,11 +9,15 @@ interface CrossfadePreviewOptions {
   curveType: CrossfadeCurveType
 }
 
-interface CrossfadePreviewReturn {
+export interface CrossfadePreviewReturn {
   isLoading: boolean
   isPlaying: boolean
   play: () => Promise<void>
   stop: () => void
+  /** Current absolute position within track A (seconds) */
+  trackATime: number
+  /** Current absolute position within track B (seconds) */
+  trackBTime: number
 }
 
 /** Lead-in/lead-out seconds around the crossfade zone */
@@ -86,10 +90,19 @@ export function useCrossfadePreview(
 ): CrossfadePreviewReturn {
   const [isLoading, setIsLoading] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [trackATime, setTrackATime] = useState(0)
+  const [trackBTime, setTrackBTime] = useState(0)
 
   const ctxRef = useRef<AudioContext | null>(null)
   const sourceARef = useRef<AudioBufferSourceNode | null>(null)
   const sourceBRef = useRef<AudioBufferSourceNode | null>(null)
+  const rafRef = useRef<number>(0)
+  const playbackParamsRef = useRef<{
+    startTime: number
+    aOffset: number
+    fadeStartTime: number
+    bOffset: number
+  } | null>(null)
   const cacheRef = useRef<{
     pathA: string
     pathB: string
@@ -97,7 +110,27 @@ export function useCrossfadePreview(
     bufferB: AudioBuffer
   } | null>(null)
 
+  // rAF loop for smooth playhead updates
+  const updatePlayheads = useCallback(() => {
+    const ctx = ctxRef.current
+    const params = playbackParamsRef.current
+    if (!ctx || !params) return
+
+    const elapsed = ctx.currentTime - params.startTime
+    setTrackATime(params.aOffset + elapsed)
+
+    if (elapsed >= params.fadeStartTime) {
+      setTrackBTime(params.bOffset + (elapsed - params.fadeStartTime))
+    }
+
+    if (sourceARef.current || sourceBRef.current) {
+      rafRef.current = requestAnimationFrame(updatePlayheads)
+    }
+  }, [])
+
   const stop = useCallback(() => {
+    cancelAnimationFrame(rafRef.current)
+    playbackParamsRef.current = null
     try {
       sourceARef.current?.stop()
     } catch {
@@ -217,12 +250,25 @@ export function useCrossfadePreview(
       sourceARef.current = sourceA
       sourceBRef.current = sourceB
 
+      // Store scheduling params for rAF playhead tracking
+      playbackParamsRef.current = {
+        startTime: now,
+        aOffset,
+        fadeStartTime,
+        bOffset,
+      }
+
       setIsPlaying(true)
       setIsLoading(false)
+
+      // Start playhead update loop
+      rafRef.current = requestAnimationFrame(updatePlayheads)
 
       // Auto-stop when both sources finish
       const totalDuration = fadeStartTime + effectiveCrossfade + LEAD_SECONDS
       sourceB.onended = () => {
+        cancelAnimationFrame(rafRef.current)
+        playbackParamsRef.current = null
         setIsPlaying(false)
         sourceARef.current = null
         sourceBRef.current = null
@@ -241,7 +287,7 @@ export function useCrossfadePreview(
       setIsLoading(false)
       setIsPlaying(false)
     }
-  }, [options, stop])
+  }, [options, stop, updatePlayheads])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -254,5 +300,5 @@ export function useCrossfadePreview(
     }
   }, [stop])
 
-  return { isLoading, isPlaying, play, stop }
+  return { isLoading, isPlaying, play, stop, trackATime, trackBTime }
 }
