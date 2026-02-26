@@ -24,6 +24,8 @@ import { WaveformExtractor } from '../services/waveform/WaveformExtractor'
 import { registerWaveformHandlers } from './waveformHandlers'
 import { BpmDetector } from '../services/waveform/BpmDetector'
 import { registerBpmHandlers } from './bpmHandlers'
+import { KeyDetector } from '../services/waveform/KeyDetector'
+import { registerKeyHandlers } from './keyHandlers'
 import { StreamPreviewService } from '../services/StreamPreviewService'
 import { registerStreamPreviewHandlers } from './streamPreviewHandlers'
 import { registerDuplicateHandlers } from './duplicateHandlers'
@@ -43,6 +45,7 @@ let projectService: ProjectService
 let mixExportService: MixExportService
 let waveformExtractor: WaveformExtractor
 let bpmDetector: BpmDetector
+let keyDetector: KeyDetector
 let streamPreviewService: StreamPreviewService
 
 export function registerIpcHandlers(): void {
@@ -81,6 +84,8 @@ export function registerIpcHandlers(): void {
   registerWaveformHandlers(waveformExtractor)
   bpmDetector = new BpmDetector(projectService)
   registerBpmHandlers(bpmDetector)
+  keyDetector = new KeyDetector(projectService)
+  registerKeyHandlers(keyDetector)
   streamPreviewService = new StreamPreviewService()
   registerStreamPreviewHandlers(streamPreviewService)
   registerDuplicateHandlers()
@@ -105,6 +110,7 @@ export async function cleanupServices(): Promise<void> {
   mixExportService.cleanup()
   waveformExtractor.cleanup()
   bpmDetector.cleanup()
+  keyDetector.cleanup()
   await streamPreviewService.cleanup()
   console.log('Services cleaned up successfully')
 }

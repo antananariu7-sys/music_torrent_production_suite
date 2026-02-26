@@ -80,15 +80,17 @@ export function TransitionWaveformPanel({
           </Badge>
         )}
 
-        {/* Key placeholder — wired in Phase 4 */}
-        <Badge
-          fontSize="2xs"
-          colorPalette="gray"
-          variant="subtle"
-          flexShrink={0}
-        >
-          —
-        </Badge>
+        {song.musicalKey && (
+          <Badge
+            fontSize="2xs"
+            colorPalette="teal"
+            variant="subtle"
+            flexShrink={0}
+            title={`Key: ${song.musicalKey}${song.musicalKeyConfidence != null ? ` (confidence: ${(song.musicalKeyConfidence * 100).toFixed(0)}%)` : ''}`}
+          >
+            {song.musicalKey}
+          </Badge>
+        )}
 
         {song.bitrate && (
           <Text fontSize="2xs" color="text.muted" flexShrink={0}>

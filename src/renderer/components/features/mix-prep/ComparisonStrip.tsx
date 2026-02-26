@@ -1,5 +1,6 @@
 import { Flex, HStack, Text, Icon, Badge, Box } from '@chakra-ui/react'
-import { FiAlertTriangle } from 'react-icons/fi'
+import { FiAlertTriangle, FiCheck } from 'react-icons/fi'
+import { getCompatibilityLabel } from '@shared/utils/camelotWheel'
 import type { Song } from '@shared/types/project.types'
 
 interface ComparisonStripProps {
@@ -28,15 +29,13 @@ export function ComparisonStrip({
         {/* BPM comparison */}
         <BpmComparison outBpm={outgoing.bpm} inBpm={incoming.bpm} />
 
-        {/* Key comparison — placeholder until Phase 4 */}
-        <HStack gap={1}>
-          <Text fontSize="xs" color="text.muted">
-            Key:
-          </Text>
-          <Text fontSize="xs" color="text.muted">
-            — → —
-          </Text>
-        </HStack>
+        {/* Key comparison */}
+        <KeyComparison
+          outKey={outgoing.musicalKey}
+          inKey={incoming.musicalKey}
+          outConfidence={outgoing.musicalKeyConfidence}
+          inConfidence={incoming.musicalKeyConfidence}
+        />
 
         {/* Bitrate/format comparison */}
         <BitrateComparison outgoing={outgoing} incoming={incoming} />
@@ -108,6 +107,87 @@ function BpmComparison({
       )}
       {showWarning && (
         <Icon as={FiAlertTriangle} boxSize={3} color={deltaColor} />
+      )}
+    </HStack>
+  )
+}
+
+// ── Key comparison ────────────────────────────────────────────────────────
+
+function KeyComparison({
+  outKey,
+  inKey,
+  outConfidence,
+  inConfidence,
+}: {
+  outKey?: string
+  inKey?: string
+  outConfidence?: number
+  inConfidence?: number
+}): JSX.Element {
+  const outLabel = outKey || '?'
+  const inLabel = inKey || '?'
+
+  function confTip(key?: string, confidence?: number): string {
+    if (!key) return '?'
+    if (confidence == null) return key
+    return `${key} (confidence: ${(confidence * 100).toFixed(0)}%)`
+  }
+
+  let compat: { label: string; compatible: boolean | null } | null = null
+  if (outKey && inKey) {
+    compat = getCompatibilityLabel(outKey, inKey)
+  }
+
+  const color = compat
+    ? compat.compatible
+      ? 'green.400'
+      : 'orange.400'
+    : 'text.muted'
+
+  return (
+    <HStack gap={1}>
+      <Text fontSize="xs" color="text.muted">
+        Key:
+      </Text>
+      <Text
+        fontSize="xs"
+        fontWeight="medium"
+        color="text.primary"
+        title={confTip(outKey, outConfidence)}
+      >
+        {outLabel}
+      </Text>
+      <Text fontSize="xs" color="text.muted">
+        →
+      </Text>
+      <Text
+        fontSize="xs"
+        fontWeight="medium"
+        color="text.primary"
+        title={confTip(inKey, inConfidence)}
+      >
+        {inLabel}
+      </Text>
+      {compat && (
+        <Badge
+          fontSize="2xs"
+          colorPalette={compat.compatible ? 'green' : 'orange'}
+          variant="subtle"
+          title={
+            compat.compatible
+              ? 'Keys are harmonically compatible — safe to mix'
+              : 'Keys are not harmonically adjacent on the Camelot wheel — mixing may sound dissonant'
+          }
+        >
+          {compat.label}
+        </Badge>
+      )}
+      {compat && compat.compatible && (
+        <Icon as={FiCheck} boxSize={3} color="green.400" />
+      )}
+      {compat && !compat.compatible && (
+        <Icon as={FiAlertTriangle} boxSize={3} color={color} />
       )}
     </HStack>
   )

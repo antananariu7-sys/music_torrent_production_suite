@@ -17,6 +17,7 @@ import { MixPrepTracklist } from './MixPrepTracklist'
 import { TransitionDetail } from './TransitionDetail'
 import { usePairNavigation } from './hooks/usePairNavigation'
 import { AddFilesDropZone } from '@/components/features/mix/AddFilesDropZone'
+import { useKeyData } from '@/hooks/useKeyData'
 import type { Song } from '@shared/types/project.types'
 import type { Track } from '@/store/audioPlayerStore'
 
@@ -68,6 +69,9 @@ export function MixPrepView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentProject?.songs]
   )
+
+  // Trigger batch key detection for songs missing key data
+  useKeyData(currentProject?.id)
 
   const pairNav = usePairNavigation(songs)
   const { selectedIndex, outgoingTrack, incomingTrack, selectIndex } = pairNav

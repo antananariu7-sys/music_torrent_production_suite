@@ -25,7 +25,8 @@ async function buildMain() {
         'parse-torrent',
         'csv-stringify',
         'uuid',
-        'ffmpeg-static'
+        'ffmpeg-static',
+        'essentia.js'
       ],
       alias: {
         '@shared': resolve(rootDir, 'src/shared')

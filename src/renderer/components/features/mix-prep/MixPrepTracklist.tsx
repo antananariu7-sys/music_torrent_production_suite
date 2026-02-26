@@ -207,6 +207,19 @@ export function MixPrepTracklist({
               </Badge>
             )}
 
+            {/* Key badge */}
+            {song.musicalKey && (
+              <Badge
+                fontSize="2xs"
+                colorPalette="teal"
+                variant="subtle"
+                flexShrink={0}
+                title={`Key: ${song.musicalKey}${song.musicalKeyConfidence != null ? ` (confidence: ${(song.musicalKeyConfidence * 100).toFixed(0)}%)` : ''}`}
+              >
+                {song.musicalKey}
+              </Badge>
+            )}
+
             {/* Format badge */}
             {song.format && (
               <Badge

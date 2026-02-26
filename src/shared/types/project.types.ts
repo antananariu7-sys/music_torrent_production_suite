@@ -42,6 +42,8 @@ export interface Song {
   cuePoints?: CuePoint[] // User-placed markers on the track timeline
   bpm?: number // Detected BPM, cached after first detection
   firstBeatOffset?: number // Seconds from track start to first detected downbeat
+  musicalKey?: string // Detected musical key in Camelot notation (e.g. "8B")
+  musicalKeyConfidence?: number // Key detection confidence 0–1
   trimStart?: number // Effective start time (derived from trim-start cue point)
   trimEnd?: number // Effective end time (derived from trim-end cue point)
 }

@@ -122,6 +122,12 @@ export const IPC_CHANNELS = {
   BPM_DETECT_SONG: 'bpm:detect-song',
   BPM_PROGRESS: 'bpm:progress',
 
+  // Key detection
+  KEY_DETECT: 'key:detect',
+  KEY_DETECT_BATCH: 'key:detect-batch',
+  KEY_DETECT_SONG: 'key:detect-song',
+  KEY_PROGRESS: 'key:progress',
+
   // Stream preview
   STREAM_PREVIEW_START: 'stream-preview:start',
   STREAM_PREVIEW_STOP: 'stream-preview:stop',

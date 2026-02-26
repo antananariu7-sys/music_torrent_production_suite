@@ -47,3 +47,28 @@ export const BpmDetectSongRequestSchema = z.object({
   projectId: z.string().uuid(),
   songId: z.string().min(1),
 })
+
+// --- Key detection schemas ---
+
+/**
+ * Single key detection request
+ */
+export const KeyDetectRequestSchema = z.object({
+  songId: z.string().min(1),
+  filePath: z.string().min(1),
+})
+
+/**
+ * Batch key detection request (all songs in a project)
+ */
+export const KeyBatchRequestSchema = z.object({
+  projectId: z.string().uuid(),
+})
+
+/**
+ * Detect key for a single song within a project (resolves path internally)
+ */
+export const KeyDetectSongRequestSchema = z.object({
+  projectId: z.string().uuid(),
+  songId: z.string().min(1),
+})
