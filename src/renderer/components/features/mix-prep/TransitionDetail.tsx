@@ -4,8 +4,10 @@ import { FiMusic, FiZap } from 'react-icons/fi'
 import { TransitionWaveformPanel } from './TransitionWaveformPanel'
 import { ComparisonStrip } from './ComparisonStrip'
 import { TransitionCrossfadeControl } from './TransitionCrossfadeControl'
+import { DualDeckControls } from './DualDeckControls'
 import { PairNavigationBar } from './PairNavigationBar'
 import { useTransitionData } from './hooks/useTransitionData'
+import { useDualDeck } from './hooks/useDualDeck'
 import { suggestMixPoint } from './MixPointSuggester'
 import { useProjectStore } from '@/store/useProjectStore'
 import { toaster } from '@/components/ui/toaster'
@@ -39,6 +41,7 @@ export function TransitionDetail({
   const { outgoing, incoming } = useTransitionData(outgoingTrack, incomingTrack)
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const [isSuggesting, setIsSuggesting] = useState(false)
+  const dualDeck = useDualDeck()
 
   const handleSuggestMixPoint = useCallback(async () => {
     if (!outgoing?.peaks || !incoming?.peaks || !outgoingTrack) return
@@ -151,6 +154,16 @@ export function TransitionDetail({
   // ── Normal transition view ─────────────────────────────────────────────────
   if (!outgoing || !incoming) return <></>
 
+  // Stop playback when navigating pairs
+  const handlePrev = () => {
+    dualDeck.stopAll()
+    pairNav.goPrev()
+  }
+  const handleNext = () => {
+    dualDeck.stopAll()
+    pairNav.goNext()
+  }
+
   return (
     <Flex flex={1} direction="column">
       <VStack flex={1} gap={0} align="stretch" p={4} overflowY="auto">
@@ -160,9 +173,11 @@ export function TransitionDetail({
           peaks={outgoing.peaks}
           isLoading={outgoing.isLoading}
           color="#3b82f6"
+          playheadTime={dualDeck.deckA.currentTime}
+          isPlaybackActive={dualDeck.deckA.isPlaying}
         />
 
-        {/* Comparison strip + crossfade controls + suggest button */}
+        {/* Comparison strip + crossfade controls + suggest button + dual deck */}
         <VStack my={2} gap={1} align="stretch">
           <ComparisonStrip outgoing={outgoing.song} incoming={incoming.song} />
           <TransitionCrossfadeControl
@@ -170,7 +185,7 @@ export function TransitionDetail({
             incoming={incoming.song}
             projectId={projectId}
           />
-          <HStack justify="center">
+          <HStack justify="center" gap={2}>
             <Button
               size="2xs"
               variant="outline"
@@ -184,6 +199,11 @@ export function TransitionDetail({
               Suggest Mix Point
             </Button>
           </HStack>
+          <DualDeckControls
+            outgoing={outgoing.song}
+            incoming={incoming.song}
+            dualDeck={dualDeck}
+          />
         </VStack>
 
         {/* Incoming waveform */}
@@ -192,17 +212,19 @@ export function TransitionDetail({
           peaks={incoming.peaks}
           isLoading={incoming.isLoading}
           color="#8b5cf6"
+          playheadTime={dualDeck.deckB.currentTime}
+          isPlaybackActive={dualDeck.deckB.isPlaying}
         />
       </VStack>
 
-      {/* Pair navigation bar */}
+      {/* Pair navigation bar — stops playback on navigate */}
       <PairNavigationBar
         currentPairNumber={pairNav.currentPairNumber}
         pairCount={pairNav.pairCount}
         canPrev={pairNav.canPrev}
         canNext={pairNav.canNext}
-        goPrev={pairNav.goPrev}
-        goNext={pairNav.goNext}
+        goPrev={handlePrev}
+        goNext={handleNext}
       />
     </Flex>
   )

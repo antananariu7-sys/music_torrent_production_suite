@@ -12,6 +12,10 @@ interface TransitionWaveformPanelProps {
   peaks: WaveformData | null
   isLoading: boolean
   color?: string
+  /** Current playhead position in seconds (drives moving playhead line) */
+  playheadTime?: number
+  /** Whether this deck is actively playing */
+  isPlaybackActive?: boolean
 }
 
 /**
@@ -23,6 +27,8 @@ export function TransitionWaveformPanel({
   peaks,
   isLoading,
   color = '#3b82f6',
+  playheadTime,
+  isPlaybackActive,
 }: TransitionWaveformPanelProps): JSX.Element {
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -221,6 +227,32 @@ export function TransitionWaveformPanel({
                 </Box>
               )
             })}
+
+            {/* Playhead line (during dual-deck playback) */}
+            {isPlaybackActive &&
+              playheadTime != null &&
+              duration > 0 &&
+              playheadTime <= duration && (
+                <Box
+                  position="absolute"
+                  left={`${(playheadTime / duration) * 100}%`}
+                  top={0}
+                  h="100%"
+                  zIndex={3}
+                  pointerEvents="none"
+                >
+                  <Box
+                    position="absolute"
+                    left="-1px"
+                    top={0}
+                    w="2px"
+                    h="100%"
+                    bg={color}
+                    opacity={0.9}
+                    boxShadow={`0 0 4px ${color}`}
+                  />
+                </Box>
+              )}
           </Box>
         ) : (
           <Box h="100px" />
