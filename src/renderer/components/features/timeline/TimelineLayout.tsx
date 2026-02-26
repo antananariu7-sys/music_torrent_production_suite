@@ -308,6 +308,8 @@ export function TimelineLayout({
                     snapMode={snapMode}
                     bpm={song.bpm}
                     firstBeatOffset={song.firstBeatOffset}
+                    trackIndex={index}
+                    trackCount={songs.length}
                   />
 
                   {/* Cue point markers */}

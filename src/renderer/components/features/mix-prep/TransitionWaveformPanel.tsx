@@ -1,11 +1,15 @@
-import { useRef, useState, useEffect, useMemo } from 'react'
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { Box, Flex, Text, Badge, Skeleton } from '@chakra-ui/react'
 import { WaveformCanvas } from '@/components/features/timeline/WaveformCanvas'
+import { TrimHandle } from '@/components/features/timeline/TrimHandle'
 import { EnergyOverlay } from './EnergyOverlay'
 import { useTimelineStore } from '@/store/timelineStore'
 import { computeEnergyProfile } from '@shared/utils/energyAnalyzer'
 import type { Song } from '@shared/types/project.types'
 import type { WaveformData } from '@shared/types/waveform.types'
+
+/** Minimum gap in seconds between trimStart and trimEnd */
+const MIN_TRIM_GAP = 1
 
 interface TransitionWaveformPanelProps {
   song: Song
@@ -16,6 +20,12 @@ interface TransitionWaveformPanelProps {
   playheadTime?: number
   /** Whether this deck is actively playing */
   isPlaybackActive?: boolean
+  /** Which trim handle to show: 'end' for outgoing, 'start' for incoming */
+  trimHandleSide?: 'start' | 'end'
+  /** Called during drag with the new trim timestamp */
+  onTrimDrag?: (newTimestamp: number) => void
+  /** Called when drag ends to persist the value */
+  onTrimDragEnd?: () => void
 }
 
 /**
@@ -29,10 +39,14 @@ export function TransitionWaveformPanel({
   color = '#3b82f6',
   playheadTime,
   isPlaybackActive,
+  trimHandleSide,
+  onTrimDrag,
+  onTrimDragEnd,
 }: TransitionWaveformPanelProps): JSX.Element {
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
+  const initialTrimRef = useRef(0)
 
   // Observe container width for responsive waveform rendering
   useEffect(() => {
@@ -57,6 +71,42 @@ export function TransitionWaveformPanel({
     if (!peaks?.peaks || peaks.peaks.length === 0) return []
     return computeEnergyProfile(peaks.peaks)
   }, [song.energyProfile, peaks?.peaks])
+
+  // ── Trim handle drag logic ──────────────────────────────────────────────────
+  const waveformWidth = containerWidth > 0 ? containerWidth - 8 : 0
+  const pixelsPerSecond = duration > 0 ? waveformWidth / duration : 0
+
+  const trimHandleX = useMemo(() => {
+    if (!trimHandleSide || pixelsPerSecond <= 0) return 0
+    if (trimHandleSide === 'end') {
+      return (song.trimEnd ?? duration) * pixelsPerSecond
+    }
+    return (song.trimStart ?? 0) * pixelsPerSecond
+  }, [trimHandleSide, song.trimStart, song.trimEnd, duration, pixelsPerSecond])
+
+  const handleTrimDragStart = useCallback(() => {
+    if (trimHandleSide === 'end') {
+      initialTrimRef.current = song.trimEnd ?? duration
+    } else {
+      initialTrimRef.current = song.trimStart ?? 0
+    }
+  }, [trimHandleSide, song.trimEnd, song.trimStart, duration])
+
+  const handleTrimDrag = useCallback(
+    (deltaSeconds: number) => {
+      if (!onTrimDrag) return
+      let ts = initialTrimRef.current + deltaSeconds
+      if (trimHandleSide === 'end') {
+        const effectiveStart = song.trimStart ?? 0
+        ts = Math.min(duration, Math.max(effectiveStart + MIN_TRIM_GAP, ts))
+      } else {
+        const effectiveEnd = song.trimEnd ?? duration
+        ts = Math.max(0, Math.min(effectiveEnd - MIN_TRIM_GAP, ts))
+      }
+      onTrimDrag(ts)
+    },
+    [trimHandleSide, song.trimStart, song.trimEnd, duration, onTrimDrag]
+  )
 
   return (
     <Box
@@ -253,6 +303,58 @@ export function TransitionWaveformPanel({
                   />
                 </Box>
               )}
+
+            {/* Inline draggable trim handle */}
+            {trimHandleSide && pixelsPerSecond > 0 && onTrimDragEnd && (
+              <>
+                <TrimHandle
+                  side={trimHandleSide}
+                  x={trimHandleX}
+                  trackHeight={100}
+                  pixelsPerSecond={pixelsPerSecond}
+                  onDragStart={handleTrimDragStart}
+                  onDrag={handleTrimDrag}
+                  onDragEnd={onTrimDragEnd}
+                />
+                {/* Label next to handle */}
+                {trimHandleSide === 'end' ? (
+                  <Text
+                    position="absolute"
+                    left={`${trimHandleX - 4}px`}
+                    top="2px"
+                    fontSize="2xs"
+                    fontWeight="semibold"
+                    color="#ef4444"
+                    bg="blackAlpha.600"
+                    px={1}
+                    borderRadius="sm"
+                    pointerEvents="none"
+                    whiteSpace="nowrap"
+                    zIndex={4}
+                    transform="translateX(-100%)"
+                  >
+                    Exit ▶
+                  </Text>
+                ) : (
+                  <Text
+                    position="absolute"
+                    left={`${trimHandleX + 4}px`}
+                    top="2px"
+                    fontSize="2xs"
+                    fontWeight="semibold"
+                    color="#22c55e"
+                    bg="blackAlpha.600"
+                    px={1}
+                    borderRadius="sm"
+                    pointerEvents="none"
+                    whiteSpace="nowrap"
+                    zIndex={4}
+                  >
+                    ◀ Entry
+                  </Text>
+                )}
+              </>
+            )}
           </Box>
         ) : (
           <Box h="100px" />

@@ -1,5 +1,5 @@
 import { memo, useRef, useCallback } from 'react'
-import { Box } from '@chakra-ui/react'
+import { Box, Text } from '@chakra-ui/react'
 import { TrimHandle } from './TrimHandle'
 import { snapToNearestBeat } from './utils/snapToBeat'
 
@@ -18,6 +18,10 @@ interface TrimOverlayProps {
   snapMode: 'off' | 'beat'
   bpm?: number
   firstBeatOffset?: number
+  /** Index of this track in the song list (for Entry/Exit label visibility) */
+  trackIndex?: number
+  /** Total number of tracks in the song list */
+  trackCount?: number
 }
 
 /** Minimum gap in seconds between trimStart and trimEnd */
@@ -41,6 +45,8 @@ export const TrimOverlay = memo(function TrimOverlay({
   snapMode,
   bpm,
   firstBeatOffset,
+  trackIndex,
+  trackCount,
 }: TrimOverlayProps): JSX.Element {
   // Capture initial value at drag start so delta-based computation works
   const initialStartRef = useRef(trimStart ?? 0)
@@ -135,6 +141,22 @@ export const TrimOverlay = memo(function TrimOverlay({
         onDrag={handleStartDrag}
         onDragEnd={onTrimDragEnd}
       />
+      {/* "Entry" label at trim-start (shown when not the first track) */}
+      {trackIndex != null && trackCount != null && trackIndex > 0 && (
+        <Text
+          position="absolute"
+          left={`${trimStartPx}px`}
+          top="-18px"
+          fontSize="2xs"
+          fontWeight="semibold"
+          color="#22c55e"
+          pointerEvents="none"
+          whiteSpace="nowrap"
+          zIndex={4}
+        >
+          ◀ Entry
+        </Text>
+      )}
 
       {/* Trim end handle */}
       <TrimHandle
@@ -146,6 +168,25 @@ export const TrimOverlay = memo(function TrimOverlay({
         onDrag={handleEndDrag}
         onDragEnd={onTrimDragEnd}
       />
+      {/* "Exit" label at trim-end (shown when not the last track) */}
+      {trackIndex != null &&
+        trackCount != null &&
+        trackIndex < trackCount - 1 && (
+          <Text
+            position="absolute"
+            left={`${trimEndPx > 0 ? trimEndPx : trackWidth}px`}
+            top="-18px"
+            fontSize="2xs"
+            fontWeight="semibold"
+            color="#ef4444"
+            pointerEvents="none"
+            whiteSpace="nowrap"
+            zIndex={4}
+            transform="translateX(-100%)"
+          >
+            Exit ▶
+          </Text>
+        )}
     </>
   )
 })

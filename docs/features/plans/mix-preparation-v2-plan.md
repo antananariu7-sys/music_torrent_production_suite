@@ -9,7 +9,7 @@
 
 ## Scope
 
-This plan covers **Priority 1** (UX Polish 9a–d + Beat-Sync Phase A) and **Priority 2** (Mix Health Dashboard). Higher-effort features (Section Detection, EQ, Advanced Mix-Point, etc.) are deferred to a future plan.
+This plan covers **Priority 1** (UX Polish 9a–d + Beat-Sync Phase A) and **Priority 2** (Mix Health Dashboard). Higher-effort features (Section Detection, EQ, Advanced Mix-Point, etc.) are covered in the [advanced features plan](mix-preparation-v2-advanced-plan.md).
 
 ---
 

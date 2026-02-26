@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Flex,
   Box,
@@ -9,7 +9,7 @@ import {
   IconButton,
   Button,
 } from '@chakra-ui/react'
-import { FiPlay, FiDownload, FiActivity } from 'react-icons/fi'
+import { FiPlay, FiDownload, FiActivity, FiRotateCcw } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import { useMixExportStore } from '@/store/mixExportStore'
@@ -78,6 +78,44 @@ export function MixPrepView({
   const pairNav = usePairNavigation(songs)
   const { selectedIndex, outgoingTrack, incomingTrack, selectIndex } = pairNav
   const [showDashboard, setShowDashboard] = useState(false)
+  const [isResetting, setIsResetting] = useState(false)
+
+  const handleResetMix = useCallback(async () => {
+    if (songs.length === 0 || !currentProject) return
+
+    const confirmed = window.confirm(
+      'Reset all mix settings?\n\nThis will clear crossfade, tempo sync, trim points, and cue points for all tracks. BPM and key data will be kept.'
+    )
+    if (!confirmed) return
+
+    setIsResetting(true)
+    try {
+      let lastProject: typeof currentProject | null = null
+      for (const song of songs) {
+        const response = await window.api.mix.updateSong({
+          projectId: currentProject.id,
+          songId: song.id,
+          updates: {
+            crossfadeDuration: undefined,
+            crossfadeCurveType: undefined,
+            tempoAdjustment: undefined,
+            trimStart: undefined,
+            trimEnd: undefined,
+            cuePoints: undefined,
+          },
+        })
+        if (response.success && response.data) {
+          lastProject = response.data
+        }
+      }
+      if (lastProject) {
+        setCurrentProject(lastProject)
+        toaster.create({ title: 'Mix settings reset', type: 'success' })
+      }
+    } finally {
+      setIsResetting(false)
+    }
+  }, [songs, currentProject, setCurrentProject])
 
   if (!currentProject) return <></>
 
@@ -160,6 +198,18 @@ export function MixPrepView({
               >
                 <Icon as={FiActivity} boxSize={3} />
               </Button>
+              <IconButton
+                aria-label="Reset mix settings"
+                size="2xs"
+                colorPalette="red"
+                variant="ghost"
+                onClick={handleResetMix}
+                title="Reset crossfade, tempo sync, trims, and cue points for all tracks"
+                disabled={songs.length === 0 || isResetting}
+                loading={isResetting}
+              >
+                <Icon as={FiRotateCcw} boxSize={3} />
+              </IconButton>
             </HStack>
           </Flex>
 

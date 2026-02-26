@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Flex, VStack, Text, Icon } from '@chakra-ui/react'
 import { FiMusic } from 'react-icons/fi'
 import { TransitionWaveformPanel } from './TransitionWaveformPanel'
@@ -8,6 +8,7 @@ import { DualDeckControls } from './DualDeckControls'
 import { PairNavigationBar } from './PairNavigationBar'
 import { useTransitionData } from './hooks/useTransitionData'
 import { useDualDeck } from './hooks/useDualDeck'
+import { useTrimDrag } from '@/components/features/timeline/hooks/useTrimDrag'
 import { suggestMixPoint } from './MixPointSuggester'
 import { useProjectStore } from '@/store/useProjectStore'
 import { toaster } from '@/components/ui/toaster'
@@ -42,6 +43,27 @@ export function TransitionDetail({
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const [isSuggesting, setIsSuggesting] = useState(false)
   const dualDeck = useDualDeck()
+
+  // ── Trim drag (reused from timeline) ──────────────────────────────────────
+  const {
+    previewTrims,
+    handleTrimStartDrag,
+    handleTrimEndDrag,
+    handleTrimDragEnd,
+  } = useTrimDrag()
+
+  // Merge preview trims into song objects so the waveform panel reflects live drag
+  const outgoingSong = useMemo(() => {
+    if (!outgoing) return null
+    const preview = previewTrims[outgoing.song.id]
+    return preview ? { ...outgoing.song, ...preview } : outgoing.song
+  }, [outgoing, previewTrims])
+
+  const incomingSong = useMemo(() => {
+    if (!incoming) return null
+    const preview = previewTrims[incoming.song.id]
+    return preview ? { ...incoming.song, ...preview } : incoming.song
+  }, [incoming, previewTrims])
 
   const handleSuggestMixPoint = useCallback(async () => {
     if (!outgoing?.peaks || !incoming?.peaks || !outgoingTrack) return
@@ -211,12 +233,15 @@ export function TransitionDetail({
       <VStack flex={1} gap={0} align="stretch" p={4} overflowY="auto">
         {/* Outgoing waveform */}
         <TransitionWaveformPanel
-          song={outgoing.song}
+          song={outgoingSong!}
           peaks={outgoing.peaks}
           isLoading={outgoing.isLoading}
           color="#3b82f6"
           playheadTime={dualDeck.deckA.currentTime}
           isPlaybackActive={dualDeck.deckA.isPlaying}
+          trimHandleSide="end"
+          onTrimDrag={(ts) => handleTrimEndDrag(outgoing.song.id, ts)}
+          onTrimDragEnd={() => handleTrimDragEnd(outgoing.song.id)}
         />
 
         {/* Comparison strip + crossfade controls + dual deck */}
@@ -245,12 +270,15 @@ export function TransitionDetail({
 
         {/* Incoming waveform */}
         <TransitionWaveformPanel
-          song={incoming.song}
+          song={incomingSong!}
           peaks={incoming.peaks}
           isLoading={incoming.isLoading}
           color="#8b5cf6"
           playheadTime={dualDeck.deckB.currentTime}
           isPlaybackActive={dualDeck.deckB.isPlaying}
+          trimHandleSide="start"
+          onTrimDrag={(ts) => handleTrimStartDrag(incoming.song.id, ts)}
+          onTrimDragEnd={() => handleTrimDragEnd(incoming.song.id)}
         />
       </VStack>
 
