@@ -69,8 +69,8 @@ export function MixPrepView({
     [currentProject?.songs]
   )
 
-  const { selectedIndex, outgoingTrack, incomingTrack, selectIndex } =
-    usePairNavigation(songs)
+  const pairNav = usePairNavigation(songs)
+  const { selectedIndex, outgoingTrack, incomingTrack, selectIndex } = pairNav
 
   if (!currentProject) return <></>
 
@@ -164,6 +164,8 @@ export function MixPrepView({
           outgoingTrack={outgoingTrack}
           incomingTrack={incomingTrack}
           songCount={songs.length}
+          projectId={currentProject.id}
+          pairNav={pairNav}
         />
       </Flex>
     </VStack>

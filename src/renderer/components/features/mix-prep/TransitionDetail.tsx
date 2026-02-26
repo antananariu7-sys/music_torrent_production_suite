@@ -1,8 +1,12 @@
 import { Flex, VStack, Text, Icon } from '@chakra-ui/react'
-import { FiMusic, FiArrowRight } from 'react-icons/fi'
+import { FiMusic } from 'react-icons/fi'
 import { TransitionWaveformPanel } from './TransitionWaveformPanel'
+import { ComparisonStrip } from './ComparisonStrip'
+import { TransitionCrossfadeControl } from './TransitionCrossfadeControl'
+import { PairNavigationBar } from './PairNavigationBar'
 import { useTransitionData } from './hooks/useTransitionData'
 import type { Song } from '@shared/types/project.types'
+import type { PairNavigation } from './hooks/usePairNavigation'
 
 interface TransitionDetailProps {
   /** The outgoing track (track N-1), null if first track selected */
@@ -11,15 +15,22 @@ interface TransitionDetailProps {
   incomingTrack: Song | null
   /** Total number of songs in the mix */
   songCount: number
+  /** Project ID for persisting crossfade changes */
+  projectId: string
+  /** Pair navigation state */
+  pairNav: PairNavigation
 }
 
 /**
- * Right-panel container: renders stacked waveforms + comparison strip.
+ * Right-panel container: renders stacked waveforms + comparison strip +
+ * crossfade controls + pair navigation bar.
  */
 export function TransitionDetail({
   outgoingTrack,
   incomingTrack,
   songCount,
+  projectId,
+  pairNav,
 }: TransitionDetailProps): JSX.Element {
   const { outgoing, incoming } = useTransitionData(outgoingTrack, incomingTrack)
 
@@ -56,16 +67,28 @@ export function TransitionDetail({
   // ── First track selected (no outgoing) ─────────────────────────────────────
   if (!outgoingTrack && incoming) {
     return (
-      <VStack flex={1} gap={3} align="stretch" p={4}>
-        <Text color="text.muted" fontSize="sm" textAlign="center">
-          First track in mix — select track 2+ to see transitions
-        </Text>
-        <TransitionWaveformPanel
-          song={incoming.song}
-          peaks={incoming.peaks}
-          isLoading={incoming.isLoading}
-        />
-      </VStack>
+      <Flex flex={1} direction="column">
+        <VStack flex={1} gap={3} align="stretch" p={4}>
+          <Text color="text.muted" fontSize="sm" textAlign="center">
+            First track in mix — select track 2+ to see transitions
+          </Text>
+          <TransitionWaveformPanel
+            song={incoming.song}
+            peaks={incoming.peaks}
+            isLoading={incoming.isLoading}
+          />
+        </VStack>
+        {pairNav.pairCount > 0 && (
+          <PairNavigationBar
+            currentPairNumber={pairNav.currentPairNumber}
+            pairCount={pairNav.pairCount}
+            canPrev={pairNav.canPrev}
+            canNext={pairNav.canNext}
+            goPrev={pairNav.goPrev}
+            goNext={pairNav.goNext}
+          />
+        )}
+      </Flex>
     )
   }
 
@@ -73,44 +96,44 @@ export function TransitionDetail({
   if (!outgoing || !incoming) return <></>
 
   return (
-    <VStack flex={1} gap={0} align="stretch" p={4} overflowY="auto">
-      {/* Outgoing waveform */}
-      <TransitionWaveformPanel
-        song={outgoing.song}
-        peaks={outgoing.peaks}
-        isLoading={outgoing.isLoading}
-        color="#3b82f6"
-      />
+    <Flex flex={1} direction="column">
+      <VStack flex={1} gap={0} align="stretch" p={4} overflowY="auto">
+        {/* Outgoing waveform */}
+        <TransitionWaveformPanel
+          song={outgoing.song}
+          peaks={outgoing.peaks}
+          isLoading={outgoing.isLoading}
+          color="#3b82f6"
+        />
 
-      {/* Comparison strip placeholder (Phase 3) */}
-      <Flex
-        align="center"
-        justify="center"
-        gap={2}
-        py={3}
-        px={4}
-        bg="bg.surface"
-        borderWidth="1px"
-        borderColor="border.base"
-        borderRadius="md"
-        my={2}
-      >
-        <Text fontSize="xs" color="text.muted">
-          {outgoing.song.bpm ? `${Math.round(outgoing.song.bpm)} BPM` : '? BPM'}
-        </Text>
-        <Icon as={FiArrowRight} boxSize={3} color="text.muted" />
-        <Text fontSize="xs" color="text.muted">
-          {incoming.song.bpm ? `${Math.round(incoming.song.bpm)} BPM` : '? BPM'}
-        </Text>
-      </Flex>
+        {/* Comparison strip + crossfade controls */}
+        <VStack my={2} gap={0} align="stretch">
+          <ComparisonStrip outgoing={outgoing.song} incoming={incoming.song} />
+          <TransitionCrossfadeControl
+            outgoing={outgoing.song}
+            incoming={incoming.song}
+            projectId={projectId}
+          />
+        </VStack>
 
-      {/* Incoming waveform */}
-      <TransitionWaveformPanel
-        song={incoming.song}
-        peaks={incoming.peaks}
-        isLoading={incoming.isLoading}
-        color="#8b5cf6"
+        {/* Incoming waveform */}
+        <TransitionWaveformPanel
+          song={incoming.song}
+          peaks={incoming.peaks}
+          isLoading={incoming.isLoading}
+          color="#8b5cf6"
+        />
+      </VStack>
+
+      {/* Pair navigation bar */}
+      <PairNavigationBar
+        currentPairNumber={pairNav.currentPairNumber}
+        pairCount={pairNav.pairCount}
+        canPrev={pairNav.canPrev}
+        canNext={pairNav.canNext}
+        goPrev={pairNav.goPrev}
+        goNext={pairNav.goNext}
       />
-    </VStack>
+    </Flex>
   )
 }
