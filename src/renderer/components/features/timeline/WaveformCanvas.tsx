@@ -1,6 +1,7 @@
 import { memo, useRef, useEffect } from 'react'
 import { Box } from '@chakra-ui/react'
 import { getTilesForTrack, TILE_WIDTH } from './waveformTileCache'
+import { drawWaveform, downsampleArray } from './waveformDrawing'
 
 interface WaveformCanvasProps {
   songId: string
@@ -13,6 +14,8 @@ interface WaveformCanvasProps {
   height?: number
   color?: string
   isSelected?: boolean
+  /** When true, render entire peaks array in a single pass (no tiling). Used by mix-prep view. */
+  fullTrack?: boolean
 }
 
 /**
@@ -32,6 +35,7 @@ export const WaveformCanvas = memo(
     height = 80,
     color = '#3b82f6',
     isSelected = false,
+    fullTrack = false,
   }: WaveformCanvasProps): JSX.Element {
     const canvasRef = useRef<HTMLCanvasElement>(null)
 
@@ -48,36 +52,64 @@ export const WaveformCanvas = memo(
       canvas.width = Math.ceil(width * dpr)
       canvas.height = Math.ceil(height * dpr)
 
-      // Get pre-rendered tiles (cached or freshly rendered, at matching DPR)
-      const tiles = getTilesForTrack(
-        songId,
-        peaks,
-        width,
-        height,
-        color,
-        frequencyColorMode,
-        dpr,
-        peaksLow,
-        peaksMid,
-        peaksHigh
-      )
+      if (fullTrack) {
+        // Full-track mode: downsample peaks to pixel width, render in single pass
+        const targetBars = Math.floor(width)
+        const ds = downsampleArray(peaks, targetBars)
+        const dsLow = peaksLow
+          ? downsampleArray(peaksLow, targetBars)
+          : undefined
+        const dsMid = peaksMid
+          ? downsampleArray(peaksMid, targetBars)
+          : undefined
+        const dsHigh = peaksHigh
+          ? downsampleArray(peaksHigh, targetBars)
+          : undefined
 
-      // Blit tiles onto visible canvas (1:1 pixel mapping — no scaling)
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-      for (const tile of tiles) {
-        const x = Math.round(tile.index * TILE_WIDTH * dpr)
-        const tileW = Math.min(Math.ceil(TILE_WIDTH * dpr), canvas.width - x)
-        ctx.drawImage(
-          tile.bitmap,
-          0,
-          0,
-          tileW,
-          canvas.height,
-          x,
-          0,
-          tileW,
-          canvas.height
+        ctx.scale(dpr, dpr)
+        drawWaveform(
+          ctx,
+          ds,
+          width,
+          height,
+          color,
+          frequencyColorMode,
+          dsLow,
+          dsMid,
+          dsHigh
         )
+        ctx.setTransform(1, 0, 0, 1, 0, 0) // reset transform
+      } else {
+        // Tiled mode: use pre-rendered tile bitmaps
+        const tiles = getTilesForTrack(
+          songId,
+          peaks,
+          width,
+          height,
+          color,
+          frequencyColorMode,
+          dpr,
+          peaksLow,
+          peaksMid,
+          peaksHigh
+        )
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        for (const tile of tiles) {
+          const x = Math.round(tile.index * TILE_WIDTH * dpr)
+          const tileW = Math.min(Math.ceil(TILE_WIDTH * dpr), canvas.width - x)
+          ctx.drawImage(
+            tile.bitmap,
+            0,
+            0,
+            tileW,
+            canvas.height,
+            x,
+            0,
+            tileW,
+            canvas.height
+          )
+        }
       }
     }, [
       songId,
@@ -89,6 +121,7 @@ export const WaveformCanvas = memo(
       width,
       height,
       color,
+      fullTrack,
     ])
 
     return (
@@ -121,5 +154,6 @@ export const WaveformCanvas = memo(
     prev.width === next.width &&
     prev.height === next.height &&
     prev.color === next.color &&
-    prev.isSelected === next.isSelected
+    prev.isSelected === next.isSelected &&
+    prev.fullTrack === next.fullTrack
 )

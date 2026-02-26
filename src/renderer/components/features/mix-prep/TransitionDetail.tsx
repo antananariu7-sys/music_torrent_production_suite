@@ -1,5 +1,7 @@
-import { Flex, VStack, Text, Icon, Box } from '@chakra-ui/react'
+import { Flex, VStack, Text, Icon } from '@chakra-ui/react'
 import { FiMusic, FiArrowRight } from 'react-icons/fi'
+import { TransitionWaveformPanel } from './TransitionWaveformPanel'
+import { useTransitionData } from './hooks/useTransitionData'
 import type { Song } from '@shared/types/project.types'
 
 interface TransitionDetailProps {
@@ -13,13 +15,14 @@ interface TransitionDetailProps {
 
 /**
  * Right-panel container: renders stacked waveforms + comparison strip.
- * Phase 1: placeholder panels. Phase 2+ fills in waveforms.
  */
 export function TransitionDetail({
   outgoingTrack,
   incomingTrack,
   songCount,
 }: TransitionDetailProps): JSX.Element {
+  const { outgoing, incoming } = useTransitionData(outgoingTrack, incomingTrack)
+
   // ── Empty state: no songs ──────────────────────────────────────────────────
   if (songCount === 0) {
     return (
@@ -35,45 +38,51 @@ export function TransitionDetail({
   }
 
   // ── Single track state ─────────────────────────────────────────────────────
-  if (songCount === 1) {
+  if (songCount === 1 && incoming) {
     return (
-      <Flex flex={1} align="center" justify="center" p={8}>
-        <VStack gap={3}>
-          <Icon as={FiMusic} boxSize={8} color="text.muted" />
-          <Text color="text.muted" fontSize="sm" textAlign="center">
-            Add more tracks to see transitions
-          </Text>
-        </VStack>
-      </Flex>
+      <VStack flex={1} gap={3} align="stretch" p={4}>
+        <Text color="text.muted" fontSize="sm" textAlign="center">
+          Add more tracks to see transitions
+        </Text>
+        <TransitionWaveformPanel
+          song={incoming.song}
+          peaks={incoming.peaks}
+          isLoading={incoming.isLoading}
+        />
+      </VStack>
     )
   }
 
   // ── First track selected (no outgoing) ─────────────────────────────────────
-  if (!outgoingTrack && incomingTrack) {
+  if (!outgoingTrack && incoming) {
     return (
-      <Flex flex={1} align="center" justify="center" p={8}>
-        <VStack gap={3}>
-          <Text color="text.muted" fontSize="sm" textAlign="center">
-            First track in mix — select track 2+ to see transitions
-          </Text>
-          <WaveformPlaceholder label={incomingTrack.title} />
-        </VStack>
-      </Flex>
+      <VStack flex={1} gap={3} align="stretch" p={4}>
+        <Text color="text.muted" fontSize="sm" textAlign="center">
+          First track in mix — select track 2+ to see transitions
+        </Text>
+        <TransitionWaveformPanel
+          song={incoming.song}
+          peaks={incoming.peaks}
+          isLoading={incoming.isLoading}
+        />
+      </VStack>
     )
   }
 
   // ── Normal transition view ─────────────────────────────────────────────────
-  if (!outgoingTrack || !incomingTrack) return <></>
+  if (!outgoing || !incoming) return <></>
 
   return (
     <VStack flex={1} gap={0} align="stretch" p={4} overflowY="auto">
-      {/* Outgoing waveform placeholder */}
-      <WaveformPlaceholder
-        label={outgoingTrack.title}
-        subtitle={outgoingTrack.artist}
+      {/* Outgoing waveform */}
+      <TransitionWaveformPanel
+        song={outgoing.song}
+        peaks={outgoing.peaks}
+        isLoading={outgoing.isLoading}
+        color="#3b82f6"
       />
 
-      {/* Comparison strip placeholder */}
+      {/* Comparison strip placeholder (Phase 3) */}
       <Flex
         align="center"
         justify="center"
@@ -87,63 +96,21 @@ export function TransitionDetail({
         my={2}
       >
         <Text fontSize="xs" color="text.muted">
-          {outgoingTrack.bpm ? `${Math.round(outgoingTrack.bpm)} BPM` : '? BPM'}
+          {outgoing.song.bpm ? `${Math.round(outgoing.song.bpm)} BPM` : '? BPM'}
         </Text>
         <Icon as={FiArrowRight} boxSize={3} color="text.muted" />
         <Text fontSize="xs" color="text.muted">
-          {incomingTrack.bpm ? `${Math.round(incomingTrack.bpm)} BPM` : '? BPM'}
+          {incoming.song.bpm ? `${Math.round(incoming.song.bpm)} BPM` : '? BPM'}
         </Text>
       </Flex>
 
-      {/* Incoming waveform placeholder */}
-      <WaveformPlaceholder
-        label={incomingTrack.title}
-        subtitle={incomingTrack.artist}
+      {/* Incoming waveform */}
+      <TransitionWaveformPanel
+        song={incoming.song}
+        peaks={incoming.peaks}
+        isLoading={incoming.isLoading}
+        color="#8b5cf6"
       />
     </VStack>
-  )
-}
-
-// ── Placeholder component for waveform areas (replaced in Phase 2) ──────────
-
-function WaveformPlaceholder({
-  label,
-  subtitle,
-}: {
-  label: string
-  subtitle?: string
-}): JSX.Element {
-  return (
-    <Box
-      bg="bg.card"
-      borderWidth="1px"
-      borderColor="border.base"
-      borderRadius="md"
-      p={4}
-      w="full"
-    >
-      <Text
-        fontSize="xs"
-        fontWeight="medium"
-        color="text.primary"
-        lineClamp={1}
-      >
-        {subtitle ? `${subtitle} — ${label}` : label}
-      </Text>
-      {/* Placeholder waveform bar */}
-      <Box
-        mt={2}
-        h="80px"
-        bg="bg.elevated"
-        borderRadius="sm"
-        display="flex"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <Text fontSize="xs" color="text.muted">
-          Waveform (Phase 2)
-        </Text>
-      </Box>
-    </Box>
   )
 }
