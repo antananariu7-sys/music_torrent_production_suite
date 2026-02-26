@@ -23,6 +23,8 @@ interface DeckChannel {
   isPlaying: boolean
   /** Duration of the loaded buffer */
   duration: number
+  /** Playback rate (1.0 = normal speed) */
+  playbackRate: number
 }
 
 type DeckId = 'A' | 'B'
@@ -138,6 +140,7 @@ export class WebAudioEngine {
     // Create source
     const source = ctx.createBufferSource()
     source.buffer = channel.buffer
+    source.playbackRate.value = channel.playbackRate
 
     // Create gain
     const gainNode = ctx.createGain()
@@ -203,6 +206,21 @@ export class WebAudioEngine {
     channel.isPlaying = false
   }
 
+  // ── Playback rate ──────────────────────────────────────────────────────
+
+  setDeckPlaybackRate(deck: DeckId, rate: number): void {
+    const channel = this.decks[deck]
+    channel.playbackRate = Math.max(0.5, Math.min(2.0, rate))
+    // Apply to live source if playing
+    if (channel.source) {
+      channel.source.playbackRate.value = channel.playbackRate
+    }
+  }
+
+  getDeckPlaybackRate(deck: DeckId): number {
+    return this.decks[deck].playbackRate
+  }
+
   // ── Playhead & state queries ────────────────────────────────────────────
 
   getDeckTime(deck: DeckId): number {
@@ -210,7 +228,11 @@ export class WebAudioEngine {
     if (!channel.isPlaying || !this.context) return channel.bufferOffset
 
     const elapsed = this.context.currentTime - channel.contextStartTime
-    return Math.min(channel.bufferOffset + elapsed, channel.duration)
+    // Account for playback rate: audio advances faster/slower
+    return Math.min(
+      channel.bufferOffset + elapsed * channel.playbackRate,
+      channel.duration
+    )
   }
 
   getDeckDuration(deck: DeckId): number {
@@ -290,6 +312,7 @@ export class WebAudioEngine {
       bufferOffset: 0,
       isPlaying: false,
       duration: 0,
+      playbackRate: 1.0,
     }
   }
 }

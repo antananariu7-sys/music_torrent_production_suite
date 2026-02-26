@@ -23,6 +23,8 @@ interface DualDeckActions {
   stopDeck: (deck: DeckId) => void
   /** Stop all playback */
   stopAll: () => void
+  /** Set playback rate for a deck (0.5–2.0, 1.0 = normal) */
+  setPlaybackRate: (deck: DeckId, rate: number) => void
 }
 
 export type DualDeckReturn = DualDeckState & DualDeckActions
@@ -169,6 +171,13 @@ export function useDualDeck(): DualDeckReturn {
     engine.stopAll()
   }, [engine])
 
+  const setPlaybackRate = useCallback(
+    (deck: DeckId, rate: number) => {
+      engine.setDeckPlaybackRate(deck, rate)
+    },
+    [engine]
+  )
+
   return {
     isLoading,
     deckA: {
@@ -186,5 +195,6 @@ export function useDualDeck(): DualDeckReturn {
     playBoth,
     stopDeck,
     stopAll,
+    setPlaybackRate,
   }
 }

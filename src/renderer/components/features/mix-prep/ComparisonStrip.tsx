@@ -1,5 +1,6 @@
 import { Flex, HStack, Text, Icon, Badge, Box } from '@chakra-ui/react'
 import { FiAlertTriangle, FiCheck } from 'react-icons/fi'
+import { TempoSyncIndicator } from './TempoSyncIndicator'
 import { getCompatibilityLabel } from '@shared/utils/camelotWheel'
 import type { Song } from '@shared/types/project.types'
 
@@ -26,8 +27,8 @@ export function ComparisonStrip({
       py={2}
     >
       <Flex align="center" justify="center" gap={6} wrap="wrap">
-        {/* BPM comparison */}
-        <BpmComparison outBpm={outgoing.bpm} inBpm={incoming.bpm} />
+        {/* Tempo sync indicator (replaces simple BPM comparison) */}
+        <TempoSyncIndicator outBpm={outgoing.bpm} inBpm={incoming.bpm} />
 
         {/* Key comparison */}
         <KeyComparison
@@ -41,74 +42,6 @@ export function ComparisonStrip({
         <BitrateComparison outgoing={outgoing} incoming={incoming} />
       </Flex>
     </Box>
-  )
-}
-
-// ── BPM comparison ─────────────────────────────────────────────────────────
-
-function BpmComparison({
-  outBpm,
-  inBpm,
-}: {
-  outBpm?: number
-  inBpm?: number
-}): JSX.Element {
-  const outLabel = outBpm ? String(Math.round(outBpm)) : '?'
-  const inLabel = inBpm ? String(Math.round(inBpm)) : '?'
-
-  let delta: number | null = null
-  let deltaColor = 'text.muted'
-  let showWarning = false
-
-  if (outBpm && inBpm) {
-    delta = Math.round(inBpm - outBpm)
-    const absDelta = Math.abs(delta)
-    if (absDelta > 10) {
-      deltaColor = 'red.400'
-      showWarning = true
-    } else if (absDelta > 3) {
-      deltaColor = 'orange.400'
-      showWarning = true
-    } else {
-      deltaColor = 'green.400'
-    }
-  }
-
-  return (
-    <HStack gap={1}>
-      <Text fontSize="xs" color="text.muted">
-        BPM:
-      </Text>
-      <Text fontSize="xs" fontWeight="medium" color="text.primary">
-        {outLabel}
-      </Text>
-      <Text fontSize="xs" color="text.muted">
-        →
-      </Text>
-      <Text fontSize="xs" fontWeight="medium" color="text.primary">
-        {inLabel}
-      </Text>
-      {delta !== null && (
-        <Badge
-          fontSize="2xs"
-          colorPalette={
-            delta === 0
-              ? 'green'
-              : Math.abs(delta) > 10
-                ? 'red'
-                : Math.abs(delta) > 3
-                  ? 'orange'
-                  : 'green'
-          }
-          variant="subtle"
-        >
-          {delta > 0 ? `+${delta}` : delta}
-        </Badge>
-      )}
-      {showWarning && (
-        <Icon as={FiAlertTriangle} boxSize={3} color={deltaColor} />
-      )}
-    </HStack>
   )
 }
 
