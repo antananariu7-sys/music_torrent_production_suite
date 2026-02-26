@@ -317,7 +317,7 @@ export function TransitionDetail({
               : dualDeck.deckB.currentTime
           }
           isPlaybackActive={
-            crossfadePreview.isPlaying || dualDeck.deckB.isPlaying
+            crossfadePreview.trackBActive || dualDeck.deckB.isPlaying
           }
           trimHandleSide="start"
           onTrimDrag={(ts) => handleTrimStartDrag(incoming.song.id, ts)}

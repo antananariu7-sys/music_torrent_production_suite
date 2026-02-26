@@ -43,14 +43,7 @@ export function useTrimDrag() {
       const preview = previewTrimsRef.current[songId]
       if (!preview || !currentProject) return
 
-      // Clear preview state
-      setPreviewTrims((prev) => {
-        const next = { ...prev }
-        delete next[songId]
-        return next
-      })
-
-      // Debounced persistence
+      // Keep preview state visible until persistence completes (prevents snap-back)
       if (trimPersistRef.current) clearTimeout(trimPersistRef.current)
       const updates: Partial<{ trimStart: number; trimEnd: number }> = {}
       if (preview.trimStart !== undefined) updates.trimStart = preview.trimStart
@@ -65,6 +58,12 @@ export function useTrimDrag() {
         if (response.success && response.data) {
           setCurrentProject(response.data)
         }
+        // Clear preview after persistence so the persisted value takes over seamlessly
+        setPreviewTrims((prev) => {
+          const next = { ...prev }
+          delete next[songId]
+          return next
+        })
       }, 300)
     },
     [currentProject, setCurrentProject]

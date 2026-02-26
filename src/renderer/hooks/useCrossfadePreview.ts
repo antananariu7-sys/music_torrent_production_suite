@@ -18,6 +18,8 @@ export interface CrossfadePreviewReturn {
   trackATime: number
   /** Current absolute position within track B (seconds) */
   trackBTime: number
+  /** Whether track B has actually started playing (after lead-in) */
+  trackBActive: boolean
 }
 
 /** Lead-in/lead-out seconds around the crossfade zone */
@@ -92,6 +94,8 @@ export function useCrossfadePreview(
   const [isPlaying, setIsPlaying] = useState(false)
   const [trackATime, setTrackATime] = useState(0)
   const [trackBTime, setTrackBTime] = useState(0)
+  const [trackBActive, setTrackBActive] = useState(false)
+  const trackBActiveRef = useRef(false)
 
   const ctxRef = useRef<AudioContext | null>(null)
   const sourceARef = useRef<AudioBufferSourceNode | null>(null)
@@ -120,6 +124,10 @@ export function useCrossfadePreview(
     setTrackATime(params.aOffset + elapsed)
 
     if (elapsed >= params.fadeStartTime) {
+      if (!trackBActiveRef.current) {
+        trackBActiveRef.current = true
+        setTrackBActive(true)
+      }
       setTrackBTime(params.bOffset + (elapsed - params.fadeStartTime))
     }
 
@@ -146,6 +154,8 @@ export function useCrossfadePreview(
     sourceARef.current = null
     sourceBRef.current = null
     setIsPlaying(false)
+    trackBActiveRef.current = false
+    setTrackBActive(false)
   }, [])
 
   const play = useCallback(async () => {
@@ -270,6 +280,8 @@ export function useCrossfadePreview(
         cancelAnimationFrame(rafRef.current)
         playbackParamsRef.current = null
         setIsPlaying(false)
+        trackBActiveRef.current = false
+        setTrackBActive(false)
         sourceARef.current = null
         sourceBRef.current = null
       }
@@ -300,5 +312,13 @@ export function useCrossfadePreview(
     }
   }, [stop])
 
-  return { isLoading, isPlaying, play, stop, trackATime, trackBTime }
+  return {
+    isLoading,
+    isPlaying,
+    play,
+    stop,
+    trackATime,
+    trackBTime,
+    trackBActive,
+  }
 }
