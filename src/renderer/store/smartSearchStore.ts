@@ -4,175 +4,67 @@ import type {
   MusicBrainzAlbum,
 } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
-import type { SearchHistoryEntry as PersistentSearchHistoryEntry } from '@shared/types/searchHistory.types'
 import type {
   DiscographySearchProgress,
   PageContentScanResult,
 } from '@shared/types/discography.types'
+import type {
+  SearchWorkflowStep,
+  SmartSearchState,
+  ActivityLogEntry,
+  SearchHistoryEntry,
+} from './smartSearchTypes'
+import {
+  saveSearchHistoryToDisk,
+  loadSearchHistoryFromDisk,
+} from './smartSearchPersistence'
 
-/**
- * Search History Entry
- */
-export interface SearchHistoryEntry {
-  id: string
-  query: string
-  timestamp: Date
-  status: 'completed' | 'error' | 'cancelled'
-  result?: string // Description of result (e.g., "Downloaded album X")
-}
-
-/**
- * Activity Log Entry
- */
-export interface ActivityLogEntry {
-  id: string
-  timestamp: Date
-  step: SearchWorkflowStep
-  message: string
-  type: 'info' | 'success' | 'error' | 'warning'
-}
-
-/**
- * Smart Search Workflow States
- */
-export type SearchWorkflowStep =
-  | 'idle' // No search
-  | 'classifying' // Classifying search term
-  | 'user-choice' // Waiting for user to choose classification
-  | 'selecting-album' // User selecting album from MusicBrainz results
-  | 'selecting-action' // User choosing action (download album/song/discography)
-  | 'searching-rutracker' // Searching RuTracker with query
-  | 'selecting-torrent' // User selecting torrent from RuTracker results
-  | 'collecting' // Adding torrent to collection
-  | 'downloading' // Downloading torrent file (kept for direct download option)
-  | 'completed' // Workflow completed
-  | 'error' // Error occurred
-
-interface SmartSearchState {
-  // Current workflow step
-  step: SearchWorkflowStep
-
-  // User's original search query
-  originalQuery: string
-
-  // Classification results
-  classificationResults: SearchClassificationResult[]
-  selectedClassification: SearchClassificationResult | null
-
-  // MusicBrainz album results
-  albums: MusicBrainzAlbum[]
-  selectedAlbum: MusicBrainzAlbum | null
-
-  // User's chosen action
-  userAction: 'album' | 'song' | 'discography' | null
-
-  // RuTracker search results
-  ruTrackerQuery: string
-  ruTrackerResults: SearchResult[]
-  selectedTorrent: SearchResult | null
-
-  // Load-more pagination state (discography search)
-  discoQuery: string
-  discoLoadedPages: number
-  discoTotalPages: number
-  isLoadingMore: boolean
-  loadMoreError: string | null
-
-  // Download state
-  downloadedFilePath: string | null
-
-  // Error state
-  error: string | null
-
-  // Loading state
-  isLoading: boolean
-
-  // Discography scan state
-  isScannningDiscography: boolean
-  discographyScanProgress: DiscographySearchProgress | null
-  discographyScanResults: PageContentScanResult[]
-  scannedTorrentIds: Set<string>
-
-  // Search history
-  searchHistory: SearchHistoryEntry[]
-
-  // Activity log
-  activityLog: ActivityLogEntry[]
-
-  // Project context for persistence
-  projectId?: string
-  projectName?: string
-  projectDirectory?: string
-
-  // Actions
-  setProjectContext: (
-    projectId: string,
-    projectName: string,
-    projectDirectory: string
-  ) => void
-  loadHistoryFromProject: (
-    projectId: string,
-    projectDirectory: string
-  ) => Promise<void>
-  startSearch: (query: string) => void
-  setClassificationResults: (results: SearchClassificationResult[]) => void
-  selectClassification: (result: SearchClassificationResult) => void
-  setAlbums: (albums: MusicBrainzAlbum[]) => void
-  selectAlbum: (album: MusicBrainzAlbum) => void
-  selectAction: (action: 'album' | 'song' | 'discography') => void
-  setRuTrackerResults: (query: string, results: SearchResult[]) => void
-  selectTorrent: (torrent: SearchResult) => void
-  setDownloadComplete: (filePath: string) => void
-  setError: (error: string) => void
-  setStep: (step: SearchWorkflowStep) => void
-  setLoading: (isLoading: boolean) => void
-  addActivityLog: (message: string, type: ActivityLogEntry['type']) => void
-  addToHistory: (entry: Omit<SearchHistoryEntry, 'id' | 'timestamp'>) => void
-  removeFromHistory: (id: string) => void
-  clearHistory: () => void
-  clearActivityLog: () => void
-  reset: () => void
-
-  // Load-more actions
-  setDiscoSearchMeta: (
-    query: string,
-    loadedPages: number,
-    totalPages: number
-  ) => void
-  appendRuTrackerResults: (
-    newResults: SearchResult[],
-    searchSource: 'album' | 'discography'
-  ) => void
-  setLoadingMore: (loading: boolean) => void
-  setLoadMoreError: (error: string | null) => void
-
-  // Discography scan actions
-  startDiscographyScan: () => void
-  setDiscographyScanProgress: (
-    progress: DiscographySearchProgress | null
-  ) => void
-  setDiscographyScanResults: (results: PageContentScanResult[]) => void
-  stopDiscographyScan: () => void
-}
+// Re-export types and selectors for backward compatibility
+export type {
+  SearchHistoryEntry,
+  ActivityLogEntry,
+  SearchWorkflowStep,
+} from './smartSearchTypes'
+export { loadSearchHistoryFromDisk } from './smartSearchPersistence'
+export {
+  useSearchStep,
+  useIsSearching,
+  useSearchError,
+  useClassificationResults,
+  useSelectedClassification,
+  useAlbums,
+  useSelectedAlbum,
+  useRuTrackerResults,
+  useSelectedTorrent,
+  useSearchHistory,
+  useActivityLog,
+  useDiscoSearchMeta,
+  useIsLoadingMore,
+  useLoadMoreError,
+  useIsScannningDiscography,
+  useDiscographyScanProgress,
+  useDiscographyScanResults,
+  useScannedTorrentIds,
+} from './smartSearchSelectors'
 
 const initialState = {
   step: 'idle' as SearchWorkflowStep,
   originalQuery: '',
-  classificationResults: [],
-  selectedClassification: null,
-  albums: [],
-  selectedAlbum: null,
-  userAction: null,
+  classificationResults: [] as SearchClassificationResult[],
+  selectedClassification: null as SearchClassificationResult | null,
+  albums: [] as MusicBrainzAlbum[],
+  selectedAlbum: null as MusicBrainzAlbum | null,
+  userAction: null as 'album' | 'song' | 'discography' | null,
   ruTrackerQuery: '',
-  ruTrackerResults: [],
-  selectedTorrent: null,
+  ruTrackerResults: [] as SearchResult[],
+  selectedTorrent: null as SearchResult | null,
   discoQuery: '',
   discoLoadedPages: 0,
   discoTotalPages: 0,
   isLoadingMore: false,
-  loadMoreError: null,
-  downloadedFilePath: null,
-  error: null,
+  loadMoreError: null as string | null,
+  downloadedFilePath: null as string | null,
+  error: null as string | null,
   isLoading: false,
   searchHistory: [] as SearchHistoryEntry[],
   activityLog: [] as ActivityLogEntry[],
@@ -181,68 +73,6 @@ const initialState = {
   discographyScanProgress: null as DiscographySearchProgress | null,
   discographyScanResults: [] as PageContentScanResult[],
   scannedTorrentIds: new Set<string>(),
-}
-
-/**
- * Helper function to save search history to disk
- */
-async function saveSearchHistoryToDisk(
-  history: SearchHistoryEntry[],
-  projectId?: string,
-  projectName?: string,
-  projectDirectory?: string
-): Promise<void> {
-  if (!projectId || !projectName || !projectDirectory) {
-    console.warn('[smartSearchStore] Cannot save history: missing project info')
-    return
-  }
-
-  try {
-    // Convert Date objects to ISO strings for serialization
-    const persistentHistory: PersistentSearchHistoryEntry[] = history.map(
-      (entry) => ({
-        ...entry,
-        timestamp: entry.timestamp.toISOString(),
-      })
-    )
-
-    await window.api.searchHistory.save({
-      projectId,
-      projectName,
-      projectDirectory,
-      history: persistentHistory,
-    })
-  } catch (error) {
-    console.error('[smartSearchStore] Failed to save search history:', error)
-  }
-}
-
-/**
- * Helper function to load search history from disk
- */
-export async function loadSearchHistoryFromDisk(
-  projectId: string,
-  projectDirectory: string
-): Promise<SearchHistoryEntry[]> {
-  try {
-    const response = await window.api.searchHistory.load({
-      projectId,
-      projectDirectory,
-    })
-
-    if (response.success && response.history) {
-      // Convert ISO strings back to Date objects
-      return response.history.map((entry) => ({
-        ...entry,
-        timestamp: new Date(entry.timestamp),
-      }))
-    }
-
-    return []
-  } catch (error) {
-    console.error('[smartSearchStore] Failed to load search history:', error)
-    return []
-  }
 }
 
 export const useSmartSearchStore = create<SmartSearchState>((set) => ({
@@ -479,46 +309,3 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
       discographyScanProgress: null,
     }),
 }))
-
-// Selector hooks for better performance
-export const useSearchStep = () => useSmartSearchStore((state) => state.step)
-export const useIsSearching = () =>
-  useSmartSearchStore((state) => state.isLoading)
-export const useSearchError = () => useSmartSearchStore((state) => state.error)
-export const useClassificationResults = () =>
-  useSmartSearchStore((state) => state.classificationResults)
-export const useSelectedClassification = () =>
-  useSmartSearchStore((state) => state.selectedClassification)
-export const useAlbums = () => useSmartSearchStore((state) => state.albums)
-export const useSelectedAlbum = () =>
-  useSmartSearchStore((state) => state.selectedAlbum)
-export const useRuTrackerResults = () =>
-  useSmartSearchStore((state) => state.ruTrackerResults)
-export const useSelectedTorrent = () =>
-  useSmartSearchStore((state) => state.selectedTorrent)
-export const useSearchHistory = () =>
-  useSmartSearchStore((state) => state.searchHistory)
-export const useActivityLog = () =>
-  useSmartSearchStore((state) => state.activityLog)
-
-// Load-more selectors
-export const useDiscoSearchMeta = () =>
-  useSmartSearchStore((state) => ({
-    discoQuery: state.discoQuery,
-    discoLoadedPages: state.discoLoadedPages,
-    discoTotalPages: state.discoTotalPages,
-  }))
-export const useIsLoadingMore = () =>
-  useSmartSearchStore((state) => state.isLoadingMore)
-export const useLoadMoreError = () =>
-  useSmartSearchStore((state) => state.loadMoreError)
-
-// Discography scan selectors
-export const useIsScannningDiscography = () =>
-  useSmartSearchStore((state) => state.isScannningDiscography)
-export const useDiscographyScanProgress = () =>
-  useSmartSearchStore((state) => state.discographyScanProgress)
-export const useDiscographyScanResults = () =>
-  useSmartSearchStore((state) => state.discographyScanResults)
-export const useScannedTorrentIds = () =>
-  useSmartSearchStore((state) => state.scannedTorrentIds)

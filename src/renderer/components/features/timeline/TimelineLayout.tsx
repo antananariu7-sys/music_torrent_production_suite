@@ -1,22 +1,27 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useRef, useMemo } from 'react'
 import { Box, Text, VStack, Spinner } from '@chakra-ui/react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useProjectStore } from '@/store/useProjectStore'
-import { useAudioPlayerStore, type Track } from '@/store/audioPlayerStore'
+import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import { WaveformCanvas } from './WaveformCanvas'
 import { TrackInfoOverlay } from './TrackInfoOverlay'
 import { TimeRuler } from './TimeRuler'
 import { CuePointMarker } from './CuePointMarker'
 import { TrimOverlay } from './TrimOverlay'
-import { CrossfadeCurveCanvas } from './CrossfadeCurveCanvas'
 import { BeatGrid } from './BeatGrid'
 import { Playhead } from './Playhead'
 import { CrossfadePopover } from './CrossfadePopover'
 import { CuePointPopover } from './CuePointPopover'
 import { VirtualTrack } from './VirtualTrack'
 import { RegionSelection } from './RegionSelection'
+import { CrossfadeZones } from './CrossfadeZones'
 import { useRegionSelection } from './hooks/useRegionSelection'
-import { snapToNearestBeat } from './utils/snapToBeat'
+import { useTimelineScroll } from './hooks/useTimelineScroll'
+import { useTimelineZoom } from './hooks/useTimelineZoom'
+import { useTrimDrag } from './hooks/useTrimDrag'
+import { useCuePointDrag } from './hooks/useCuePointDrag'
+import { useSelectionEdgeDrag } from './hooks/useSelectionEdgeDrag'
+import { useTimelineHandlers } from './hooks/useTimelineHandlers'
 import type { Song } from '@shared/types/project.types'
 import type { WaveformData } from '@shared/types/waveform.types'
 
@@ -78,16 +83,9 @@ export function TimelineLayout({
   const zoomRef = useRef({ zoomLevel: 1, totalWidth: 0 })
 
   const currentProject = useProjectStore((s) => s.currentProject)
-  const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
 
   const zoomLevel = useTimelineStore((s) => s.zoomLevel)
-  const scrollPosition = useTimelineStore((s) => s.scrollPosition)
   const selectedTrackId = useTimelineStore((s) => s.selectedTrackId)
-  const setSelectedTrack = useTimelineStore((s) => s.setSelectedTrack)
-  const setScrollPosition = useTimelineStore((s) => s.setScrollPosition)
-  const setViewportWidth = useTimelineStore((s) => s.setViewportWidth)
-  const setZoomLevel = useTimelineStore((s) => s.setZoomLevel)
-
   const snapMode = useTimelineStore((s) => s.snapMode)
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
   const showBeatGrid = useTimelineStore((s) => s.showBeatGrid)
@@ -96,13 +94,9 @@ export function TimelineLayout({
     (s) => s.activeCrossfadePopover
   )
   const activeCuePointPopover = useTimelineStore((s) => s.activeCuePointPopover)
-  const openCrossfadePopover = useTimelineStore((s) => s.openCrossfadePopover)
   const closeCrossfadePopover = useTimelineStore((s) => s.closeCrossfadePopover)
-  const openCuePointPopover = useTimelineStore((s) => s.openCuePointPopover)
   const closeCuePointPopover = useTimelineStore((s) => s.closeCuePointPopover)
   const activeSelection = useTimelineStore((s) => s.activeSelection)
-  const setActiveSelection = useTimelineStore((s) => s.setActiveSelection)
-  const clearActiveSelection = useTimelineStore((s) => s.clearActiveSelection)
 
   const pixelsPerSecond = PX_PER_SEC * zoomLevel
   const positions = useMemo(
@@ -148,513 +142,64 @@ export function TimelineLayout({
   zoomRef.current.zoomLevel = zoomLevel
   zoomRef.current.totalWidth = totalWidth
 
-  // Measure container width and track viewport size
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0]
-      if (entry) {
-        setViewportWidth(entry.contentRect.width)
-      }
-    })
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [setViewportWidth])
+  // --- Extracted hooks ---
+  const { handleScroll } = useTimelineScroll({
+    containerRef,
+    isScrollSyncing,
+    userScrolledRef,
+    songs,
+    positions,
+    pixelsPerSecond,
+  })
 
-  // Sync store scroll position → DOM scroll
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    if (Math.abs(el.scrollLeft - scrollPosition) > 1) {
-      isScrollSyncing.current = true
-      el.scrollLeft = scrollPosition
-      requestAnimationFrame(() => {
-        isScrollSyncing.current = false
-      })
-    }
-  }, [scrollPosition])
+  useTimelineZoom({ containerRef, isScrollSyncing, zoomRef })
 
-  // Sync DOM scroll → store (also detect manual scroll during playback)
-  const handleScroll = useCallback(() => {
-    const el = containerRef.current
-    if (!el || isScrollSyncing.current) return
-    setScrollPosition(el.scrollLeft)
-    // If user manually scrolls during playback, disable auto-scroll
-    if (useAudioPlayerStore.getState().isPlaying) {
-      userScrolledRef.current = true
-    }
-  }, [setScrollPosition])
+  const {
+    previewTrims,
+    handleTrimStartDrag,
+    handleTrimEndDrag,
+    handleTrimDragEnd,
+    clearTrimPreview,
+  } = useTrimDrag()
 
-  // Auto-scroll to follow playhead during playback
-  useEffect(() => {
-    const unsub = useAudioPlayerStore.subscribe((state, prev) => {
-      if (!state.isPlaying || !state.currentTrack) return
-      // Reset user-scrolled flag when a new track starts playing
-      if (state.currentTrack !== prev.currentTrack) {
-        userScrolledRef.current = false
-      }
-      if (userScrolledRef.current) return
-
-      const el = containerRef.current
-      if (!el) return
-
-      // Compute playhead pixel position
-      const trackIndex = songs.findIndex(
-        (s) =>
-          (s.localFilePath ?? s.externalFilePath) ===
-          state.currentTrack!.filePath
-      )
-      if (trackIndex === -1) return
-
-      const pos = positions[trackIndex]
-      const song = songs[trackIndex]
-      const playheadX =
-        pos.left + (state.currentTime - (song.trimStart ?? 0)) * pixelsPerSecond
-
-      const viewportLeft = el.scrollLeft
-      const viewportRight = el.scrollLeft + el.clientWidth
-
-      // Scroll when playhead exits the visible viewport (with some margin)
-      const margin = el.clientWidth * 0.15
-      if (
-        playheadX < viewportLeft + margin ||
-        playheadX > viewportRight - margin
-      ) {
-        isScrollSyncing.current = true
-        const newScroll = Math.max(0, playheadX - el.clientWidth * 0.3)
-        el.scrollLeft = newScroll
-        setScrollPosition(newScroll)
-        requestAnimationFrame(() => {
-          isScrollSyncing.current = false
-        })
-      }
-    })
-    return unsub
-  }, [songs, positions, pixelsPerSecond, setScrollPosition])
-
-  // Ctrl+scroll zoom with stable cursor point
-  // Attached once via useEffect with { passive: false } so preventDefault() works.
-  // Reads zoomLevel/totalWidth from ref to avoid re-attaching on every zoom tick.
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-
-    const handleWheel = (e: WheelEvent) => {
-      if (!e.ctrlKey) return
-      e.preventDefault()
-
-      const { zoomLevel: currentZoom, totalWidth: currentTotalWidth } =
-        zoomRef.current
-
-      const rect = el.getBoundingClientRect()
-      const cursorXInViewport = e.clientX - rect.left
-      const cursorXInTimeline = cursorXInViewport + el.scrollLeft
-
-      const zoomFactor = e.deltaY < 0 ? 1.15 : 1 / 1.15
-      const newZoom = Math.max(
-        MIN_ZOOM,
-        Math.min(MAX_ZOOM, currentZoom * zoomFactor)
-      )
-
-      const cursorFraction =
-        currentTotalWidth > 0 ? cursorXInTimeline / currentTotalWidth : 0
-      const newTotalWidth = currentTotalWidth * (newZoom / currentZoom)
-      const newScrollLeft = cursorFraction * newTotalWidth - cursorXInViewport
-
-      setZoomLevel(newZoom)
-
-      requestAnimationFrame(() => {
-        isScrollSyncing.current = true
-        el.scrollLeft = Math.max(0, newScrollLeft)
-        setScrollPosition(Math.max(0, newScrollLeft))
-        requestAnimationFrame(() => {
-          isScrollSyncing.current = false
-        })
-      })
-    }
-
-    el.addEventListener('wheel', handleWheel, { passive: false })
-    return () => el.removeEventListener('wheel', handleWheel)
-  }, [setZoomLevel, setScrollPosition])
-
-  // Click on cue point marker → open cue point popover for existing cue point
-  const handleCuePointClick = useCallback(
-    (
-      songId: string,
-      posLeft: number,
-      cpX: number,
-      cuePoint: import('@shared/types/waveform.types').CuePoint
-    ) => {
-      openCuePointPopover(
-        songId,
-        cuePoint.timestamp,
-        { x: posLeft + cpX, y: 0 },
-        cuePoint
-      )
-    },
-    [openCuePointPopover]
-  )
-
-  // Double-click on track waveform → open cue point popover
-  const handleTrackDoubleClick = useCallback(
-    (e: React.MouseEvent, song: Song, trackLeft: number) => {
-      e.stopPropagation()
-      const clickX =
-        e.clientX -
-        containerRef.current!.getBoundingClientRect().left +
-        containerRef.current!.scrollLeft -
-        trackLeft
-      const timestamp = clickX / pixelsPerSecond + (song.trimStart ?? 0)
-      openCuePointPopover(song.id, timestamp, { x: e.clientX, y: e.clientY })
-    },
-    [pixelsPerSecond, openCuePointPopover]
-  )
-
-  // Click on crossfade zone → open crossfade popover
-  const handleCrossfadeClick = useCallback(
-    (e: React.MouseEvent, songId: string) => {
-      e.stopPropagation()
-      openCrossfadePopover(songId, { x: e.clientX, y: e.clientY })
-    },
-    [openCrossfadePopover]
-  )
-
-  // Convert Song to AudioPlayer Track
-  const songToTrack = useCallback(
-    (song: Song): Track => ({
-      filePath: song.localFilePath ?? song.externalFilePath ?? '',
-      name: song.title,
-      duration: song.duration,
-      trimStart: song.trimStart,
-      trimEnd: song.trimEnd,
-    }),
-    []
-  )
-
-  // Single-click on track waveform → start playback at clicked position
-  const handleTrackClick = useCallback(
-    (
-      e: React.MouseEvent,
-      song: Song,
-      trackLeft: number,
-      clickedIndex: number
-    ) => {
-      // Skip play if this click followed a region selection drag
-      if (didRegionSelectRef.current) {
-        didRegionSelectRef.current = false
-        return
-      }
-
-      // Clear any existing selection on plain click
-      clearActiveSelection()
-      setSelectedTrack(song.id)
-
-      const clickX =
-        e.clientX -
-        containerRef.current!.getBoundingClientRect().left +
-        containerRef.current!.scrollLeft -
-        trackLeft
-      const seekTime = clickX / pixelsPerSecond + (song.trimStart ?? 0)
-
-      const tracks = songs.map(songToTrack)
-      useAudioPlayerStore
-        .getState()
-        .playPlaylist(tracks, clickedIndex, seekTime)
-    },
-    [
-      pixelsPerSecond,
+  const { previewCuePoints, handleCuePointDrag, handleCuePointDragEnd } =
+    useCuePointDrag({
       songs,
-      songToTrack,
-      setSelectedTrack,
-      clearActiveSelection,
-    ]
-  )
+      handleTrimStartDrag,
+      handleTrimEndDrag,
+      clearTrimPreview,
+    })
 
-  // --- Trim drag preview state ---
-  const [previewTrims, setPreviewTrims] = useState<
-    Record<string, { trimStart?: number; trimEnd?: number }>
-  >({})
-  const previewTrimsRef = useRef(previewTrims)
-  previewTrimsRef.current = previewTrims
+  const {
+    handleSelectionEdgeDragStart,
+    handleSelectionEdgeDrag,
+    handleSelectionEdgeDragEnd,
+  } = useSelectionEdgeDrag()
 
-  const trimPersistRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    return () => {
-      if (trimPersistRef.current) clearTimeout(trimPersistRef.current)
-    }
-  }, [])
-
-  const handleTrimStartDrag = useCallback(
-    (songId: string, newTimestamp: number) => {
-      setPreviewTrims((prev) => ({
-        ...prev,
-        [songId]: { ...prev[songId], trimStart: newTimestamp },
-      }))
-    },
-    []
-  )
-
-  const handleTrimEndDrag = useCallback(
-    (songId: string, newTimestamp: number) => {
-      setPreviewTrims((prev) => ({
-        ...prev,
-        [songId]: { ...prev[songId], trimEnd: newTimestamp },
-      }))
-    },
-    []
-  )
-
-  const handleTrimDragEnd = useCallback(
-    (songId: string) => {
-      const preview = previewTrimsRef.current[songId]
-      if (!preview || !currentProject) return
-
-      // Clear preview state
-      setPreviewTrims((prev) => {
-        const next = { ...prev }
-        delete next[songId]
-        return next
-      })
-
-      // Debounced persistence
-      if (trimPersistRef.current) clearTimeout(trimPersistRef.current)
-      const updates: Partial<{ trimStart: number; trimEnd: number }> = {}
-      if (preview.trimStart !== undefined) updates.trimStart = preview.trimStart
-      if (preview.trimEnd !== undefined) updates.trimEnd = preview.trimEnd
-
-      trimPersistRef.current = setTimeout(async () => {
-        const response = await window.api.mix.updateSong({
-          projectId: currentProject.id,
-          songId,
-          updates,
-        })
-        if (response.success && response.data) {
-          setCurrentProject(response.data)
-        }
-      }, 300)
-    },
-    [currentProject, setCurrentProject]
-  )
-
-  // --- Cue point drag preview state ---
-  // Maps songId → cuePointId → preview timestamp
-  const [previewCuePoints, setPreviewCuePoints] = useState<
-    Record<string, Record<string, number>>
-  >({})
-
-  const cuePersistRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    return () => {
-      if (cuePersistRef.current) clearTimeout(cuePersistRef.current)
-    }
-  }, [])
-
-  const handleCuePointDrag = useCallback(
-    (
-      songId: string,
-      cuePoint: import('@shared/types/waveform.types').CuePoint,
-      newTimestamp: number
-    ) => {
-      setPreviewCuePoints((prev) => ({
-        ...prev,
-        [songId]: { ...prev[songId], [cuePoint.id]: newTimestamp },
-      }))
-
-      // If trim-type, also update trim preview
-      if (cuePoint.type === 'trim-start') {
-        handleTrimStartDrag(songId, newTimestamp)
-      } else if (cuePoint.type === 'trim-end') {
-        handleTrimEndDrag(songId, newTimestamp)
-      }
-    },
-    [handleTrimStartDrag, handleTrimEndDrag]
-  )
-
-  const handleCuePointDragEnd = useCallback(
-    (
-      songId: string,
-      cuePoint: import('@shared/types/waveform.types').CuePoint,
-      newTimestamp: number
-    ) => {
-      // Clear cue point preview
-      setPreviewCuePoints((prev) => {
-        const next = { ...prev }
-        if (next[songId]) {
-          const songCues = { ...next[songId] }
-          delete songCues[cuePoint.id]
-          if (Object.keys(songCues).length === 0) {
-            delete next[songId]
-          } else {
-            next[songId] = songCues
-          }
-        }
-        return next
-      })
-
-      // Clear trim preview if trim-type
-      if (cuePoint.type === 'trim-start' || cuePoint.type === 'trim-end') {
-        setPreviewTrims((prev) => {
-          const next = { ...prev }
-          delete next[songId]
-          return next
-        })
-      }
-
-      if (!currentProject) return
-
-      // Build updated cue points + trim fields
-      const song = songs.find((s) => s.id === songId)
-      if (!song) return
-
-      const updatedCuePoints = (song.cuePoints ?? []).map((cp) =>
-        cp.id === cuePoint.id ? { ...cp, timestamp: newTimestamp } : cp
-      )
-
-      const updates: Partial<Song> = { cuePoints: updatedCuePoints }
-      // Sync trim fields for trim-type cue points
-      if (cuePoint.type === 'trim-start') {
-        updates.trimStart = newTimestamp
-      } else if (cuePoint.type === 'trim-end') {
-        updates.trimEnd = newTimestamp
-      }
-
-      if (cuePersistRef.current) clearTimeout(cuePersistRef.current)
-      cuePersistRef.current = setTimeout(async () => {
-        const response = await window.api.mix.updateSong({
-          projectId: currentProject.id,
-          songId,
-          updates,
-        })
-        if (response.success && response.data) {
-          setCurrentProject(response.data)
-        }
-      }, 300)
-    },
-    [currentProject, setCurrentProject, songs]
-  )
-
-  // --- Region selection (extracted hook) ---
   const {
     pendingSelection,
     didRegionSelect: didRegionSelectRef,
     handleRegionPointerDown,
   } = useRegionSelection({ pixelsPerSecond, snapMode, containerRef })
 
-  const handleTrimToSelection = useCallback(
-    (songId: string, startTime: number, endTime: number) => {
-      handleTrimStartDrag(songId, startTime)
-      handleTrimEndDrag(songId, endTime)
-      handleTrimDragEnd(songId)
-      clearActiveSelection()
-    },
-    [
-      handleTrimStartDrag,
-      handleTrimEndDrag,
-      handleTrimDragEnd,
-      clearActiveSelection,
-    ]
-  )
-
-  const handlePlaySelection = useCallback(
-    (_song: Song, startTime: number, endTime: number, clickedIndex: number) => {
-      const tracks = songs.map(songToTrack)
-      const store = useAudioPlayerStore.getState()
-      store.playPlaylist(tracks, clickedIndex, startTime)
-      // Set loop region after playPlaylist (which clears it) so it sticks
-      store.setLoopRegion({ startTime, endTime })
-    },
-    [songs, songToTrack]
-  )
-
-  // --- Selection edge drag ---
-  const selEdgeRef = useRef<{
-    side: 'start' | 'end'
-    initialStart: number
-    initialEnd: number
-    trimStart: number
-    trimEnd: number
-    songBpm?: number
-    songFirstBeatOffset?: number
-  } | null>(null)
-
-  const handleSelectionEdgeDragStart = useCallback(
-    (song: Song, side: 'start' | 'end') => {
-      const sel = useTimelineStore.getState().activeSelection
-      if (!sel) return
-      selEdgeRef.current = {
-        side,
-        initialStart: sel.startTime,
-        initialEnd: sel.endTime,
-        trimStart: song.trimStart ?? 0,
-        trimEnd: song.trimEnd ?? song.duration ?? 0,
-        songBpm: song.bpm,
-        songFirstBeatOffset: song.firstBeatOffset,
-      }
-    },
-    []
-  )
-
-  const handleSelectionEdgeDrag = useCallback(
-    (songId: string, side: 'start' | 'end', deltaSeconds: number) => {
-      const ref = selEdgeRef.current
-      if (!ref) return
-
-      const canSnap =
-        snapMode === 'beat' &&
-        ref.songBpm != null &&
-        ref.songBpm > 0 &&
-        ref.songFirstBeatOffset != null
-
-      if (side === 'start') {
-        let newStart = ref.initialStart + deltaSeconds
-        newStart = Math.max(
-          ref.trimStart,
-          Math.min(ref.initialEnd - 0.5, newStart)
-        )
-        if (canSnap) {
-          newStart = snapToNearestBeat(
-            newStart,
-            ref.songBpm!,
-            ref.songFirstBeatOffset!
-          )
-          newStart = Math.max(
-            ref.trimStart,
-            Math.min(ref.initialEnd - 0.5, newStart)
-          )
-        }
-        setActiveSelection({
-          songId,
-          startTime: newStart,
-          endTime: ref.initialEnd,
-        })
-      } else {
-        let newEnd = ref.initialEnd + deltaSeconds
-        newEnd = Math.min(ref.trimEnd, Math.max(ref.initialStart + 0.5, newEnd))
-        if (canSnap) {
-          newEnd = snapToNearestBeat(
-            newEnd,
-            ref.songBpm!,
-            ref.songFirstBeatOffset!
-          )
-          newEnd = Math.min(
-            ref.trimEnd,
-            Math.max(ref.initialStart + 0.5, newEnd)
-          )
-        }
-        setActiveSelection({
-          songId,
-          startTime: ref.initialStart,
-          endTime: newEnd,
-        })
-      }
-    },
-    [snapMode, setActiveSelection]
-  )
-
-  const handleSelectionEdgeDragEnd = useCallback(() => {
-    selEdgeRef.current = null
-  }, [])
+  // --- Click handlers (extracted) ---
+  const {
+    handleCuePointClick,
+    handleTrackDoubleClick,
+    handleCrossfadeClick,
+    handleTrackClick,
+    handleTrimToSelection,
+    handlePlaySelection,
+    clearActiveSelection,
+  } = useTimelineHandlers({
+    containerRef,
+    pixelsPerSecond,
+    songs,
+    didRegionSelectRef,
+    handleTrimStartDrag,
+    handleTrimEndDrag,
+    handleTrimDragEnd,
+  })
 
   // Get data for active popovers
   const crossfadeSong = activeCrossfadePopover
@@ -850,38 +395,12 @@ export function TimelineLayout({
           })}
 
           {/* Crossfade overlap zones */}
-          {songs.length > 1 &&
-            songs.map((song, index) => {
-              if (index >= songs.length - 1) return null
-              const thisPos = positions[index]
-              const nextPos = positions[index + 1]
-              const overlapStart = nextPos.left
-              const overlapEnd = thisPos.left + thisPos.width
-              const overlapWidth = overlapEnd - overlapStart
-              if (overlapWidth <= 0) return null
-
-              return (
-                <Box
-                  key={`xfade-${song.id}`}
-                  position="absolute"
-                  left={`${overlapStart}px`}
-                  top={0}
-                  w={`${overlapWidth}px`}
-                  h={`${TRACK_HEIGHT}px`}
-                  cursor="pointer"
-                  onClick={(e) => handleCrossfadeClick(e, song.id)}
-                  title="Click to edit crossfade"
-                >
-                  <CrossfadeCurveCanvas
-                    width={overlapWidth}
-                    height={TRACK_HEIGHT}
-                    curveType={song.crossfadeCurveType ?? 'linear'}
-                    colorA={TRACK_COLORS[index % TRACK_COLORS.length]}
-                    colorB={TRACK_COLORS[(index + 1) % TRACK_COLORS.length]}
-                  />
-                </Box>
-              )
-            })}
+          <CrossfadeZones
+            songs={songs}
+            positions={positions}
+            trackHeight={TRACK_HEIGHT}
+            onCrossfadeClick={handleCrossfadeClick}
+          />
 
           {/* Playhead */}
           <Playhead

@@ -1,6 +1,4 @@
-import puppeteer, { Browser, Page } from 'puppeteer-core'
-import { execSync } from 'child_process'
-import { existsSync } from 'fs'
+import type { Page } from 'puppeteer-core'
 import type {
   SearchRequest,
   SearchResponse,
@@ -10,10 +8,8 @@ import type {
   LoadMoreResponse,
 } from '@shared/types/search.types'
 import type { AuthService } from './AuthService'
-import {
-  PageScraper,
-  type SessionCookie,
-} from './rutracker/scrapers/PageScraper'
+import { BrowserManager } from './BrowserManager'
+import { PageScraper } from './rutracker/scrapers/PageScraper'
 import { ResultParser } from './rutracker/scrapers/ResultParser'
 import { PaginationHandler } from './rutracker/scrapers/PaginationHandler'
 import { SearchFiltersApplier } from './rutracker/filters/SearchFilters'
@@ -29,13 +25,10 @@ interface BrowserOptions {
  *
  * Handles search operations on RuTracker using Puppeteer.
  * Reuses session from AuthService for authenticated searches.
+ * Delegates browser lifecycle to BrowserManager.
  */
-const MAX_VIEWING_BROWSERS = 3
-
 export class RuTrackerSearchService {
-  private browser: Browser | null = null
-  private viewingBrowsers: Set<Browser> = new Set()
-  private browserOptions: BrowserOptions
+  private browserManager: BrowserManager
   private pageScraper: PageScraper
   private resultParser: ResultParser
   private paginationHandler: PaginationHandler
@@ -45,11 +38,7 @@ export class RuTrackerSearchService {
     private authService: AuthService,
     options: Partial<BrowserOptions> = {}
   ) {
-    // Use DEBUG_BROWSER env var if no explicit option provided
-    const headless = options.headless ?? process.env.DEBUG_BROWSER !== 'true'
-    this.browserOptions = {
-      headless,
-    }
+    this.browserManager = new BrowserManager(authService, options)
 
     // Initialize helpers
     this.pageScraper = new PageScraper()
@@ -62,189 +51,27 @@ export class RuTrackerSearchService {
    * Set browser options (e.g., for debugging)
    */
   setBrowserOptions(options: Partial<BrowserOptions>): void {
-    this.browserOptions = { ...this.browserOptions, ...options }
-  }
-
-  /**
-   * Find Chrome/Chromium executable path
-   */
-  private findChromePath(): string {
-    const possiblePaths = [
-      // Windows paths
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
-      // Linux paths
-      '/usr/bin/google-chrome',
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      // macOS paths
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    ]
-
-    for (const path of possiblePaths) {
-      if (existsSync(path)) {
-        console.log(`[RuTrackerSearchService] Found Chrome at: ${path}`)
-        return path
-      }
-    }
-
-    // Try to find Chrome using 'where' on Windows
-    try {
-      const result = execSync('where chrome', { encoding: 'utf-8' })
-      const chromePath = result.trim().split('\n')[0]
-      if (existsSync(chromePath)) {
-        console.log(
-          `[RuTrackerSearchService] Found Chrome via 'where': ${chromePath}`
-        )
-        return chromePath
-      }
-    } catch (error) {
-      // Ignore error
-    }
-
-    throw new Error(
-      'Chrome/Chromium executable not found. Please install Google Chrome.'
-    )
-  }
-
-  /**
-   * Initialize browser instance
-   */
-  private async initBrowser(): Promise<Browser> {
-    if (this.browser) {
-      return this.browser
-    }
-
-    const executablePath = this.findChromePath()
-    console.log(
-      `[RuTrackerSearchService] Launching browser (headless: ${this.browserOptions.headless})`
-    )
-
-    this.browser = await puppeteer.launch({
-      executablePath,
-      headless: this.browserOptions.headless,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-web-security',
-        '--disable-features=IsolateOrigins,site-per-process',
-      ],
-    })
-
-    return this.browser
+    this.browserManager.setBrowserOptions(options)
   }
 
   /**
    * Close search browser and all viewing browser instances
    */
   async closeBrowser(): Promise<void> {
-    if (this.browser) {
-      await this.browser.close()
-      this.browser = null
-    }
-    for (const b of this.viewingBrowsers) {
-      await b.close().catch(() => {})
-    }
-    this.viewingBrowsers.clear()
-    console.log('[RuTrackerSearchService] All browsers closed')
-  }
-
-  /**
-   * Get session cookies from AuthService
-   */
-  private getSessionCookies(): SessionCookie[] {
-    return this.authService.getSessionCookies()
+    return this.browserManager.closeBrowser()
   }
 
   /**
    * Open a RuTracker URL in browser with authenticated session
-   * Useful for viewing torrent details while maintaining login
-   *
-   * @param url - RuTracker URL to open
-   * @returns Success status
    */
   async openUrlWithSession(
     url: string
   ): Promise<{ success: boolean; error?: string }> {
-    try {
-      // Check if user is logged in
-      const authState = this.authService.getAuthStatus()
-      if (!authState.isLoggedIn) {
-        return {
-          success: false,
-          error: 'User is not logged in. Please login first.',
-        }
-      }
-
-      console.log(`[RuTrackerSearchService] Opening URL with session: ${url}`)
-
-      // Get session cookies from AuthService
-      const sessionCookies = this.getSessionCookies()
-      console.log(
-        `[RuTrackerSearchService] Got ${sessionCookies.length} session cookies`
-      )
-
-      // Launch a separate browser instance for viewing (not reusing this.browser)
-      // This prevents interfering with the search browser instance
-      const executablePath = this.findChromePath()
-      console.log(
-        '[RuTrackerSearchService] Launching separate browser instance for viewing'
-      )
-
-      // Close oldest viewing browser if at limit
-      if (this.viewingBrowsers.size >= MAX_VIEWING_BROWSERS) {
-        const oldest = this.viewingBrowsers.values().next().value!
-        await oldest.close().catch(() => {})
-        this.viewingBrowsers.delete(oldest)
-      }
-
-      const viewingBrowser = await puppeteer.launch({
-        executablePath,
-        headless: false, // Always visible for viewing
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-web-security',
-          '--disable-features=IsolateOrigins,site-per-process',
-        ],
-      })
-
-      // Track instance and auto-cleanup when user closes the window
-      this.viewingBrowsers.add(viewingBrowser)
-      viewingBrowser.on('disconnected', () => {
-        this.viewingBrowsers.delete(viewingBrowser)
-      })
-
-      const page = await this.pageScraper.createPageWithCookies(
-        viewingBrowser,
-        sessionCookies
-      )
-
-      // Navigate to the requested URL
-      await this.pageScraper.navigateToUrl(page, url)
-
-      console.log(
-        '[RuTrackerSearchService] URL opened successfully with session'
-      )
-
-      return {
-        success: true,
-      }
-    } catch (error) {
-      console.error('[RuTrackerSearchService] Failed to open URL:', error)
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to open URL',
-      }
-    }
+    return this.browserManager.openUrlWithSession(url)
   }
 
   /**
    * Search RuTracker for torrents
-   *
-   * @param request - Search request with query and optional category
-   * @returns Search response with results or error
    */
   async search(request: SearchRequest): Promise<SearchResponse> {
     let page: Page | null = null
@@ -262,13 +89,13 @@ export class RuTrackerSearchService {
       console.log(`[RuTrackerSearchService] Searching for: "${request.query}"`)
 
       // Get session cookies from AuthService
-      const sessionCookies = this.getSessionCookies()
+      const sessionCookies = this.browserManager.getSessionCookies()
       console.log(
         `[RuTrackerSearchService] Got ${sessionCookies.length} session cookies from AuthService`
       )
 
       // Initialize browser
-      const browser = await this.initBrowser()
+      const browser = await this.browserManager.initBrowser()
       page = await this.pageScraper.createPageWithCookies(
         browser,
         sessionCookies
@@ -349,11 +176,6 @@ export class RuTrackerSearchService {
 
   /**
    * Search RuTracker with pagination support (progressive results)
-   * Fetches multiple pages in parallel and reports progress
-   *
-   * @param request - Progressive search request
-   * @param onProgress - Callback for progress updates with partial results
-   * @returns Final search response with all results
    */
   async searchProgressive(
     request: ProgressiveSearchRequest,
@@ -374,10 +196,10 @@ export class RuTrackerSearchService {
       )
 
       // Get session cookies from AuthService
-      const sessionCookies = this.getSessionCookies()
+      const sessionCookies = this.browserManager.getSessionCookies()
 
       // Initialize browser
-      const browser = await this.initBrowser()
+      const browser = await this.browserManager.initBrowser()
 
       // Execute progressive search using pagination handler
       const allResults = await this.paginationHandler.executeProgressiveSearch(
@@ -428,7 +250,6 @@ export class RuTrackerSearchService {
 
   /**
    * Load additional search result pages beyond the initial search.
-   * Fetches pages fromPage..toPage in parallel batches.
    */
   async loadMoreResults(request: LoadMoreRequest): Promise<LoadMoreResponse> {
     const pages: Page[] = []
@@ -445,8 +266,8 @@ export class RuTrackerSearchService {
         }
       }
 
-      const sessionCookies = this.getSessionCookies()
-      const browser = await this.initBrowser()
+      const sessionCookies = this.browserManager.getSessionCookies()
+      const browser = await this.browserManager.initBrowser()
 
       const { query, fromPage, toPage, filters } = request
       const pageRange = Array.from(
