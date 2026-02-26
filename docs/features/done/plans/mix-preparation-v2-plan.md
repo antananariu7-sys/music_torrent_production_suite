@@ -1,8 +1,8 @@
 # Mix Preparation View v2 — Implementation Plan
 
 **Date:** 2026-02-26
-**Status:** Planned
-**Feature spec:** [docs/features/mix-preparation-v2.md](../mix-preparation-v2.md)
+**Status:** Done
+**Feature spec:** [docs/features/mix-preparation-v2.md](../../mix-preparation-v2.md)
 **v1 plan:** [docs/features/done/plans/mix-preparation-view-plan.md](../done/plans/mix-preparation-view-plan.md)
 
 ---
