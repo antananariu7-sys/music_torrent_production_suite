@@ -3,10 +3,11 @@ import type { CuePoint } from '@shared/types/waveform.types'
 export interface CueTrackInfo {
   title: string
   artist?: string
-  duration: number    // seconds (raw, before trim)
-  crossfadeDuration: number  // seconds into next track (0 for last)
-  trimStart?: number  // seconds — effective start of track
-  trimEnd?: number    // seconds — effective end of track
+  duration: number // seconds (raw, before trim)
+  crossfadeDuration: number // seconds into next track (0 for last)
+  trimStart?: number // seconds — effective start of track
+  trimEnd?: number // seconds — effective end of track
+  tempoAdjustment?: number // playback rate multiplier (e.g. 1.015)
   cuePoints?: CuePoint[]
 }
 
@@ -19,15 +20,22 @@ export function secondsToCueTime(totalSeconds: number): string {
   const frames = Math.min(74, Math.round((totalSeconds % 1) * 75))
 
   return (
-    String(minutes).padStart(2, '0') + ':' +
-    String(seconds).padStart(2, '0') + ':' +
+    String(minutes).padStart(2, '0') +
+    ':' +
+    String(seconds).padStart(2, '0') +
+    ':' +
     String(frames).padStart(2, '0')
   )
 }
 
-/** Get the effective (trimmed) duration of a track. */
+/** Get the effective (trimmed + tempo-adjusted) duration of a track. */
 export function effectiveDuration(track: CueTrackInfo): number {
-  return (track.trimEnd ?? track.duration) - (track.trimStart ?? 0)
+  let dur = (track.trimEnd ?? track.duration) - (track.trimStart ?? 0)
+  // Tempo adjustment changes output duration: faster = shorter, slower = longer
+  if (track.tempoAdjustment && track.tempoAdjustment !== 1) {
+    dur /= track.tempoAdjustment
+  }
+  return dur
 }
 
 /**
@@ -41,7 +49,9 @@ export function computeStartTimes(tracks: CueTrackInfo[]): number[] {
 
   for (let i = 1; i < tracks.length; i++) {
     const prev = tracks[i - 1]
-    startTimes.push(startTimes[i - 1] + effectiveDuration(prev) - prev.crossfadeDuration)
+    startTimes.push(
+      startTimes[i - 1] + effectiveDuration(prev) - prev.crossfadeDuration
+    )
   }
 
   return startTimes
@@ -54,7 +64,7 @@ export function generateCueSheet(
   tracks: CueTrackInfo[],
   title: string,
   filename: string,
-  metadata?: { artist?: string; genre?: string; comment?: string },
+  metadata?: { artist?: string; genre?: string; comment?: string }
 ): string {
   const startTimes = computeStartTimes(tracks)
   const lines: string[] = []
@@ -62,7 +72,8 @@ export function generateCueSheet(
   lines.push(`PERFORMER "${escapeQuotes(metadata?.artist ?? title)}"`)
   lines.push(`TITLE "${escapeQuotes(title)}"`)
   if (metadata?.genre) lines.push(`REM GENRE "${escapeQuotes(metadata.genre)}"`)
-  if (metadata?.comment) lines.push(`REM COMMENT "${escapeQuotes(metadata.comment)}"`)
+  if (metadata?.comment)
+    lines.push(`REM COMMENT "${escapeQuotes(metadata.comment)}"`)
   lines.push(`FILE "${escapeQuotes(filename)}" WAVE`)
 
   for (let i = 0; i < tracks.length; i++) {
@@ -86,7 +97,9 @@ export function generateCueSheet(
       // Cue point timestamp is relative to track start; convert to mix time
       const cpMixTime = startTimes[i] + (cp.timestamp - (track.trimStart ?? 0))
       lines.push(`    REM CUE "${escapeQuotes(cp.label)}"`)
-      lines.push(`    INDEX ${String(j + 2).padStart(2, '0')} ${secondsToCueTime(cpMixTime)}`)
+      lines.push(
+        `    INDEX ${String(j + 2).padStart(2, '0')} ${secondsToCueTime(cpMixTime)}`
+      )
     }
   }
 

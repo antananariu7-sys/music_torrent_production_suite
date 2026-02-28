@@ -1,6 +1,9 @@
 import {
   buildFilterGraph,
   buildRenderArgs,
+  buildAtempoChain,
+  buildTempoFilter,
+  buildVolumeFilter,
   type TrackInfo,
 } from './FilterGraphBuilder'
 import type { LoudnormAnalysis } from '@shared/types/mixExport.types'
@@ -246,6 +249,267 @@ describe('buildFilterGraph', () => {
     expect(graph.match(/loudnorm=/g)?.length).toBe(5)
     expect(graph.match(/acrossfade/g)?.length).toBe(4)
     expect(graph).toContain('[out]')
+  })
+
+  it('inserts atempo filter when tempoAdjustment is set', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 5,
+        tempoAdjustment: 1.05,
+      },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).toContain('atempo=1.05,loudnorm=')
+    expect(graph).not.toContain('rubberband')
+  })
+
+  it('inserts rubberband filter when useRubberband is true', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 5,
+        tempoAdjustment: 1.03,
+      },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true, true)
+
+    expect(graph).toContain('rubberband=tempo=1.03,loudnorm=')
+    expect(graph).not.toContain('atempo')
+  })
+
+  it('skips tempo filter when tempoAdjustment is 1', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 5,
+        tempoAdjustment: 1,
+      },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).not.toContain('atempo')
+    expect(graph).not.toContain('rubberband')
+  })
+
+  it('skips tempo filter when tempoAdjustment is undefined', () => {
+    const tracks: TrackInfo[] = [
+      { index: 0, loudnorm: mockLoudnorm, crossfadeDuration: 5 },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    expect(graph).not.toContain('atempo')
+    expect(graph).not.toContain('rubberband')
+  })
+
+  it('combines trim + tempo + loudnorm in correct order', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 5,
+        trimStart: 30,
+        trimEnd: 420,
+        tempoAdjustment: 0.95,
+      },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    // Order: atrim → asetpts → atempo → loudnorm
+    expect(graph).toContain(
+      '[0:a]atrim=start=30:end=420,asetpts=PTS-STARTPTS,atempo=0.95,loudnorm='
+    )
+  })
+
+  it('applies tempo only to tracks that have tempoAdjustment', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 5,
+        tempoAdjustment: 1.02,
+      },
+      { index: 1, loudnorm: mockLoudnorm, crossfadeDuration: 0 },
+    ]
+
+    const graph = buildFilterGraph(tracks, true)
+
+    // Track 0 should have atempo
+    expect(graph).toContain('atempo=1.02')
+    // Track 1 should not have atempo
+    const lines = graph.split(';\n')
+    const track1Line = lines.find((l) => l.startsWith('[1:a]'))
+    expect(track1Line).not.toContain('atempo')
+  })
+})
+
+describe('buildAtempoChain', () => {
+  it('returns empty string for rate 1', () => {
+    expect(buildAtempoChain(1)).toBe('')
+  })
+
+  it('returns single atempo for rate within 0.5–2.0', () => {
+    expect(buildAtempoChain(1.5)).toBe('atempo=1.5')
+    expect(buildAtempoChain(0.8)).toBe('atempo=0.8')
+  })
+
+  it('chains multiple atempo filters for rate > 2.0', () => {
+    const chain = buildAtempoChain(3.0)
+    expect(chain).toContain('atempo=2.0')
+    expect(chain.split(',').length).toBe(2)
+  })
+
+  it('chains multiple atempo filters for rate < 0.5', () => {
+    const chain = buildAtempoChain(0.25)
+    expect(chain).toContain('atempo=0.5')
+    expect(chain.split(',').length).toBe(2)
+  })
+})
+
+describe('buildTempoFilter', () => {
+  it('returns empty string for rate 1', () => {
+    expect(buildTempoFilter(1, false)).toBe('')
+    expect(buildTempoFilter(1, true)).toBe('')
+  })
+
+  it('returns atempo when useRubberband is false', () => {
+    expect(buildTempoFilter(1.05, false)).toBe('atempo=1.05')
+  })
+
+  it('returns rubberband when useRubberband is true', () => {
+    expect(buildTempoFilter(1.05, true)).toBe('rubberband=tempo=1.05')
+  })
+})
+
+describe('buildVolumeFilter', () => {
+  it('returns empty string when no gain and no envelope', () => {
+    expect(buildVolumeFilter(undefined, undefined, 100)).toBe('')
+    expect(buildVolumeFilter(0, undefined, 100)).toBe('')
+  })
+
+  it('returns static volume filter for gainDb only', () => {
+    const filter = buildVolumeFilter(-6, undefined, 100)
+    // -6 dB ≈ 0.501187
+    expect(filter).toMatch(/^volume=0\.5\d+$/)
+  })
+
+  it('returns volume expression for envelope with 2 points', () => {
+    const filter = buildVolumeFilter(
+      undefined,
+      [
+        { time: 0, value: 1.0 },
+        { time: 10, value: 0.5 },
+      ],
+      10
+    )
+    expect(filter).toContain("volume='")
+    expect(filter).toContain('if(lt(t,')
+  })
+
+  it('applies envelope even when gainDb is 0 (no static gain)', () => {
+    // 0 dB gain → multiplier 1.0 → envelope still applied
+    const filter = buildVolumeFilter(
+      0,
+      [
+        { time: 0, value: 1.0 },
+        { time: 10, value: 0.5 },
+      ],
+      10
+    )
+    // Envelope present with 2+ points → volume expression generated
+    expect(filter).toContain("volume='")
+    expect(filter).toContain('if(lt(t,')
+  })
+
+  it('combines gainDb with envelope', () => {
+    const filter = buildVolumeFilter(
+      -6,
+      [
+        { time: 0, value: 1.0 },
+        { time: 10, value: 0.5 },
+      ],
+      10
+    )
+    expect(filter).toContain("volume='")
+    // First value should be ~0.5 (1.0 * dbToLinear(-6))
+    expect(filter).toMatch(/0\.50\d+/)
+  })
+
+  it('handles 3-point envelope', () => {
+    const filter = buildVolumeFilter(
+      undefined,
+      [
+        { time: 0, value: 1.0 },
+        { time: 5, value: 0.5 },
+        { time: 10, value: 1.0 },
+      ],
+      10
+    )
+    expect(filter).toContain("volume='")
+    // Should have nested if() expressions
+    expect(filter).toContain('if(lt(t,5)')
+    expect(filter).toContain('if(lt(t,10)')
+  })
+
+  it('inserts volume filter in filter graph', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 0,
+        gainDb: -3,
+      },
+    ]
+    const graph = buildFilterGraph(tracks, true)
+    expect(graph).toContain('volume=')
+    expect(graph).toContain('loudnorm=')
+  })
+
+  it('inserts volume filter after tempo and before loudnorm', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 0,
+        tempoAdjustment: 1.05,
+        gainDb: -3,
+      },
+    ]
+    const graph = buildFilterGraph(tracks, true)
+    // Order: atempo → volume → loudnorm
+    const parts = graph.split(',')
+    const atempoIdx = parts.findIndex((p) => p.includes('atempo'))
+    const volumeIdx = parts.findIndex((p) => p.includes('volume'))
+    const loudnormIdx = parts.findIndex((p) => p.includes('loudnorm'))
+    expect(atempoIdx).toBeLessThan(volumeIdx)
+    expect(volumeIdx).toBeLessThan(loudnormIdx)
+  })
+
+  it('skips volume filter when gainDb is 0 and no envelope', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 0,
+        gainDb: 0,
+      },
+    ]
+    const graph = buildFilterGraph(tracks, true)
+    expect(graph).not.toContain('volume=')
   })
 })
 

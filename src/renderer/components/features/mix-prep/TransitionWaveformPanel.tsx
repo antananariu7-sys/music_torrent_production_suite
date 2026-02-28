@@ -3,6 +3,9 @@ import { Box, Flex, Text, Badge, Skeleton } from '@chakra-ui/react'
 import { WaveformCanvas } from '@/components/features/timeline/WaveformCanvas'
 import { TrimHandle } from '@/components/features/timeline/TrimHandle'
 import { EnergyOverlay } from './EnergyOverlay'
+import { SectionBands } from './SectionBands'
+import { VolumeEnvelopeEditor } from './VolumeEnvelopeEditor'
+import type { VolumePoint } from '@shared/types/project.types'
 import { useTimelineStore } from '@/store/timelineStore'
 import { computeEnergyProfile } from '@shared/utils/energyAnalyzer'
 import type { Song } from '@shared/types/project.types'
@@ -26,6 +29,12 @@ interface TransitionWaveformPanelProps {
   onTrimDrag?: (newTimestamp: number) => void
   /** Called when drag ends to persist the value */
   onTrimDragEnd?: () => void
+  /** Volume envelope breakpoints (when volume editor is active) */
+  volumeEnvelope?: VolumePoint[]
+  /** Called when the volume envelope changes */
+  onVolumeEnvelopeChange?: (envelope: VolumePoint[]) => void
+  /** Whether to show the interactive volume envelope editor */
+  showVolumeEditor?: boolean
 }
 
 /**
@@ -42,6 +51,9 @@ export function TransitionWaveformPanel({
   trimHandleSide,
   onTrimDrag,
   onTrimDragEnd,
+  volumeEnvelope,
+  onVolumeEnvelopeChange,
+  showVolumeEditor,
 }: TransitionWaveformPanelProps): JSX.Element {
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -196,6 +208,16 @@ export function TransitionWaveformPanel({
               fullTrack
             />
 
+            {/* Section bands overlay (behind energy) */}
+            {song.sections && song.sections.length > 0 && duration > 0 && (
+              <SectionBands
+                sections={song.sections}
+                duration={duration}
+                width={containerWidth - 8}
+                height={100}
+              />
+            )}
+
             {/* Energy overlay */}
             {energyProfile.length > 0 && (
               <EnergyOverlay
@@ -204,6 +226,22 @@ export function TransitionWaveformPanel({
                 height={100}
               />
             )}
+
+            {/* Volume envelope editor overlay */}
+            {showVolumeEditor &&
+              volumeEnvelope &&
+              onVolumeEnvelopeChange &&
+              duration > 0 && (
+                <VolumeEnvelopeEditor
+                  envelope={volumeEnvelope}
+                  duration={duration}
+                  width={containerWidth - 8}
+                  height={100}
+                  onChange={onVolumeEnvelopeChange}
+                  trimStart={song.trimStart}
+                  trimEnd={song.trimEnd}
+                />
+              )}
 
             {/* Trim dimming overlays */}
             {duration > 0 && song.trimStart != null && song.trimStart > 0 && (

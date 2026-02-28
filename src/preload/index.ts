@@ -15,6 +15,7 @@ import { audioApi } from './api/audio'
 import { waveformApi } from './api/waveform'
 import { bpmApi } from './api/bpm'
 import { keyApi } from './api/key'
+import { sectionApi } from './api/section'
 import { streamPreviewApi } from './api/streamPreview'
 import { mixApi } from './api/mix'
 import { duplicateApi } from './api/duplicate'
@@ -37,6 +38,7 @@ const api = {
   waveform: waveformApi,
   bpm: bpmApi,
   key: keyApi,
+  section: sectionApi,
   streamPreview: streamPreviewApi,
   mix: mixApi,
   duplicate: duplicateApi,

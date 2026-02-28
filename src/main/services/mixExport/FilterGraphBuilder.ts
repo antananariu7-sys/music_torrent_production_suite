@@ -2,7 +2,10 @@ import type {
   LoudnormAnalysis,
   MixExportMetadata,
 } from '@shared/types/mixExport.types'
-import type { CrossfadeCurveType } from '@shared/types/project.types'
+import type {
+  CrossfadeCurveType,
+  VolumePoint,
+} from '@shared/types/project.types'
 
 export interface TrackInfo {
   index: number
@@ -11,6 +14,10 @@ export interface TrackInfo {
   crossfadeCurveType?: CrossfadeCurveType // curve shape for acrossfade
   trimStart?: number // seconds — trim beginning of track
   trimEnd?: number // seconds — trim end of track
+  tempoAdjustment?: number // playback rate multiplier (e.g. 1.015 = +1.5%)
+  gainDb?: number // static gain offset in dB
+  volumeEnvelope?: VolumePoint[] // volume automation breakpoints
+  effectiveDuration?: number // duration after trim (needed for volume expression)
 }
 
 /** Map CrossfadeCurveType to FFmpeg acrossfade curve parameters */
@@ -26,16 +33,137 @@ function getCurveParam(type: CrossfadeCurveType = 'linear'): string {
 }
 
 /**
+ * Build an atempo filter chain for a given rate.
+ * FFmpeg atempo accepts 0.5–100.0 per instance but practical range is 0.5–2.0.
+ * For rates outside 0.5–2.0, chain multiple atempo filters.
+ */
+export function buildAtempoChain(rate: number): string {
+  if (rate === 1) return ''
+
+  const parts: string[] = []
+  let remaining = rate
+
+  // Chain atempo filters to keep each within 0.5–2.0 range
+  while (remaining < 0.5 || remaining > 2.0) {
+    if (remaining < 0.5) {
+      parts.push('atempo=0.5')
+      remaining /= 0.5
+    } else {
+      parts.push('atempo=2.0')
+      remaining /= 2.0
+    }
+  }
+
+  parts.push(`atempo=${remaining}`)
+  return parts.join(',')
+}
+
+/**
+ * Build the tempo adjustment filter for a track.
+ * Uses rubberband (pitch-preserving) when available, falls back to atempo.
+ */
+export function buildTempoFilter(rate: number, useRubberband: boolean): string {
+  if (rate === 1) return ''
+
+  if (useRubberband) {
+    return `rubberband=tempo=${rate}`
+  }
+
+  return buildAtempoChain(rate)
+}
+
+/** Convert decibels to linear gain (FFmpeg-safe). */
+function ffmpegDbToLinear(db: number): number {
+  return Math.pow(10, db / 20)
+}
+
+/**
+ * Build an FFmpeg volume filter for static gain and/or volume envelope.
+ *
+ * - Static gain only: `volume=<linear>`
+ * - Envelope only: `volume='if(lt(t,T1),V0+(V1-V0)*(t-T0)/(T1-T0), ...)'`
+ * - Both: envelope values are pre-multiplied by static gain
+ *
+ * @returns The filter string, or empty string if no volume adjustment needed.
+ */
+export function buildVolumeFilter(
+  gainDb: number | undefined,
+  envelope: VolumePoint[] | undefined,
+  _effectiveDuration?: number | undefined
+): string {
+  const hasGain = gainDb != null && gainDb !== 0
+  const hasEnvelope = envelope != null && envelope.length >= 2
+
+  if (!hasGain && !hasEnvelope) return ''
+
+  const gainMultiplier = hasGain ? ffmpegDbToLinear(gainDb) : 1
+
+  // Static gain only — simple volume filter
+  if (!hasEnvelope) {
+    return `volume=${gainMultiplier.toFixed(6)}`
+  }
+
+  // Envelope: build piecewise linear expression
+  const sorted = [...envelope].sort((a, b) => a.time - b.time)
+
+  // Apply gain multiplier to envelope values
+  const points = sorted.map((p) => ({
+    time: p.time,
+    value: Math.max(0, Math.min(1, p.value)) * gainMultiplier,
+  }))
+
+  // Build nested if() expression for piecewise linear interpolation
+  // Each segment: v0 + (v1 - v0) * (t - t0) / (t1 - t0)
+  const segments: string[] = []
+
+  // Before first point: hold first value
+  if (points[0].time > 0) {
+    segments.push(`if(lt(t,${points[0].time}),${points[0].value.toFixed(6)}`)
+  }
+
+  // Interpolation segments
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i]
+    const p1 = points[i + 1]
+    const dt = p1.time - p0.time
+    const isLast = i === points.length - 2
+
+    if (dt <= 0) continue
+
+    const slope = ((p1.value - p0.value) / dt).toFixed(6)
+    const expr = `${p0.value.toFixed(6)}+${slope}*(t-${p0.time})`
+
+    if (isLast) {
+      // Last segment also covers "after last point" (holds last value via clamp)
+      segments.push(`if(lt(t,${p1.time}),${expr},${p1.value.toFixed(6)})`)
+    } else {
+      segments.push(`if(lt(t,${p1.time}),${expr}`)
+    }
+  }
+
+  // Close all nested if()s
+  const nestedIfs = segments.join(',')
+  const closingParens = ')'.repeat(
+    segments.filter((s) => s.startsWith('if(')).length - 1
+  )
+
+  const expr = nestedIfs + closingParens
+  return `volume='${expr}'`
+}
+
+/**
  * Build an FFmpeg complex filter graph for mixing tracks with loudness normalization
  * and crossfades.
  *
  * @param tracks - Ordered track info with loudnorm params and crossfade durations
  * @param normalization - Whether to apply EBU R128 loudness normalization
+ * @param useRubberband - Whether FFmpeg has rubberband filter available
  * @returns The -filter_complex string value
  */
 export function buildFilterGraph(
   tracks: TrackInfo[],
-  normalization: boolean
+  normalization: boolean,
+  useRubberband = false
 ): string {
   if (tracks.length === 0) {
     throw new Error('Cannot build filter graph with zero tracks')
@@ -62,6 +190,20 @@ export function buildFilterGraph(
       atrim += parts.join(':')
       chainParts.push(atrim, 'asetpts=PTS-STARTPTS')
     }
+
+    // Tempo adjustment (after trim, before normalization)
+    if (track.tempoAdjustment != null && track.tempoAdjustment !== 1) {
+      const tempoFilter = buildTempoFilter(track.tempoAdjustment, useRubberband)
+      if (tempoFilter) chainParts.push(tempoFilter)
+    }
+
+    // Volume adjustment (after tempo, before normalization)
+    const volumeFilter = buildVolumeFilter(
+      track.gainDb,
+      track.volumeEnvelope,
+      track.effectiveDuration
+    )
+    if (volumeFilter) chainParts.push(volumeFilter)
 
     // Normalization or passthrough
     if (normalization && track.loudnorm) {

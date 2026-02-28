@@ -11,7 +11,7 @@ import type {
 import type { Song } from '@shared/types/project.types'
 import type { ProjectService } from '../ProjectService'
 import type { ChildProcess } from 'child_process'
-import { spawnFfmpeg } from '../../utils/ffmpegRunner'
+import { spawnFfmpeg, checkFFmpegFilter } from '../../utils/ffmpegRunner'
 import { validateSongs, resolveSongPath, clampCrossfade } from './MixValidator'
 import { analyzeLoudness } from './LoudnormAnalyzer'
 import {
@@ -207,17 +207,44 @@ export class MixExportService {
       percentage: 20,
     })
 
-    // Build filter graph (include trim boundaries)
-    const trackInfos: TrackInfo[] = valid.map((song, i) => ({
-      index: i,
-      loudnorm: loudnormResults[i],
-      crossfadeDuration: crossfades[i],
-      crossfadeCurveType: song.crossfadeCurveType,
-      trimStart: song.trimStart,
-      trimEnd: song.trimEnd,
-    }))
+    // Check rubberband availability if any track has tempo adjustment
+    const hasTempoAdjustment = valid.some(
+      (s) => s.tempoAdjustment != null && s.tempoAdjustment !== 1
+    )
+    let useRubberband = false
+    if (hasTempoAdjustment) {
+      useRubberband = await checkFFmpegFilter('rubberband')
+      console.log(
+        `[MixExport] Tempo adjustment needed — rubberband ${useRubberband ? 'available' : 'not available (using atempo fallback)'}`
+      )
+    }
 
-    const filterGraph = buildFilterGraph(trackInfos, request.normalization)
+    // Build filter graph (include trim boundaries + tempo/volume adjustment)
+    const trackInfos: TrackInfo[] = valid.map((song, i) => {
+      let effectiveDuration =
+        (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+      if (song.tempoAdjustment && song.tempoAdjustment !== 1) {
+        effectiveDuration /= song.tempoAdjustment
+      }
+      return {
+        index: i,
+        loudnorm: loudnormResults[i],
+        crossfadeDuration: crossfades[i],
+        crossfadeCurveType: song.crossfadeCurveType,
+        trimStart: song.trimStart,
+        trimEnd: song.trimEnd,
+        tempoAdjustment: song.tempoAdjustment,
+        gainDb: song.gainDb,
+        volumeEnvelope: song.volumeEnvelope,
+        effectiveDuration,
+      }
+    })
+
+    const filterGraph = buildFilterGraph(
+      trackInfos,
+      request.normalization,
+      useRubberband
+    )
     console.log(`[MixExport] Filter graph:\n${filterGraph}`)
     const inputFiles = valid.map((s) => resolveSongPath(s)!)
 
@@ -283,6 +310,7 @@ export class MixExportService {
         crossfadeDuration: crossfades[i],
         trimStart: song.trimStart,
         trimEnd: song.trimEnd,
+        tempoAdjustment: song.tempoAdjustment,
         cuePoints: song.cuePoints,
       }))
 
@@ -339,8 +367,13 @@ export class MixExportService {
     let total = 0
     for (let i = 0; i < songs.length; i++) {
       const song = songs[i]
-      const effective =
+      let effective =
         (song.trimEnd ?? song.duration ?? 0) - (song.trimStart ?? 0)
+      // Tempo adjustment changes the effective duration:
+      // faster playback = shorter output, slower = longer
+      if (song.tempoAdjustment && song.tempoAdjustment !== 1) {
+        effective /= song.tempoAdjustment
+      }
       total += effective
       if (i < crossfades.length) {
         total -= crossfades[i]

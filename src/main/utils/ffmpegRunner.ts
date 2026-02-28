@@ -77,7 +77,11 @@ export function spawnFfmpeg(
     })
 
     proc.on('close', (code) => {
-      resolve({ code, stdout: stdoutChunks.join(''), stderr: stderrChunks.join('') })
+      resolve({
+        code,
+        stdout: stdoutChunks.join(''),
+        stderr: stderrChunks.join(''),
+      })
     })
   })
 
@@ -101,4 +105,34 @@ export async function runFfmpeg(
   }
 
   return result
+}
+
+/**
+ * Check whether a given FFmpeg filter is available in the installed binary.
+ * Uses `ffmpeg -filters` and searches the output for the filter name.
+ */
+export async function checkFFmpegFilter(filterName: string): Promise<boolean> {
+  const ffmpegPath = getFfmpegPath()
+
+  return new Promise((resolve) => {
+    const proc = spawn(ffmpegPath, ['-filters', '-hide_banner'], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
+
+    const chunks: string[] = []
+
+    proc.stdout?.on('data', (chunk: Buffer) => {
+      chunks.push(chunk.toString())
+    })
+
+    proc.on('error', () => resolve(false))
+
+    proc.on('close', () => {
+      const output = chunks.join('')
+      // FFmpeg lists filters like: " A->A rubberband ..."
+      // Match on word boundary to avoid partial matches
+      const regex = new RegExp(`\\b${filterName}\\b`)
+      resolve(regex.test(output))
+    })
+  })
 }

@@ -84,7 +84,7 @@ export function MixPrepView({
     if (songs.length === 0 || !currentProject) return
 
     const confirmed = window.confirm(
-      'Reset all mix settings?\n\nThis will clear crossfade, tempo sync, trim points, and cue points for all tracks. BPM and key data will be kept.'
+      'Reset all mix settings?\n\nThis will clear crossfade, tempo sync, trim points, cue points, and volume settings for all tracks. BPM and key data will be kept.'
     )
     if (!confirmed) return
 
@@ -102,6 +102,8 @@ export function MixPrepView({
             trimStart: undefined,
             trimEnd: undefined,
             cuePoints: undefined,
+            gainDb: undefined,
+            volumeEnvelope: undefined,
           },
         })
         if (response.success && response.data) {
@@ -204,7 +206,7 @@ export function MixPrepView({
                 colorPalette="red"
                 variant="ghost"
                 onClick={handleResetMix}
-                title="Reset crossfade, tempo sync, trims, and cue points for all tracks"
+                title="Reset crossfade, tempo sync, trims, cue points, and volume for all tracks"
                 disabled={songs.length === 0 || isResetting}
                 loading={isResetting}
               >

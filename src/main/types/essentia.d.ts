@@ -1,6 +1,6 @@
 /**
  * Type declarations for essentia.js package.
- * Only declaring what we use for key detection.
+ * Declares algorithms used for key detection and section detection.
  */
 
 declare module 'essentia.js' {
@@ -26,6 +26,46 @@ declare module 'essentia.js' {
 
     /** Free a VectorFloat from WASM memory */
     vectorToArray(vector: unknown): Float32Array
+
+    /**
+     * Apply a windowing function to an audio frame.
+     * @returns { frame: VectorFloat }
+     */
+    Windowing(
+      frame: unknown,
+      normalized?: boolean,
+      size?: number,
+      type?: string,
+      zeroPadding?: number,
+      zeroPhase?: boolean
+    ): { frame: unknown }
+
+    /**
+     * Compute the magnitude spectrum of an audio frame.
+     * @returns { spectrum: VectorFloat }
+     */
+    Spectrum(frame: unknown, size?: number): { spectrum: unknown }
+
+    /**
+     * Compute MFCC from a spectrum.
+     * @returns { mfcc: VectorFloat, bands: VectorFloat }
+     */
+    MFCC(
+      spectrum: unknown,
+      dctType?: number,
+      highFrequencyBound?: number,
+      inputSize?: number,
+      liftering?: number,
+      logType?: string,
+      lowFrequencyBound?: number,
+      normalize?: string,
+      numberBands?: number,
+      numberCoefficients?: number,
+      sampleRate?: number,
+      type?: string,
+      warpingFormula?: string,
+      weighting?: string
+    ): { mfcc: unknown; bands: unknown }
 
     /**
      * Extract musical key from audio signal.

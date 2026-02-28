@@ -1,7 +1,16 @@
 // Project-related types
 import type { CuePoint } from './waveform.types'
+import type { TrackSection } from './sectionDetection.types'
 
 export type CrossfadeCurveType = 'linear' | 'equal-power' | 's-curve'
+
+/** A single breakpoint in a volume automation envelope */
+export interface VolumePoint {
+  /** Seconds from track start */
+  time: number
+  /** Linear gain 0–1 (1.0 = unity, 0 = silence) */
+  value: number
+}
 
 /**
  * Main project data structure
@@ -48,6 +57,9 @@ export interface Song {
   trimEnd?: number // Effective end time (derived from trim-end cue point)
   energyProfile?: number[] // Smoothed energy profile (0–1), ~200 points, computed from waveform peaks
   tempoAdjustment?: number // Playback rate multiplier for tempo matching (e.g. 1.015 = +1.5%). undefined = no adjustment
+  sections?: TrackSection[] // Auto-detected structural sections (intro, drop, outro, etc.)
+  gainDb?: number // Static gain offset in dB (e.g. -3.0). undefined = 0 dB (unity)
+  volumeEnvelope?: VolumePoint[] // Volume automation breakpoints. undefined = flat at unity
 }
 
 /**

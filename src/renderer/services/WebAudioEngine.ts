@@ -10,7 +10,11 @@
  *   engine.playDeck('A')
  */
 
-import type { CrossfadeCurveType } from '@shared/types/project.types'
+import type {
+  CrossfadeCurveType,
+  VolumePoint,
+} from '@shared/types/project.types'
+import { dbToLinear } from '@shared/utils/volumeInterpolation'
 import { generateFadeInCurve, generateFadeOutCurve } from './audioCurves'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -19,6 +23,8 @@ interface DeckChannel {
   buffer: AudioBuffer | null
   source: AudioBufferSourceNode | null
   gainNode: GainNode | null
+  /** Separate gain node for volume envelope (isolates from crossfade curves) */
+  volumeNode: GainNode | null
   /** 3-band EQ filter nodes (transient, created per playback) */
   eqLow: BiquadFilterNode | null
   eqMid: BiquadFilterNode | null
@@ -34,6 +40,10 @@ interface DeckChannel {
   playbackRate: number
   /** Persisted EQ gain values (dB), survive stop/start cycles */
   eqGains: { low: number; mid: number; high: number }
+  /** Persisted volume envelope breakpoints */
+  volumeEnvelope: VolumePoint[] | null
+  /** Persisted static gain offset in dB */
+  volumeGainDb: number
 }
 
 type EQBand = 'low' | 'mid' | 'high'
@@ -194,16 +204,19 @@ export class WebAudioEngine {
     source.buffer = channel.buffer
     source.playbackRate.value = channel.playbackRate
 
-    // Create gain
+    // Create gain nodes
     const gainNode = ctx.createGain()
     gainNode.gain.value = this.masterVolume
+    const volumeNode = ctx.createGain()
+    volumeNode.gain.value = 1.0
 
-    // Create EQ chain: source → eqLow → eqMid → eqHigh → gainNode → destination
+    // Chain: source → eqLow → eqMid → eqHigh → volumeNode → gainNode → destination
     const { eqLow, eqMid, eqHigh } = this.createEQChain(ctx, channel.eqGains)
     source
       .connect(eqLow)
       .connect(eqMid)
       .connect(eqHigh)
+      .connect(volumeNode)
       .connect(gainNode)
       .connect(ctx.destination)
 
@@ -222,12 +235,22 @@ export class WebAudioEngine {
 
     channel.source = source
     channel.gainNode = gainNode
+    channel.volumeNode = volumeNode
     channel.eqLow = eqLow
     channel.eqMid = eqMid
     channel.eqHigh = eqHigh
     channel.contextStartTime = ctx.currentTime
     channel.bufferOffset = offset
     channel.isPlaying = true
+
+    // Apply stored volume envelope
+    const realDuration = (channel.duration - offset) / channel.playbackRate
+    this.applyStoredVolumeEnvelope(
+      channel,
+      ctx.currentTime,
+      offset,
+      realDuration
+    )
 
     this.emit({ deck, type: 'play' })
   }
@@ -273,6 +296,10 @@ export class WebAudioEngine {
     if (channel.eqHigh) {
       channel.eqHigh.disconnect()
       channel.eqHigh = null
+    }
+    if (channel.volumeNode) {
+      channel.volumeNode.disconnect()
+      channel.volumeNode = null
     }
     if (channel.gainNode) {
       channel.gainNode.disconnect()
@@ -373,10 +400,12 @@ export class WebAudioEngine {
     const aDuration = fadeStartDelay + crossfadeDuration
     const bDuration = crossfadeDuration + leadSeconds
 
-    // ── Deck A: source → EQ → gain → destination ──
+    // ── Deck A: source → EQ → volumeNode → gain → destination ──
     const sourceA = ctx.createBufferSource()
     sourceA.buffer = deckA.buffer
     sourceA.playbackRate.value = deckA.playbackRate
+    const volumeA = ctx.createGain()
+    volumeA.gain.value = 1.0
     const gainA = ctx.createGain()
     gainA.gain.value = this.masterVolume
     const eqA = this.createEQChain(ctx, deckA.eqGains)
@@ -384,6 +413,7 @@ export class WebAudioEngine {
       .connect(eqA.eqLow)
       .connect(eqA.eqMid)
       .connect(eqA.eqHigh)
+      .connect(volumeA)
       .connect(gainA)
       .connect(ctx.destination)
 
@@ -396,10 +426,12 @@ export class WebAudioEngine {
       crossfadeDuration
     )
 
-    // ── Deck B: source → EQ → gain → destination ──
+    // ── Deck B: source → EQ → volumeNode → gain → destination ──
     const sourceB = ctx.createBufferSource()
     sourceB.buffer = deckB.buffer
     sourceB.playbackRate.value = deckB.playbackRate
+    const volumeB = ctx.createGain()
+    volumeB.gain.value = 1.0
     const gainB = ctx.createGain()
     gainB.gain.value = 0
     const eqB = this.createEQChain(ctx, deckB.eqGains)
@@ -407,6 +439,7 @@ export class WebAudioEngine {
       .connect(eqB.eqLow)
       .connect(eqB.eqMid)
       .connect(eqB.eqHigh)
+      .connect(volumeB)
       .connect(gainB)
       .connect(ctx.destination)
 
@@ -426,6 +459,7 @@ export class WebAudioEngine {
     // ── Update deck channel state ──
     deckA.source = sourceA
     deckA.gainNode = gainA
+    deckA.volumeNode = volumeA
     deckA.eqLow = eqA.eqLow
     deckA.eqMid = eqA.eqMid
     deckA.eqHigh = eqA.eqHigh
@@ -435,12 +469,24 @@ export class WebAudioEngine {
 
     deckB.source = sourceB
     deckB.gainNode = gainB
+    deckB.volumeNode = volumeB
     deckB.eqLow = eqB.eqLow
     deckB.eqMid = eqB.eqMid
     deckB.eqHigh = eqB.eqHigh
     deckB.contextStartTime = now + fadeStartDelay
     deckB.bufferOffset = bOffset
     deckB.isPlaying = true
+
+    // Apply stored volume envelopes
+    const aRealDuration = aDuration / deckA.playbackRate
+    this.applyStoredVolumeEnvelope(deckA, now, aOffset, aRealDuration)
+    const bRealDuration = bDuration / deckB.playbackRate
+    this.applyStoredVolumeEnvelope(
+      deckB,
+      now + fadeStartDelay,
+      bOffset,
+      bRealDuration
+    )
 
     // ── Auto-stop on end ──
     const totalDuration = fadeStartDelay + crossfadeDuration + leadSeconds
@@ -488,6 +534,75 @@ export class WebAudioEngine {
 
   getVolume(): number {
     return this.masterVolume
+  }
+
+  /**
+   * Store volume envelope + gainDb for a deck.
+   * Persists across stop/start cycles (like EQ).
+   * Automatically applied when playDeck() or scheduleCrossfade() is called.
+   */
+  setDeckVolumeEnvelope(
+    deck: DeckId,
+    envelope?: VolumePoint[] | null,
+    gainDb?: number
+  ): void {
+    const channel = this.decks[deck]
+    channel.volumeEnvelope = envelope ?? null
+    channel.volumeGainDb = gainDb ?? 0
+  }
+
+  /**
+   * Apply the stored volume envelope to a channel's volumeNode.
+   * Interpolates the envelope for the specific buffer range being played,
+   * accounting for playback rate.
+   */
+  private applyStoredVolumeEnvelope(
+    channel: DeckChannel,
+    ctxStartTime: number,
+    bufferOffset: number,
+    realDuration: number
+  ): void {
+    if (!channel.volumeNode || !channel.volumeEnvelope) return
+    if (channel.volumeEnvelope.length === 0 || realDuration <= 0) return
+
+    const sorted = [...channel.volumeEnvelope].sort((a, b) => a.time - b.time)
+    const gainMul =
+      channel.volumeGainDb !== 0 ? dbToLinear(channel.volumeGainDb) : 1
+    const curve = new Float32Array(CURVE_SAMPLES)
+
+    for (let i = 0; i < CURVE_SAMPLES; i++) {
+      // Map each sample to the buffer time (accounting for playback rate)
+      const frac = i / (CURVE_SAMPLES - 1)
+      const bufferTime =
+        bufferOffset + frac * realDuration * channel.playbackRate
+
+      // Interpolate envelope at this buffer time
+      let value: number
+      if (bufferTime <= sorted[0].time) {
+        value = sorted[0].value
+      } else if (bufferTime >= sorted[sorted.length - 1].time) {
+        value = sorted[sorted.length - 1].value
+      } else {
+        value = sorted[0].value
+        for (let j = 0; j < sorted.length - 1; j++) {
+          if (bufferTime < sorted[j + 1].time) {
+            const dt = sorted[j + 1].time - sorted[j].time
+            const f = dt > 0 ? (bufferTime - sorted[j].time) / dt : 0
+            value =
+              sorted[j].value + f * (sorted[j + 1].value - sorted[j].value)
+            break
+          }
+        }
+      }
+
+      curve[i] = Math.max(0, Math.min(2, Math.max(0, value) * gainMul))
+    }
+
+    channel.volumeNode.gain.setValueCurveAtTime(
+      curve,
+      ctxStartTime,
+      realDuration
+    )
   }
 
   // ── Event system ────────────────────────────────────────────────────────
@@ -591,6 +706,7 @@ export class WebAudioEngine {
       buffer: null,
       source: null,
       gainNode: null,
+      volumeNode: null,
       eqLow: null,
       eqMid: null,
       eqHigh: null,
@@ -600,6 +716,8 @@ export class WebAudioEngine {
       duration: 0,
       playbackRate: 1.0,
       eqGains: { low: 0, mid: 0, high: 0 },
+      volumeEnvelope: null,
+      volumeGainDb: 0,
     }
   }
 }

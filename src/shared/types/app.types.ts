@@ -14,6 +14,20 @@ export interface AppSettings {
   minimizeToTray: boolean
   notifications: boolean
   autoScanDiscography: boolean
+  mixPointPreferences?: MixPointPreferences
+}
+
+/**
+ * User preference learning for mix-point suggestions.
+ * Tracked via accept/reject actions, adjusts scoring weights over time.
+ */
+export interface MixPointPreferences {
+  totalAccepted: number
+  totalRejected: number
+  /** Running average of accepted crossfade durations */
+  avgAcceptedDuration: number
+  /** Learned scoring weights (overrides defaults when enough data) */
+  weights?: { energy: number; phrase: number; key: number }
 }
 
 export type AppStatus = 'idle' | 'busy' | 'error'

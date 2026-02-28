@@ -1,21 +1,66 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Flex, VStack, HStack, Text, Icon, Button } from '@chakra-ui/react'
-import { FiMusic, FiSliders } from 'react-icons/fi'
+import {
+  Flex,
+  VStack,
+  HStack,
+  Text,
+  Icon,
+  Button,
+  Input,
+} from '@chakra-ui/react'
+import { FiMusic, FiSliders, FiVolume2 } from 'react-icons/fi'
 import { TransitionWaveformPanel } from './TransitionWaveformPanel'
 import { ComparisonStrip } from './ComparisonStrip'
 import { TransitionCrossfadeControl } from './TransitionCrossfadeControl'
 import { DualDeckControls } from './DualDeckControls'
 import { TransitionEQPanel } from './TransitionEQPanel'
+import { MixPointSuggestionCard } from './MixPointSuggestionCard'
 import { PairNavigationBar } from './PairNavigationBar'
 import { useTransitionData } from './hooks/useTransitionData'
 import { useDualDeck } from './hooks/useDualDeck'
 import { useTrimDrag } from '@/components/features/timeline/hooks/useTrimDrag'
+import { useVolumeEnvelope } from './hooks/useVolumeEnvelope'
 import { useCrossfadePreview } from '@/hooks/useCrossfadePreview'
+import { WebAudioEngine } from '@/services/WebAudioEngine'
 import { suggestMixPoint } from './MixPointSuggester'
+import type { EnhancedMixPointSuggestion } from './MixPointSuggester'
 import { useProjectStore } from '@/store/useProjectStore'
 import { toaster } from '@/components/ui/toaster'
 import type { Song } from '@shared/types/project.types'
+import type { MixPointPreferences } from '@shared/types/app.types'
 import type { PairNavigation } from './hooks/usePairNavigation'
+
+/**
+ * Track accept/reject feedback for mix-point preference learning.
+ * Persists running averages via app settings (fire-and-forget).
+ */
+async function trackSuggestionFeedback(
+  action: 'accept' | 'reject',
+  acceptedDuration?: number
+): Promise<void> {
+  try {
+    const settings = await window.api.getSettings()
+    const prefs: MixPointPreferences = settings.mixPointPreferences ?? {
+      totalAccepted: 0,
+      totalRejected: 0,
+      avgAcceptedDuration: 8,
+    }
+
+    if (action === 'accept' && acceptedDuration != null) {
+      prefs.totalAccepted++
+      // Exponential moving average of accepted duration
+      const alpha = 0.3
+      prefs.avgAcceptedDuration =
+        alpha * acceptedDuration + (1 - alpha) * prefs.avgAcceptedDuration
+    } else {
+      prefs.totalRejected++
+    }
+
+    await window.api.setSettings({ mixPointPreferences: prefs })
+  } catch {
+    // Non-critical — don't block UX
+  }
+}
 
 interface TransitionDetailProps {
   /** The outgoing track (track N-1), null if first track selected */
@@ -45,7 +90,35 @@ export function TransitionDetail({
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const [isSuggesting, setIsSuggesting] = useState(false)
   const [showEQ, setShowEQ] = useState(false)
+  const [showVolume, setShowVolume] = useState(false)
+  const [suggestion, setSuggestion] =
+    useState<EnhancedMixPointSuggestion | null>(null)
   const dualDeck = useDualDeck()
+
+  // Volume envelope hooks for both tracks
+  const outVol = useVolumeEnvelope({
+    projectId,
+    songId: outgoingTrack?.id,
+    initialEnvelope: outgoingTrack?.volumeEnvelope,
+    initialGainDb: outgoingTrack?.gainDb,
+  })
+  const inVol = useVolumeEnvelope({
+    projectId,
+    songId: incomingTrack?.id,
+    initialEnvelope: incomingTrack?.volumeEnvelope,
+    initialGainDb: incomingTrack?.gainDb,
+  })
+
+  // ── Sync volume envelopes to the audio engine ─────────────────────────────
+  useEffect(() => {
+    const engine = WebAudioEngine.getInstance()
+    engine.setDeckVolumeEnvelope('A', outVol.envelope, outVol.gainDb)
+  }, [outVol.envelope, outVol.gainDb])
+
+  useEffect(() => {
+    const engine = WebAudioEngine.getInstance()
+    engine.setDeckVolumeEnvelope('B', inVol.envelope, inVol.gainDb)
+  }, [inVol.envelope, inVol.gainDb])
 
   // ── Trim drag (reused from timeline) ──────────────────────────────────────
   const {
@@ -95,12 +168,12 @@ export function TransitionDetail({
   )
   const crossfadePreview = useCrossfadePreview(previewOptions)
 
-  const handleSuggestMixPoint = useCallback(async () => {
+  const handleSuggestMixPoint = useCallback(() => {
     if (!outgoing?.peaks || !incoming?.peaks || !outgoingTrack) return
 
     setIsSuggesting(true)
     try {
-      const suggestion = suggestMixPoint(
+      const result = suggestMixPoint(
         {
           duration: outgoing.peaks.duration ?? outgoingTrack.duration ?? 0,
           peaks: outgoing.peaks.peaks,
@@ -116,34 +189,47 @@ export function TransitionDetail({
           bpm: incomingTrack!.bpm,
           firstBeatOffset: incomingTrack!.firstBeatOffset,
           trimStart: incomingTrack!.trimStart,
+        },
+        {
+          outSections: outgoingTrack.sections,
+          inSections: incomingTrack!.sections,
+          outKey: outgoingTrack.musicalKey,
+          inKey: incomingTrack!.musicalKey,
         }
       )
-
-      // Apply suggestion: update crossfade duration on outgoing track
-      const response = await window.api.mix.updateSong({
-        projectId,
-        songId: outgoingTrack.id,
-        updates: { crossfadeDuration: suggestion.crossfadeDuration },
-      })
-      if (response.success && response.data) {
-        setCurrentProject(response.data)
-        toaster.create({
-          title: `Crossfade set to ${suggestion.crossfadeDuration}s`,
-          description: suggestion.reason,
-          type: 'success',
-        })
-      }
+      setSuggestion(result)
     } finally {
       setIsSuggesting(false)
     }
-  }, [
-    outgoing,
-    incoming,
-    outgoingTrack,
-    incomingTrack,
-    projectId,
-    setCurrentProject,
-  ])
+  }, [outgoing, incoming, outgoingTrack, incomingTrack])
+
+  const handleAcceptSuggestion = useCallback(async () => {
+    if (!suggestion || !outgoingTrack) return
+    const response = await window.api.mix.updateSong({
+      projectId,
+      songId: outgoingTrack.id,
+      updates: { crossfadeDuration: suggestion.crossfadeDuration },
+    })
+    if (response.success && response.data) {
+      setCurrentProject(response.data)
+      toaster.create({
+        title: `Crossfade set to ${suggestion.crossfadeDuration}s`,
+        description: suggestion.reason,
+        type: 'success',
+      })
+    }
+    trackSuggestionFeedback('accept', suggestion.crossfadeDuration)
+    setSuggestion(null)
+  }, [suggestion, outgoingTrack, projectId, setCurrentProject])
+
+  const handleRejectSuggestion = useCallback(() => {
+    trackSuggestionFeedback('reject')
+    setSuggestion(null)
+  }, [])
+
+  const handleAdjustSuggestion = useCallback(() => {
+    setSuggestion(null)
+  }, [])
 
   // ── Tempo sync handlers ─────────────────────────────────────────────────────
 
@@ -280,6 +366,9 @@ export function TransitionDetail({
           trimHandleSide="end"
           onTrimDrag={(ts) => handleTrimEndDrag(outgoing.song.id, ts)}
           onTrimDragEnd={() => handleTrimDragEnd(outgoing.song.id)}
+          showVolumeEditor={showVolume}
+          volumeEnvelope={outVol.envelope}
+          onVolumeEnvelopeChange={outVol.setEnvelope}
         />
 
         {/* Comparison strip + crossfade controls + dual deck */}
@@ -300,6 +389,15 @@ export function TransitionDetail({
             canSuggest={!!outgoing.peaks && !!incoming.peaks}
             preview={crossfadePreview}
           />
+          {suggestion && (
+            <MixPointSuggestionCard
+              suggestion={suggestion}
+              outBpm={outgoingTrack?.bpm}
+              onAccept={handleAcceptSuggestion}
+              onReject={handleRejectSuggestion}
+              onAdjust={handleAdjustSuggestion}
+            />
+          )}
           <HStack justify="center" gap={2}>
             <DualDeckControls
               outgoing={outgoing.song}
@@ -315,8 +413,78 @@ export function TransitionDetail({
               <Icon as={FiSliders} boxSize={3} />
               EQ
             </Button>
+            <Button
+              size="2xs"
+              variant={showVolume ? 'solid' : 'outline'}
+              onClick={() => setShowVolume((prev) => !prev)}
+              title="Toggle volume envelope editor"
+            >
+              <Icon as={FiVolume2} boxSize={3} />
+              Vol
+            </Button>
           </HStack>
           {showEQ && <TransitionEQPanel />}
+          {showVolume && (
+            <HStack justify="center" gap={4} py={1}>
+              <HStack gap={1}>
+                <Text fontSize="2xs" color="text.muted" whiteSpace="nowrap">
+                  A gain:
+                </Text>
+                <Input
+                  size="2xs"
+                  type="number"
+                  w="60px"
+                  textAlign="center"
+                  value={outVol.gainDb}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value)
+                    if (!isNaN(v))
+                      outVol.setGainDb(Math.max(-20, Math.min(20, v)))
+                  }}
+                  step={0.5}
+                  min={-20}
+                  max={20}
+                />
+                <Text fontSize="2xs" color="text.muted">
+                  dB
+                </Text>
+              </HStack>
+              <HStack gap={1}>
+                <Text fontSize="2xs" color="text.muted" whiteSpace="nowrap">
+                  B gain:
+                </Text>
+                <Input
+                  size="2xs"
+                  type="number"
+                  w="60px"
+                  textAlign="center"
+                  value={inVol.gainDb}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value)
+                    if (!isNaN(v))
+                      inVol.setGainDb(Math.max(-20, Math.min(20, v)))
+                  }}
+                  step={0.5}
+                  min={-20}
+                  max={20}
+                />
+                <Text fontSize="2xs" color="text.muted">
+                  dB
+                </Text>
+              </HStack>
+              <Button
+                size="2xs"
+                variant="ghost"
+                onClick={() => {
+                  outVol.resetEnvelope()
+                  inVol.resetEnvelope()
+                }}
+                title="Reset both volume envelopes to flat unity"
+              >
+                Reset
+              </Button>
+            </HStack>
+          )}
         </VStack>
 
         {/* Incoming waveform */}
@@ -336,6 +504,9 @@ export function TransitionDetail({
           trimHandleSide="start"
           onTrimDrag={(ts) => handleTrimStartDrag(incoming.song.id, ts)}
           onTrimDragEnd={() => handleTrimDragEnd(incoming.song.id)}
+          showVolumeEditor={showVolume}
+          volumeEnvelope={inVol.envelope}
+          onVolumeEnvelopeChange={inVol.setEnvelope}
         />
       </VStack>
 

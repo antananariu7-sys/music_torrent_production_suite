@@ -135,6 +135,11 @@ export const IPC_CHANNELS = {
   STREAM_PREVIEW_FULL_READY: 'stream-preview:full-ready',
   STREAM_PREVIEW_ERROR: 'stream-preview:error',
   STREAM_PREVIEW_BUFFERING: 'stream-preview:buffering',
+
+  // Section detection
+  SECTION_DETECT: 'section:detect',
+  SECTION_DETECT_BATCH: 'section:detect-batch',
+  SECTION_PROGRESS: 'section:progress',
 } as const
 
 // Application settings
