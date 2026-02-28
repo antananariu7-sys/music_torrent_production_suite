@@ -24,6 +24,8 @@ interface TransitionCrossfadeControlProps {
   canSuggest?: boolean
   /** Crossfade preview state (lifted from parent) */
   preview: CrossfadePreviewReturn
+  /** Fires immediately on slider change (before debounced persistence) */
+  onDurationChange?: (duration: number) => void
 }
 
 /**
@@ -37,6 +39,7 @@ export function TransitionCrossfadeControl({
   isSuggesting,
   canSuggest,
   preview,
+  onDurationChange,
 }: TransitionCrossfadeControlProps): JSX.Element {
   const [duration, setDuration] = useState(outgoing.crossfadeDuration ?? 5)
   const [curveType, setCurveType] = useState<CrossfadeCurveType>(
@@ -51,10 +54,17 @@ export function TransitionCrossfadeControl({
 
   // Sync local state when outgoing song changes (pair navigation)
   useEffect(() => {
-    setDuration(outgoing.crossfadeDuration ?? 5)
+    const d = outgoing.crossfadeDuration ?? 5
+    setDuration(d)
     setCurveType(outgoing.crossfadeCurveType ?? 'linear')
     setSaveState('idle')
-  }, [outgoing.id, outgoing.crossfadeDuration, outgoing.crossfadeCurveType])
+    onDurationChange?.(d)
+  }, [
+    outgoing.id,
+    outgoing.crossfadeDuration,
+    outgoing.crossfadeCurveType,
+    onDurationChange,
+  ])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -94,6 +104,7 @@ export function TransitionCrossfadeControl({
 
   function handleSliderChange(val: number): void {
     setDuration(val)
+    onDurationChange?.(val)
     persistUpdates({ crossfadeDuration: val })
   }
 

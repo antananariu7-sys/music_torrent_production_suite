@@ -21,6 +21,16 @@ export const AudioMetadataSchema = z.object({
 })
 
 /**
+ * Tempo region schema — defines where tempo adjustment applies + ramp-back
+ */
+export const TempoRegionSchema = z.object({
+  startTime: z.number().nonnegative(),
+  endTime: z.number().nonnegative(),
+  rampDuration: z.number().nonnegative(),
+  rampType: z.literal('linear'),
+})
+
+/**
  * Song schema
  */
 export const SongSchema = z.object({
@@ -45,6 +55,8 @@ export const SongSchema = z.object({
   firstBeatOffset: z.number().nonnegative().optional(),
   trimStart: z.number().nonnegative().optional(),
   trimEnd: z.number().nonnegative().optional(),
+  tempoAdjustment: z.number().min(0.5).max(2.0).optional(),
+  tempoRegion: TempoRegionSchema.optional(),
 })
 
 /**
@@ -115,7 +127,8 @@ export const ProjectLockSchema = z.object({
  * Create project request schema
  */
 export const CreateProjectRequestSchema = z.object({
-  name: z.string()
+  name: z
+    .string()
     .min(1, 'Project name is required')
     .max(100, 'Project name must be less than 100 characters')
     .refine(
@@ -129,17 +142,19 @@ export const CreateProjectRequestSchema = z.object({
 /**
  * Add song request schema
  */
-export const AddSongRequestSchema = z.object({
-  projectId: z.string().uuid(),
-  title: z.string().min(1, 'Song title is required'),
-  downloadId: z.string().uuid().optional(),
-  externalFilePath: z.string().optional(),
-  order: z.number().int().nonnegative(),
-  metadata: AudioMetadataSchema.partial().optional(),
-}).refine(
-  (data) => data.downloadId || data.externalFilePath,
-  'Either downloadId or externalFilePath must be provided'
-)
+export const AddSongRequestSchema = z
+  .object({
+    projectId: z.string().uuid(),
+    title: z.string().min(1, 'Song title is required'),
+    downloadId: z.string().uuid().optional(),
+    externalFilePath: z.string().optional(),
+    order: z.number().int().nonnegative(),
+    metadata: AudioMetadataSchema.partial().optional(),
+  })
+  .refine(
+    (data) => data.downloadId || data.externalFilePath,
+    'Either downloadId or externalFilePath must be provided'
+  )
 
 /**
  * Update song request schema
@@ -212,10 +227,14 @@ export const ValidateProjectRequestSchema = z.object({
  * Select audio file request schema
  */
 export const SelectAudioFileRequestSchema = z.object({
-  filters: z.array(z.object({
-    name: z.string(),
-    extensions: z.array(z.string()),
-  })).optional(),
+  filters: z
+    .array(
+      z.object({
+        name: z.string(),
+        extensions: z.array(z.string()),
+      })
+    )
+    .optional(),
 })
 
 /**
@@ -245,7 +264,8 @@ export const ImportProjectRequestSchema = z.object({
  */
 export const DuplicateProjectRequestSchema = z.object({
   projectId: z.string().uuid(),
-  newName: z.string()
+  newName: z
+    .string()
     .min(1, 'Project name is required')
     .max(100, 'Project name must be less than 100 characters')
     .refine(

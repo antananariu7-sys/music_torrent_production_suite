@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react'
+import { useStore } from 'zustand'
 import { HStack, IconButton } from '@chakra-ui/react'
 import { FiRotateCcw, FiRotateCw } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
@@ -14,6 +15,15 @@ export function UndoRedoBar({
 }: {
   showButtons?: boolean
 }): JSX.Element | null {
+  const canUndo = useStore(
+    useProjectStore.temporal,
+    (s) => s.pastStates.length > 0
+  )
+  const canRedo = useStore(
+    useProjectStore.temporal,
+    (s) => s.futureStates.length > 0
+  )
+
   const handleUndo = useCallback(() => {
     useProjectStore.temporal.getState().undo()
   }, [])
@@ -53,6 +63,7 @@ export function UndoRedoBar({
         size="2xs"
         variant="ghost"
         onClick={handleUndo}
+        disabled={!canUndo}
         title="Undo (Ctrl+Z)"
         aria-label="Undo"
       >
@@ -62,6 +73,7 @@ export function UndoRedoBar({
         size="2xs"
         variant="ghost"
         onClick={handleRedo}
+        disabled={!canRedo}
         title="Redo (Ctrl+Shift+Z)"
         aria-label="Redo"
       >

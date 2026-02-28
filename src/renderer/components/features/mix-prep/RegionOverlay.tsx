@@ -15,6 +15,42 @@ interface RegionOverlayProps {
 /** Minimum drag distance (px) to create a region */
 const MIN_DRAG_PX = 8
 
+/** Draw a small muted speaker icon centered at (cx, cy) using canvas paths. */
+function drawMutedSpeakerIcon(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number
+): void {
+  const s = 6 // half-size of the icon
+  ctx.save()
+  ctx.translate(cx, cy)
+  ctx.fillStyle = 'rgba(239, 68, 68, 0.55)'
+  ctx.strokeStyle = 'rgba(239, 68, 68, 0.55)'
+  ctx.lineWidth = 1.5
+  ctx.lineCap = 'round'
+
+  // Speaker body (rectangle)
+  ctx.fillRect(-s, -s * 0.35, s * 0.5, s * 0.7)
+  // Speaker cone (triangle)
+  ctx.beginPath()
+  ctx.moveTo(-s * 0.5, -s * 0.35)
+  ctx.lineTo(s * 0.15, -s * 0.8)
+  ctx.lineTo(s * 0.15, s * 0.8)
+  ctx.lineTo(-s * 0.5, s * 0.35)
+  ctx.closePath()
+  ctx.fill()
+
+  // "X" mute slash lines
+  ctx.beginPath()
+  ctx.moveTo(s * 0.4, -s * 0.4)
+  ctx.lineTo(s, s * 0.4)
+  ctx.moveTo(s, -s * 0.4)
+  ctx.lineTo(s * 0.4, s * 0.4)
+  ctx.stroke()
+
+  ctx.restore()
+}
+
 /**
  * Canvas overlay that renders removed audio regions with hatching.
  * When editing, supports drag-to-select (create), click (toggle), right-click (delete).
@@ -84,6 +120,11 @@ export const RegionOverlay = memo(function RegionOverlay({
         ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)'
         ctx.lineWidth = 1
         ctx.strokeRect(x + 0.5, 0.5, w - 1, height - 1)
+
+        // Draw muted speaker icon if region is wide enough
+        if (w > 40) {
+          drawMutedSpeakerIcon(ctx, x + w / 2, height / 2)
+        }
       } else {
         // Disabled (restored) — faint gray dashed outline
         ctx.setLineDash([4, 3])

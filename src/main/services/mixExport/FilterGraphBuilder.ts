@@ -5,6 +5,7 @@ import type {
 import type {
   AudioRegion,
   CrossfadeCurveType,
+  TempoRegion,
   VolumePoint,
 } from '@shared/types/project.types'
 
@@ -16,6 +17,7 @@ export interface TrackInfo {
   trimStart?: number // seconds — trim beginning of track
   trimEnd?: number // seconds — trim end of track
   tempoAdjustment?: number // playback rate multiplier (e.g. 1.015 = +1.5%)
+  tempoRegion?: TempoRegion // region where tempo applies + ramp-back
   gainDb?: number // static gain offset in dB
   volumeEnvelope?: VolumePoint[] // volume automation breakpoints
   effectiveDuration?: number // duration after trim (needed for volume expression)
@@ -73,6 +75,86 @@ export function buildTempoFilter(rate: number, useRubberband: boolean): string {
   }
 
   return buildAtempoChain(rate)
+}
+
+/** Number of discrete steps to approximate a tempo ramp in FFmpeg export */
+const RAMP_STEPS = 8
+
+/**
+ * Build tempo filter segments for a track with a TempoRegion (constant zone + ramp-back).
+ * Returns an array of filter graph lines and segment labels for concatenation.
+ * The caller provides the source label of the already-trimmed/joined audio.
+ *
+ * Splits the audio into:
+ * 1. Constant-speed portion (startTime → rampStart) at `rate`
+ * 2. Ramp portion (rampStart → endTime) approximated by RAMP_STEPS discrete segments
+ * 3. Tail portion (endTime → end of track) at rate 1.0 (no tempo change)
+ */
+export function buildTempoRegionFilters(
+  sourceLabel: string,
+  outputLabel: string,
+  trackIndex: number,
+  rate: number,
+  tempoRegion: TempoRegion,
+  useRubberband: boolean,
+  effectiveDuration: number
+): string[] {
+  if (rate === 1) return []
+
+  const filters: string[] = []
+  const segLabels: string[] = []
+  const rampStart = tempoRegion.endTime - tempoRegion.rampDuration
+
+  // Segment 1: constant-speed portion (0 → rampStart)
+  if (rampStart > 0) {
+    const constLabel = `[tc${trackIndex}_const]`
+    const tempoFilter = buildTempoFilter(rate, useRubberband)
+    filters.push(
+      `${sourceLabel}atrim=0:${rampStart},asetpts=PTS-STARTPTS,${tempoFilter}${constLabel}`
+    )
+    segLabels.push(constLabel)
+  }
+
+  // Segment 2: ramp portion — approximate with discrete steps
+  if (tempoRegion.rampDuration > 0) {
+    const stepDuration = tempoRegion.rampDuration / RAMP_STEPS
+    for (let i = 0; i < RAMP_STEPS; i++) {
+      const segStart = rampStart + i * stepDuration
+      const segEnd = rampStart + (i + 1) * stepDuration
+      // Linear interpolation: rate → 1.0
+      const frac = (i + 0.5) / RAMP_STEPS
+      const stepRate = rate + (1.0 - rate) * frac
+
+      const label = `[tc${trackIndex}_r${i}]`
+      const tempoFilter = buildTempoFilter(stepRate, useRubberband)
+      filters.push(
+        `${sourceLabel}atrim=${segStart}:${segEnd},asetpts=PTS-STARTPTS,${tempoFilter}${label}`
+      )
+      segLabels.push(label)
+    }
+  }
+
+  // Segment 3: tail after tempo region (no tempo change)
+  if (tempoRegion.endTime < effectiveDuration) {
+    const tailLabel = `[tc${trackIndex}_tail]`
+    filters.push(
+      `${sourceLabel}atrim=${tempoRegion.endTime}:${effectiveDuration},asetpts=PTS-STARTPTS${tailLabel}`
+    )
+    segLabels.push(tailLabel)
+  }
+
+  // Concatenate all segments
+  if (segLabels.length > 1) {
+    filters.push(
+      `${segLabels.join('')}concat=n=${segLabels.length}:v=0:a=1${outputLabel}`
+    )
+  } else if (segLabels.length === 1) {
+    // Single segment — rename label
+    const lastFilter = filters[filters.length - 1]
+    filters[filters.length - 1] = lastFilter.replace(segLabels[0], outputLabel)
+  }
+
+  return filters
 }
 
 /** Convert decibels to linear gain (FFmpeg-safe). */

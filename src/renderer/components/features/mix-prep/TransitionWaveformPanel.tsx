@@ -5,8 +5,14 @@ import { TrimHandle } from '@/components/features/timeline/TrimHandle'
 import { EnergyOverlay } from './EnergyOverlay'
 import { SectionBands } from './SectionBands'
 import { VolumeEnvelopeEditor } from './VolumeEnvelopeEditor'
+import { CrossfadeOverlay } from './CrossfadeOverlay'
+import { TempoRegionOverlay } from './TempoRegionOverlay'
 import { RegionOverlay } from './RegionOverlay'
-import type { VolumePoint, AudioRegion } from '@shared/types/project.types'
+import type {
+  VolumePoint,
+  AudioRegion,
+  TempoRegion,
+} from '@shared/types/project.types'
 import { useTimelineStore } from '@/store/timelineStore'
 import { computeEnergyProfile } from '@shared/utils/energyAnalyzer'
 import type { Song } from '@shared/types/project.types'
@@ -46,6 +52,18 @@ interface TransitionWaveformPanelProps {
   onToggleRegion?: (regionId: string) => void
   /** Called when user right-clicks a region to delete it */
   onDeleteRegion?: (regionId: string) => void
+  /** Crossfade duration in seconds (for overlay visualization) */
+  crossfadeDuration?: number
+  /** Role for crossfade overlay positioning: 'outgoing' = right edge, 'incoming' = left edge */
+  crossfadeRole?: 'outgoing' | 'incoming'
+  /** Called when user clicks on the waveform to start playback from that time */
+  onWaveformClick?: (time: number) => void
+  /** Tempo adjustment rate (for overlay) */
+  tempoAdjustment?: number
+  /** Tempo region defining where adjustment applies */
+  tempoRegion?: TempoRegion
+  /** Called when user drags tempo region end handle */
+  onTempoRegionChange?: (region: TempoRegion) => void
 }
 
 /**
@@ -70,6 +88,12 @@ export function TransitionWaveformPanel({
   onAddRegion,
   onToggleRegion,
   onDeleteRegion,
+  crossfadeDuration,
+  crossfadeRole,
+  onWaveformClick,
+  tempoAdjustment,
+  tempoRegion,
+  onTempoRegionChange,
 }: TransitionWaveformPanelProps): JSX.Element {
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -119,6 +143,39 @@ export function TransitionWaveformPanel({
       initialTrimRef.current = song.trimStart ?? 0
     }
   }, [trimHandleSide, song.trimEnd, song.trimStart, duration])
+
+  const handleWaveformClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (!onWaveformClick || pixelsPerSecond <= 0 || showRegionEditor) return
+      // Only handle clicks on the waveform container itself or non-interactive overlays
+      const target = e.target as HTMLElement
+      if (target.tagName === 'CANVAS' && target.style.pointerEvents === 'auto')
+        return
+
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      // Account for px={1} padding (4px)
+      const x = e.clientX - rect.left - 4
+      if (x < 0 || x > waveformWidth) return
+      const clickTime = (x / waveformWidth) * duration
+
+      // Skip if click time falls inside an enabled (muted) region
+      const activeRegions = regions?.filter((r) => r.enabled) ?? []
+      for (const region of activeRegions) {
+        if (clickTime >= region.startTime && clickTime <= region.endTime) return
+      }
+
+      onWaveformClick(clickTime)
+    },
+    [
+      onWaveformClick,
+      pixelsPerSecond,
+      waveformWidth,
+      duration,
+      regions,
+      showRegionEditor,
+    ]
+  )
 
   const handleTrimDrag = useCallback(
     (deltaSeconds: number) => {
@@ -210,7 +267,13 @@ export function TransitionWaveformPanel({
         {isLoading || !peaks ? (
           <Skeleton height="100px" borderRadius="sm" />
         ) : containerWidth > 0 ? (
-          <Box position="relative">
+          <Box
+            position="relative"
+            onClick={handleWaveformClick}
+            cursor={
+              onWaveformClick && !showRegionEditor ? 'pointer' : undefined
+            }
+          >
             <WaveformCanvas
               songId={song.id}
               peaks={peaks.peaks}
@@ -242,6 +305,37 @@ export function TransitionWaveformPanel({
                 height={100}
               />
             )}
+
+            {/* Crossfade zone overlay */}
+            {crossfadeDuration != null &&
+              crossfadeDuration > 0 &&
+              crossfadeRole &&
+              duration > 0 && (
+                <CrossfadeOverlay
+                  crossfadeDuration={crossfadeDuration}
+                  trimStart={song.trimStart ?? 0}
+                  trimEnd={song.trimEnd ?? duration}
+                  duration={duration}
+                  width={containerWidth - 8}
+                  height={100}
+                  role={crossfadeRole}
+                />
+              )}
+
+            {/* Tempo region overlay */}
+            {tempoAdjustment != null &&
+              tempoAdjustment !== 1 &&
+              tempoRegion &&
+              duration > 0 && (
+                <TempoRegionOverlay
+                  tempoAdjustment={tempoAdjustment}
+                  tempoRegion={tempoRegion}
+                  duration={duration}
+                  width={containerWidth - 8}
+                  height={100}
+                  onRegionChange={onTempoRegionChange}
+                />
+              )}
 
             {/* Region editing overlay */}
             {(showRegionEditor || (regions && regions.length > 0)) &&

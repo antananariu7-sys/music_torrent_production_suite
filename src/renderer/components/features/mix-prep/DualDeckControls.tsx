@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { HStack, IconButton, Icon, Text, Spinner } from '@chakra-ui/react'
-import { FiPlay, FiSquare } from 'react-icons/fi'
+import { FiPlay, FiSquare, FiSkipForward } from 'react-icons/fi'
 import type { DualDeckReturn } from './hooks/useDualDeck'
 import type { Song } from '@shared/types/project.types'
 
@@ -26,6 +26,7 @@ export function DualDeckControls({
     loadDecks,
     playDeck,
     scheduleCrossfade,
+    playSequentialCrossfade,
     stopAll,
   } = dualDeck
 
@@ -66,6 +67,23 @@ export function DualDeckControls({
       leadSeconds: crossfadeStart - aStart,
       deckAStartOffset: aStart,
       deckBStartOffset: bStart,
+    })
+  }
+
+  const handlePlaySequential = () => {
+    const aDuration = outgoing.duration ?? deckA.duration
+    const crossfade = outgoing.crossfadeDuration ?? 8
+    const aStart = outgoing.trimStart ?? 0
+    const aEnd = outgoing.trimEnd ?? aDuration
+    const bStart = incoming.trimStart ?? 0
+    const bEnd = incoming.trimEnd ?? incoming.duration ?? deckB.duration
+    playSequentialCrossfade({
+      deckAStart: aStart,
+      deckAEnd: aEnd,
+      deckBStart: bStart,
+      deckBEnd: bEnd,
+      crossfadeDuration: Math.min(crossfade, aEnd - aStart),
+      curveType: outgoing.crossfadeCurveType ?? 'linear',
     })
   }
 
@@ -125,6 +143,21 @@ export function DualDeckControls({
       </IconButton>
       <Text fontSize="2xs" color="text.muted" w="36px" textAlign="center">
         A+B
+      </Text>
+
+      {/* Sequential A → B */}
+      <IconButton
+        aria-label="Play A then B with crossfade"
+        size="2xs"
+        variant="outline"
+        colorPalette="orange"
+        onClick={handlePlaySequential}
+        title="Play full A → crossfade → B"
+      >
+        <Icon as={FiSkipForward} boxSize={3} />
+      </IconButton>
+      <Text fontSize="2xs" color="text.muted" w="36px" textAlign="center">
+        A→B
       </Text>
 
       {/* Stop */}

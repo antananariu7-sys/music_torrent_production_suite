@@ -16,6 +16,7 @@ import { DualDeckControls } from './DualDeckControls'
 import { TransitionEQPanel } from './TransitionEQPanel'
 import { MixPointSuggestionCard } from './MixPointSuggestionCard'
 import { PairNavigationBar } from './PairNavigationBar'
+import { UndoRedoBar } from '@/components/common/UndoRedoBar'
 import { useTransitionData } from './hooks/useTransitionData'
 import { useDualDeck } from './hooks/useDualDeck'
 import { useTrimDrag } from '@/components/features/timeline/hooks/useTrimDrag'
@@ -23,11 +24,15 @@ import { useVolumeEnvelope } from './hooks/useVolumeEnvelope'
 import { useWaveformEditing } from './hooks/useWaveformEditing'
 import { useCrossfadePreview } from '@/hooks/useCrossfadePreview'
 import { WebAudioEngine } from '@/services/WebAudioEngine'
-import { suggestMixPoint } from './MixPointSuggester'
-import type { EnhancedMixPointSuggestion } from './MixPointSuggester'
+import { suggestMixPoint, scoreCrossfadeDuration } from './MixPointSuggester'
+import type {
+  CrossfadeScores,
+  TrackInfo,
+  SuggestOptions,
+} from './MixPointSuggester'
 import { useProjectStore } from '@/store/useProjectStore'
 import { toaster } from '@/components/ui/toaster'
-import type { Song } from '@shared/types/project.types'
+import type { Song, TempoRegion } from '@shared/types/project.types'
 import type { MixPointPreferences } from '@shared/types/app.types'
 import type { PairNavigation } from './hooks/usePairNavigation'
 
@@ -93,8 +98,12 @@ export function TransitionDetail({
   const [showEQ, setShowEQ] = useState(false)
   const [showVolume, setShowVolume] = useState(false)
   const [showRegionEdit, setShowRegionEdit] = useState(false)
-  const [suggestion, setSuggestion] =
-    useState<EnhancedMixPointSuggestion | null>(null)
+  const [suggestedDuration, setSuggestedDuration] = useState<number | null>(
+    null
+  )
+  const [currentDuration, setCurrentDuration] = useState(
+    outgoingTrack?.crossfadeDuration ?? 5
+  )
   const dualDeck = useDualDeck()
 
   // Volume envelope hooks for both tracks
@@ -145,6 +154,24 @@ export function TransitionDetail({
     engine.setDeckVolumeEnvelope('B', inVol.envelope, inVol.gainDb)
   }, [inVol.envelope, inVol.gainDb])
 
+  // ── Apply tempo region ramp when deck B plays ──────────────────────────────
+  useEffect(() => {
+    if (!incomingTrack?.tempoRegion || !incomingTrack?.tempoAdjustment) return
+    if (incomingTrack.tempoAdjustment === 1) return
+
+    const engine = WebAudioEngine.getInstance()
+    const unsub = engine.addEventListener((event) => {
+      if (event.deck === 'B' && event.type === 'play') {
+        engine.applyTempoRegionRamp(
+          'B',
+          incomingTrack.tempoRegion!,
+          incomingTrack.tempoAdjustment!
+        )
+      }
+    })
+    return unsub
+  }, [incomingTrack?.tempoRegion, incomingTrack?.tempoAdjustment])
+
   // ── Trim drag (reused from timeline) ──────────────────────────────────────
   const {
     previewTrims,
@@ -193,86 +220,145 @@ export function TransitionDetail({
   )
   const crossfadePreview = useCrossfadePreview(previewOptions)
 
+  // ── Scoring track info (memoized to avoid re-creating on every render) ─────
+  const outTrackInfo: TrackInfo | null = useMemo(() => {
+    if (!outgoing?.peaks || !outgoingTrack) return null
+    return {
+      duration: outgoing.peaks.duration ?? outgoingTrack.duration ?? 0,
+      peaks: outgoing.peaks.peaks,
+      energyProfile: outgoingTrack.energyProfile,
+      bpm: outgoingTrack.bpm,
+      firstBeatOffset: outgoingTrack.firstBeatOffset,
+      trimEnd: outgoingTrack.trimEnd,
+    }
+  }, [outgoing?.peaks, outgoingTrack])
+
+  const inTrackInfo: TrackInfo | null = useMemo(() => {
+    if (!incoming?.peaks || !incomingTrack) return null
+    return {
+      duration: incoming.peaks.duration ?? incomingTrack.duration ?? 0,
+      peaks: incoming.peaks.peaks,
+      energyProfile: incomingTrack.energyProfile,
+      bpm: incomingTrack.bpm,
+      firstBeatOffset: incomingTrack.firstBeatOffset,
+      trimStart: incomingTrack.trimStart,
+    }
+  }, [incoming?.peaks, incomingTrack])
+
+  const scoreOptions: SuggestOptions | undefined = useMemo(() => {
+    if (!outgoingTrack || !incomingTrack) return undefined
+    return {
+      outSections: outgoingTrack.sections,
+      inSections: incomingTrack.sections,
+      outKey: outgoingTrack.musicalKey,
+      inKey: incomingTrack.musicalKey,
+    }
+  }, [outgoingTrack, incomingTrack])
+
+  // Dynamic scores: recalculated whenever slider value changes
+  const currentScores: CrossfadeScores | null = useMemo(() => {
+    if (!outTrackInfo || !inTrackInfo || suggestedDuration === null) return null
+    return scoreCrossfadeDuration(
+      currentDuration,
+      outTrackInfo,
+      inTrackInfo,
+      scoreOptions
+    )
+  }, [
+    currentDuration,
+    outTrackInfo,
+    inTrackInfo,
+    scoreOptions,
+    suggestedDuration,
+  ])
+
+  // Reset suggestion when pair changes
+  useEffect(() => {
+    setSuggestedDuration(null)
+    setCurrentDuration(outgoingTrack?.crossfadeDuration ?? 5)
+  }, [outgoingTrack?.id, outgoingTrack?.crossfadeDuration])
+
+  const handleDurationChange = useCallback((d: number) => {
+    setCurrentDuration(d)
+  }, [])
+
   const handleSuggestMixPoint = useCallback(() => {
-    if (!outgoing?.peaks || !incoming?.peaks || !outgoingTrack) return
+    if (!outTrackInfo || !inTrackInfo) return
 
     setIsSuggesting(true)
     try {
-      const result = suggestMixPoint(
-        {
-          duration: outgoing.peaks.duration ?? outgoingTrack.duration ?? 0,
-          peaks: outgoing.peaks.peaks,
-          energyProfile: outgoingTrack.energyProfile,
-          bpm: outgoingTrack.bpm,
-          firstBeatOffset: outgoingTrack.firstBeatOffset,
-          trimEnd: outgoingTrack.trimEnd,
-        },
-        {
-          duration: incoming.peaks.duration ?? incomingTrack!.duration ?? 0,
-          peaks: incoming.peaks.peaks,
-          energyProfile: incomingTrack!.energyProfile,
-          bpm: incomingTrack!.bpm,
-          firstBeatOffset: incomingTrack!.firstBeatOffset,
-          trimStart: incomingTrack!.trimStart,
-        },
-        {
-          outSections: outgoingTrack.sections,
-          inSections: incomingTrack!.sections,
-          outKey: outgoingTrack.musicalKey,
-          inKey: incomingTrack!.musicalKey,
-        }
-      )
-      setSuggestion(result)
+      const result = suggestMixPoint(outTrackInfo, inTrackInfo, scoreOptions)
+      setSuggestedDuration(result.crossfadeDuration)
     } finally {
       setIsSuggesting(false)
     }
-  }, [outgoing, incoming, outgoingTrack, incomingTrack])
+  }, [outTrackInfo, inTrackInfo, scoreOptions])
 
-  const handleAcceptSuggestion = useCallback(async () => {
-    if (!suggestion || !outgoingTrack) return
+  const handleUseSuggested = useCallback(async () => {
+    if (suggestedDuration === null || !outgoingTrack) return
     const response = await window.api.mix.updateSong({
       projectId,
       songId: outgoingTrack.id,
-      updates: { crossfadeDuration: suggestion.crossfadeDuration },
+      updates: { crossfadeDuration: suggestedDuration },
     })
     if (response.success && response.data) {
       setCurrentProject(response.data)
       toaster.create({
-        title: `Crossfade set to ${suggestion.crossfadeDuration}s`,
-        description: suggestion.reason,
+        title: `Crossfade set to ${suggestedDuration}s`,
         type: 'success',
       })
     }
-    trackSuggestionFeedback('accept', suggestion.crossfadeDuration)
-    setSuggestion(null)
-  }, [suggestion, outgoingTrack, projectId, setCurrentProject])
+    trackSuggestionFeedback('accept', suggestedDuration)
+  }, [suggestedDuration, outgoingTrack, projectId, setCurrentProject])
 
-  const handleRejectSuggestion = useCallback(() => {
+  const handleDismissSuggestion = useCallback(() => {
     trackSuggestionFeedback('reject')
-    setSuggestion(null)
-  }, [])
-
-  const handleAdjustSuggestion = useCallback(() => {
-    setSuggestion(null)
+    setSuggestedDuration(null)
   }, [])
 
   // ── Tempo sync handlers ─────────────────────────────────────────────────────
+
+  /** Build a default tempo region for a song when tempo adjustment is applied. */
+  const buildDefaultTempoRegion = useCallback(
+    (song: Song): TempoRegion => {
+      const start = song.trimStart ?? 0
+      const end = song.trimEnd ?? song.duration ?? 0
+      const crossfade = outgoingTrack?.crossfadeDuration ?? 0
+      const rampDuration = Math.min(crossfade, end - start)
+      return {
+        startTime: start,
+        endTime: end - rampDuration,
+        rampDuration,
+        rampType: 'linear',
+      }
+    },
+    [outgoingTrack?.crossfadeDuration]
+  )
 
   const handleApplySync = useCallback(
     async (rate: number) => {
       dualDeck.setPlaybackRate('B', rate)
 
       if (!incomingTrack) return
+      // Auto-create tempo region if none exists
+      const tempoRegion =
+        incomingTrack.tempoRegion ?? buildDefaultTempoRegion(incomingTrack)
       const response = await window.api.mix.updateSong({
         projectId,
         songId: incomingTrack.id,
-        updates: { tempoAdjustment: rate },
+        updates: { tempoAdjustment: rate, tempoRegion },
       })
       if (response.success && response.data) {
         setCurrentProject(response.data)
       }
     },
-    [dualDeck, incomingTrack, projectId, setCurrentProject]
+    [
+      dualDeck,
+      incomingTrack,
+      projectId,
+      setCurrentProject,
+      buildDefaultTempoRegion,
+    ]
   )
 
   const handleResetSync = useCallback(async () => {
@@ -282,12 +368,27 @@ export function TransitionDetail({
     const response = await window.api.mix.updateSong({
       projectId,
       songId: incomingTrack.id,
-      updates: { tempoAdjustment: undefined },
+      updates: { tempoAdjustment: undefined, tempoRegion: undefined },
     })
     if (response.success && response.data) {
       setCurrentProject(response.data)
     }
   }, [dualDeck, incomingTrack, projectId, setCurrentProject])
+
+  const handleTempoRegionChange = useCallback(
+    async (region: TempoRegion) => {
+      if (!incomingTrack) return
+      const response = await window.api.mix.updateSong({
+        projectId,
+        songId: incomingTrack.id,
+        updates: { tempoRegion: region },
+      })
+      if (response.success && response.data) {
+        setCurrentProject(response.data)
+      }
+    },
+    [incomingTrack, projectId, setCurrentProject]
+  )
 
   // Restore persisted tempo adjustment when pair changes
   useEffect(() => {
@@ -399,6 +500,9 @@ export function TransitionDetail({
           onAddRegion={outRegions.addRegion}
           onToggleRegion={outRegions.toggleRegion}
           onDeleteRegion={outRegions.deleteRegion}
+          crossfadeDuration={outgoingTrack?.crossfadeDuration}
+          crossfadeRole="outgoing"
+          onWaveformClick={(time) => dualDeck.playDeck('A', time)}
         />
 
         {/* Comparison strip + crossfade controls + dual deck */}
@@ -418,17 +522,19 @@ export function TransitionDetail({
             isSuggesting={isSuggesting}
             canSuggest={!!outgoing.peaks && !!incoming.peaks}
             preview={crossfadePreview}
+            onDurationChange={handleDurationChange}
           />
-          {suggestion && (
+          {suggestedDuration !== null && currentScores && (
             <MixPointSuggestionCard
-              suggestion={suggestion}
+              scores={currentScores}
+              suggestedDuration={suggestedDuration}
               outBpm={outgoingTrack?.bpm}
-              onAccept={handleAcceptSuggestion}
-              onReject={handleRejectSuggestion}
-              onAdjust={handleAdjustSuggestion}
+              onUseSuggested={handleUseSuggested}
+              onDismiss={handleDismissSuggestion}
             />
           )}
           <HStack justify="center" gap={2}>
+            <UndoRedoBar showButtons />
             <DualDeckControls
               outgoing={outgoing.song}
               incoming={incoming.song}
@@ -579,6 +685,12 @@ export function TransitionDetail({
           onAddRegion={inRegions.addRegion}
           onToggleRegion={inRegions.toggleRegion}
           onDeleteRegion={inRegions.deleteRegion}
+          crossfadeDuration={outgoingTrack?.crossfadeDuration}
+          crossfadeRole="incoming"
+          onWaveformClick={(time) => dualDeck.playDeck('B', time)}
+          tempoAdjustment={incomingTrack?.tempoAdjustment}
+          tempoRegion={incomingTrack?.tempoRegion}
+          onTempoRegionChange={handleTempoRegionChange}
         />
       </VStack>
 

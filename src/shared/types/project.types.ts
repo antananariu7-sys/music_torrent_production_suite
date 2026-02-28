@@ -12,6 +12,18 @@ export interface VolumePoint {
   value: number
 }
 
+/** Defines the region where tempo adjustment is applied + ramp-back zone */
+export interface TempoRegion {
+  /** Region start in seconds from track start */
+  startTime: number
+  /** Region end in seconds — speed reaches original BPM here */
+  endTime: number
+  /** Duration of the ramp-back zone at the end (speed gradually returns to 1.0) */
+  rampDuration: number
+  /** Ramp type for speed transition */
+  rampType: 'linear'
+}
+
 /** A region of audio content marked for removal (non-destructive editing) */
 export interface AudioRegion {
   id: string
@@ -68,6 +80,7 @@ export interface Song {
   trimEnd?: number // Effective end time (derived from trim-end cue point)
   energyProfile?: number[] // Smoothed energy profile (0–1), ~200 points, computed from waveform peaks
   tempoAdjustment?: number // Playback rate multiplier for tempo matching (e.g. 1.015 = +1.5%). undefined = no adjustment
+  tempoRegion?: TempoRegion // Region where tempo adjustment applies + ramp-back to original speed
   sections?: TrackSection[] // Auto-detected structural sections (intro, drop, outro, etc.)
   gainDb?: number // Static gain offset in dB (e.g. -3.0). undefined = 0 dB (unity)
   volumeEnvelope?: VolumePoint[] // Volume automation breakpoints. undefined = flat at unity

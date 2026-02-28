@@ -7,7 +7,7 @@ import {
   IconButton,
   Spinner,
 } from '@chakra-ui/react'
-import { FiRefreshCw } from 'react-icons/fi'
+import { FiRefreshCw, FiPlay, FiSquare } from 'react-icons/fi'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
@@ -22,6 +22,7 @@ import {
 import { TrackDetailPanel } from '@/components/features/timeline/TrackDetailPanel'
 import { ZoomControls } from '@/components/features/timeline/ZoomControls'
 import { Minimap } from '@/components/features/timeline/Minimap'
+import { useFullMixPlayback } from '@/hooks/useFullMixPlayback'
 import { calculateTotalDuration } from '../../utils'
 
 export function TimelineTab(): JSX.Element {
@@ -42,6 +43,7 @@ export function TimelineTab(): JSX.Element {
       projectSongs ? [...projectSongs].sort((a, b) => a.order - b.order) : [],
     [projectSongs]
   )
+  const mixPlayback = useFullMixPlayback(songs)
   const totalDuration = useMemo(() => calculateTotalDuration(songs), [songs])
   const defaultCrossfade =
     currentProject?.mixMetadata?.exportConfig?.defaultCrossfadeDuration ?? 5
@@ -98,17 +100,48 @@ export function TimelineTab(): JSX.Element {
             {songs.length} {songs.length === 1 ? 'track' : 'tracks'}
           </Text>
         </HStack>
-        {songs.length > 0 && (
-          <IconButton
-            aria-label="Rebuild waveforms"
-            size="xs"
-            variant="ghost"
-            disabled={isLoading}
-            onClick={rebuildWaveforms}
-          >
-            <FiRefreshCw />
-          </IconButton>
-        )}
+        <HStack gap={2}>
+          {songs.length > 0 && (
+            <>
+              <IconButton
+                aria-label={
+                  mixPlayback.isPlaying ? 'Stop mix playback' : 'Play full mix'
+                }
+                size="xs"
+                variant={mixPlayback.isPlaying ? 'solid' : 'outline'}
+                colorPalette="orange"
+                disabled={mixPlayback.isLoading}
+                onClick={() =>
+                  mixPlayback.isPlaying
+                    ? mixPlayback.stop()
+                    : mixPlayback.play()
+                }
+                title={
+                  mixPlayback.isPlaying
+                    ? 'Stop mix playback'
+                    : 'Play full mix preview'
+                }
+              >
+                {mixPlayback.isLoading ? (
+                  <Spinner size="xs" />
+                ) : mixPlayback.isPlaying ? (
+                  <FiSquare />
+                ) : (
+                  <FiPlay />
+                )}
+              </IconButton>
+              <IconButton
+                aria-label="Rebuild waveforms"
+                size="xs"
+                variant="ghost"
+                disabled={isLoading}
+                onClick={rebuildWaveforms}
+              >
+                <FiRefreshCw />
+              </IconButton>
+            </>
+          )}
+        </HStack>
       </HStack>
 
       {/* Full-page loading overlay */}

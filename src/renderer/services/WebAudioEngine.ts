@@ -49,6 +49,8 @@ interface DeckChannel {
   regions: AudioRegion[] | null
   /** Extra source nodes when playing with regions (need to stop all on stopDeck) */
   extraSources: AudioBufferSourceNode[]
+  /** Kept segments schedule (set during region-aware playback for playhead mapping) */
+  keptSegments: Array<{ start: number; end: number }> | null
 }
 
 type EQBand = 'low' | 'mid' | 'high'
@@ -100,6 +102,21 @@ export interface CrossfadePlaybackInfo {
   fadeStartDelay: number
   /** Total preview duration */
   totalDuration: number
+}
+
+export interface SequentialCrossfadeOptions {
+  /** Buffer start offset for deck A (e.g. trimStart) */
+  deckAStart: number
+  /** Buffer end for deck A (e.g. trimEnd) */
+  deckAEnd: number
+  /** Buffer start offset for deck B (e.g. trimStart) */
+  deckBStart: number
+  /** Buffer end for deck B (e.g. trimEnd) — if omitted, plays to buffer end */
+  deckBEnd?: number
+  /** Crossfade duration in seconds */
+  crossfadeDuration: number
+  /** Crossfade curve type */
+  curveType: CrossfadeCurveType
 }
 
 /** Number of gain curve samples for setValueCurveAtTime */
@@ -255,6 +272,7 @@ export class WebAudioEngine {
     channel.eqHigh = eqHigh
     channel.contextStartTime = ctx.currentTime
     channel.bufferOffset = offset
+    channel.keptSegments = null
     channel.isPlaying = true
 
     // Apply stored volume envelope
@@ -335,6 +353,7 @@ export class WebAudioEngine {
     channel.eqHigh = eqHigh
     channel.contextStartTime = now
     channel.bufferOffset = keptSegments[0].start
+    channel.keptSegments = keptSegments
     channel.isPlaying = true
 
     // Auto-stop when last source ends
@@ -342,6 +361,7 @@ export class WebAudioEngine {
       channel.isPlaying = false
       channel.source = null
       channel.extraSources = []
+      channel.keptSegments = null
       this.emit({ deck, type: 'ended' })
     }
 
@@ -457,6 +477,7 @@ export class WebAudioEngine {
       channel.gainNode = null
     }
     channel.isPlaying = false
+    channel.keptSegments = null
   }
 
   // ── Playback rate ──────────────────────────────────────────────────────
@@ -474,6 +495,36 @@ export class WebAudioEngine {
     return this.decks[deck].playbackRate
   }
 
+  /**
+   * Apply a tempo region ramp to a playing deck's source node.
+   * Schedules playbackRate automation: constant rate until ramp zone,
+   * then linear ramp back to 1.0.
+   */
+  applyTempoRegionRamp(
+    deck: DeckId,
+    tempoRegion: { startTime: number; endTime: number; rampDuration: number },
+    playbackRate: number
+  ): void {
+    const channel = this.decks[deck]
+    if (!channel.source || !channel.isPlaying || !this.context) return
+
+    const rampStartTime = tempoRegion.endTime - tempoRegion.rampDuration
+    // Wall-clock time from playback start to ramp start
+    const bufferStart = channel.bufferOffset
+    const wallTimeToRampStart = (rampStartTime - bufferStart) / playbackRate
+    const wallRampDuration = tempoRegion.rampDuration / playbackRate
+
+    if (wallTimeToRampStart < 0 || wallRampDuration <= 0) return
+
+    const rampCtxStart = channel.contextStartTime + wallTimeToRampStart
+    const param = channel.source.playbackRate
+
+    // Hold constant rate until ramp
+    param.setValueAtTime(playbackRate, rampCtxStart)
+    // Linear ramp to 1.0 over the ramp duration
+    param.linearRampToValueAtTime(1.0, rampCtxStart + wallRampDuration)
+  }
+
   // ── Playhead & state queries ────────────────────────────────────────────
 
   getDeckTime(deck: DeckId): number {
@@ -485,11 +536,48 @@ export class WebAudioEngine {
       0,
       this.context.currentTime - channel.contextStartTime
     )
-    // Account for playback rate: audio advances faster/slower
+
+    // Region-aware playhead: map elapsed wall-clock time → buffer position
+    if (channel.keptSegments && channel.keptSegments.length > 0) {
+      return this.mapElapsedToBufferTime(
+        elapsed,
+        channel.keptSegments,
+        channel.playbackRate,
+        channel.duration
+      )
+    }
+
+    // Standard linear playhead
     return Math.min(
       channel.bufferOffset + elapsed * channel.playbackRate,
       channel.duration
     )
+  }
+
+  /**
+   * Map elapsed wall-clock time to buffer position using kept segments.
+   * Each segment plays for (end - start) / playbackRate wall-clock seconds.
+   * Walk through segments, consume elapsed time, return the buffer position.
+   */
+  private mapElapsedToBufferTime(
+    elapsed: number,
+    keptSegments: Array<{ start: number; end: number }>,
+    playbackRate: number,
+    totalDuration: number
+  ): number {
+    let remaining = elapsed
+    for (const seg of keptSegments) {
+      const segBufferDuration = seg.end - seg.start
+      const segWallDuration = segBufferDuration / playbackRate
+      if (remaining < segWallDuration) {
+        // Playhead is within this segment
+        return seg.start + remaining * playbackRate
+      }
+      remaining -= segWallDuration
+    }
+    // Past all segments — return end of last segment
+    const last = keptSegments[keptSegments.length - 1]
+    return Math.min(last.end, totalDuration)
   }
 
   getDeckDuration(deck: DeckId): number {
@@ -511,6 +599,11 @@ export class WebAudioEngine {
   /** Current AudioContext time (seconds). Returns 0 if no context exists. */
   getContextTime(): number {
     return this.context?.currentTime ?? 0
+  }
+
+  /** Get the AudioContext (creates one if needed, resumes if suspended). */
+  async getAudioContext(): Promise<AudioContext> {
+    return this.ensureContextResumed()
   }
 
   // ── Crossfade scheduling ──────────────────────────────────────────────
@@ -665,6 +758,181 @@ export class WebAudioEngine {
       startTime: now,
       deckAOffset: aOffset,
       deckBOffset: bOffset,
+      fadeStartDelay,
+      totalDuration,
+    }
+  }
+
+  // ── Sequential crossfade (A → B) ────────────────────────────────────────
+
+  /**
+   * Play deck A from start to end, then crossfade into deck B.
+   * A plays fully; B starts when A enters the crossfade zone.
+   * Returns timing info for playhead tracking.
+   */
+  playSequentialCrossfade(
+    options: SequentialCrossfadeOptions
+  ): CrossfadePlaybackInfo {
+    const {
+      deckAStart,
+      deckAEnd,
+      deckBStart,
+      deckBEnd,
+      crossfadeDuration,
+      curveType,
+    } = options
+
+    const deckA = this.decks.A
+    const deckB = this.decks.B
+    if (!deckA.buffer || !deckB.buffer) {
+      throw new Error(
+        '[WebAudioEngine] Both decks must be loaded for sequential crossfade'
+      )
+    }
+
+    this.stopDeckInternal('A')
+    this.stopDeckInternal('B')
+
+    const ctx = this.getContext()
+    const now = ctx.currentTime
+
+    const effectiveCrossfade = Math.min(
+      crossfadeDuration,
+      deckAEnd - deckAStart
+    )
+    const crossfadeZoneStart = deckAEnd - effectiveCrossfade
+    const fadeStartDelay =
+      (crossfadeZoneStart - deckAStart) / deckA.playbackRate
+
+    // A duration: full trimmed region
+    const aDuration = deckAEnd - deckAStart
+    // B duration: from trimStart to trimEnd (or buffer end)
+    const bEndTime = deckBEnd ?? deckB.buffer.duration
+    const bDuration = bEndTime - deckBStart
+
+    // ── Deck A ──
+    const sourceA = ctx.createBufferSource()
+    sourceA.buffer = deckA.buffer
+    sourceA.playbackRate.value = deckA.playbackRate
+    const volumeA = ctx.createGain()
+    volumeA.gain.value = 1.0
+    const gainA = ctx.createGain()
+    gainA.gain.value = this.masterVolume
+    const eqA = this.createEQChain(ctx, deckA.eqGains)
+    sourceA
+      .connect(eqA.eqLow)
+      .connect(eqA.eqMid)
+      .connect(eqA.eqHigh)
+      .connect(volumeA)
+      .connect(gainA)
+      .connect(ctx.destination)
+
+    // Fade-out curve on A at the crossfade zone
+    if (effectiveCrossfade > 0) {
+      const fadeOut = generateFadeOutCurve(curveType, CURVE_SAMPLES)
+      for (let i = 0; i < fadeOut.length; i++) fadeOut[i] *= this.masterVolume
+      gainA.gain.setValueCurveAtTime(
+        fadeOut,
+        now + fadeStartDelay,
+        effectiveCrossfade / deckA.playbackRate
+      )
+    }
+
+    // ── Deck B ──
+    const sourceB = ctx.createBufferSource()
+    sourceB.buffer = deckB.buffer
+    sourceB.playbackRate.value = deckB.playbackRate
+    const volumeB = ctx.createGain()
+    volumeB.gain.value = 1.0
+    const gainB = ctx.createGain()
+    gainB.gain.value = 0
+    const eqB = this.createEQChain(ctx, deckB.eqGains)
+    sourceB
+      .connect(eqB.eqLow)
+      .connect(eqB.eqMid)
+      .connect(eqB.eqHigh)
+      .connect(volumeB)
+      .connect(gainB)
+      .connect(ctx.destination)
+
+    // Fade-in curve on B
+    if (effectiveCrossfade > 0) {
+      const fadeIn = generateFadeInCurve(curveType, CURVE_SAMPLES)
+      for (let i = 0; i < fadeIn.length; i++) fadeIn[i] *= this.masterVolume
+      gainB.gain.setValueCurveAtTime(
+        fadeIn,
+        now + fadeStartDelay,
+        effectiveCrossfade / deckB.playbackRate
+      )
+    }
+
+    // ── Start sources ──
+    sourceA.start(now, deckAStart, aDuration / deckA.playbackRate)
+    sourceB.start(
+      now + fadeStartDelay,
+      deckBStart,
+      bDuration / deckB.playbackRate
+    )
+
+    // ── Update channel state ──
+    deckA.source = sourceA
+    deckA.gainNode = gainA
+    deckA.volumeNode = volumeA
+    deckA.eqLow = eqA.eqLow
+    deckA.eqMid = eqA.eqMid
+    deckA.eqHigh = eqA.eqHigh
+    deckA.contextStartTime = now
+    deckA.bufferOffset = deckAStart
+    deckA.keptSegments = null
+    deckA.isPlaying = true
+
+    deckB.source = sourceB
+    deckB.gainNode = gainB
+    deckB.volumeNode = volumeB
+    deckB.eqLow = eqB.eqLow
+    deckB.eqMid = eqB.eqMid
+    deckB.eqHigh = eqB.eqHigh
+    deckB.contextStartTime = now + fadeStartDelay
+    deckB.bufferOffset = deckBStart
+    deckB.keptSegments = null
+    deckB.isPlaying = true
+
+    // Apply volume envelopes
+    const aRealDuration = aDuration / deckA.playbackRate
+    this.applyStoredVolumeEnvelope(deckA, now, deckAStart, aRealDuration)
+    const bRealDuration = bDuration / deckB.playbackRate
+    this.applyStoredVolumeEnvelope(
+      deckB,
+      now + fadeStartDelay,
+      deckBStart,
+      bRealDuration
+    )
+
+    // Auto-stop on end
+    sourceA.onended = () => {
+      if (deckA.source === sourceA) {
+        deckA.isPlaying = false
+        deckA.source = null
+        this.emit({ deck: 'A', type: 'ended' })
+      }
+    }
+    sourceB.onended = () => {
+      if (deckB.source === sourceB) {
+        deckB.isPlaying = false
+        deckB.source = null
+        this.emit({ deck: 'B', type: 'ended' })
+      }
+    }
+
+    this.emit({ deck: 'A', type: 'play' })
+    this.emit({ deck: 'B', type: 'play' })
+
+    const totalDuration = fadeStartDelay + bDuration / deckB.playbackRate
+
+    return {
+      startTime: now,
+      deckAOffset: deckAStart,
+      deckBOffset: deckBStart,
       fadeStartDelay,
       totalDuration,
     }
@@ -879,6 +1147,7 @@ export class WebAudioEngine {
       volumeGainDb: 0,
       regions: null,
       extraSources: [],
+      keptSegments: null,
     }
   }
 }

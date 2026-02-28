@@ -1,35 +1,36 @@
 import { Box, HStack, VStack, Text, Button, Icon } from '@chakra-ui/react'
-import { FiCheck, FiX, FiSliders } from 'react-icons/fi'
-import type { EnhancedMixPointSuggestion } from './MixPointSuggester'
+import { FiX, FiZap } from 'react-icons/fi'
+import type { CrossfadeScores } from './MixPointSuggester'
 
 interface MixPointSuggestionCardProps {
-  suggestion: EnhancedMixPointSuggestion
+  /** Dynamic scores for the current slider value */
+  scores: CrossfadeScores
+  /** Algorithm's recommended duration */
+  suggestedDuration: number
   outBpm?: number
-  onAccept: () => void
-  onReject: () => void
-  onAdjust: () => void
+  /** Jump slider to suggested value */
+  onUseSuggested: () => void
+  /** Hide the card */
+  onDismiss: () => void
 }
 
 /**
- * Rich suggestion card showing scoring breakdown with accept/reject/adjust actions.
- * Replaces the simple toast notification for mix-point suggestions.
+ * Dynamic quality meter showing scoring breakdown for the current crossfade duration.
+ * Score bars update in real-time as the user drags the slider.
  */
 export function MixPointSuggestionCard({
-  suggestion,
+  scores,
+  suggestedDuration,
   outBpm,
-  onAccept,
-  onReject,
-  onAdjust,
+  onUseSuggested,
+  onDismiss,
 }: MixPointSuggestionCardProps): JSX.Element {
-  const durationLabel = formatDurationLabel(
-    suggestion.crossfadeDuration,
-    outBpm
-  )
+  const suggestedLabel = formatDurationLabel(suggestedDuration, outBpm)
 
   const overallScore =
-    suggestion.energyScore * 0.5 +
-    suggestion.phraseScore * 0.35 +
-    suggestion.keyScore * 0.15
+    scores.energyScore * 0.5 +
+    scores.phraseScore * 0.35 +
+    scores.keyScore * 0.15
 
   return (
     <Box
@@ -44,65 +45,52 @@ export function MixPointSuggestionCard({
         {/* Header */}
         <HStack justify="space-between">
           <Text fontSize="xs" fontWeight="semibold" color="text.primary">
-            Mix Point Suggestion
+            Mix Point Analysis
           </Text>
-          <Text fontSize="xs" color="text.muted">
-            {durationLabel}
-          </Text>
+          <Button
+            size="2xs"
+            variant="ghost"
+            onClick={onDismiss}
+            title="Dismiss"
+            minW="auto"
+            p={0}
+          >
+            <Icon as={FiX} boxSize={3} />
+          </Button>
         </HStack>
 
         {/* Score bars */}
         <VStack gap={1} align="stretch">
           <ScoreBar
             label="Energy"
-            score={suggestion.energyScore}
-            detail={getScoreDetail(suggestion.breakdown, 'Energy')}
+            score={scores.energyScore}
+            detail={getScoreDetail(scores.breakdown, 'Energy')}
           />
           <ScoreBar
             label="Phrase"
-            score={suggestion.phraseScore}
-            detail={getScoreDetail(suggestion.breakdown, 'Phrase')}
+            score={scores.phraseScore}
+            detail={getScoreDetail(scores.breakdown, 'Phrase')}
           />
           <ScoreBar
             label="Key"
-            score={suggestion.keyScore}
-            detail={getScoreDetail(suggestion.breakdown, 'Key')}
+            score={scores.keyScore}
+            detail={getScoreDetail(scores.breakdown, 'Key')}
           />
           <ScoreBar label="Overall" score={overallScore} bold />
         </VStack>
 
-        {/* Action buttons */}
-        <HStack justify="flex-end" gap={1}>
-          <Button
-            size="2xs"
-            variant="ghost"
-            colorPalette="red"
-            onClick={onReject}
-            title="Reject suggestion"
-          >
-            <Icon as={FiX} boxSize={3} />
-            Reject
-          </Button>
-          <Button
-            size="2xs"
-            variant="outline"
-            onClick={onAdjust}
-            title="Adjust crossfade manually"
-          >
-            <Icon as={FiSliders} boxSize={3} />
-            Adjust
-          </Button>
-          <Button
-            size="2xs"
-            variant="solid"
-            colorPalette="green"
-            onClick={onAccept}
-            title="Accept suggestion"
-          >
-            <Icon as={FiCheck} boxSize={3} />
-            Accept
-          </Button>
-        </HStack>
+        {/* Use Suggested button */}
+        <Button
+          size="2xs"
+          variant="solid"
+          colorPalette="green"
+          w="100%"
+          onClick={onUseSuggested}
+          title={`Set crossfade to ${suggestedLabel}`}
+        >
+          <Icon as={FiZap} boxSize={3} />
+          Use Suggested: {suggestedLabel}
+        </Button>
       </VStack>
     </Box>
   )
