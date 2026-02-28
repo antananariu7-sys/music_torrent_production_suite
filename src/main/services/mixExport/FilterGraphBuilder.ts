@@ -3,6 +3,7 @@ import type {
   MixExportMetadata,
 } from '@shared/types/mixExport.types'
 import type {
+  AudioRegion,
   CrossfadeCurveType,
   VolumePoint,
 } from '@shared/types/project.types'
@@ -18,6 +19,8 @@ export interface TrackInfo {
   gainDb?: number // static gain offset in dB
   volumeEnvelope?: VolumePoint[] // volume automation breakpoints
   effectiveDuration?: number // duration after trim (needed for volume expression)
+  regions?: AudioRegion[] // non-destructive edit regions (removed segments)
+  duration?: number // full track duration in seconds
 }
 
 /** Map CrossfadeCurveType to FFmpeg acrossfade curve parameters */
@@ -152,6 +155,60 @@ export function buildVolumeFilter(
 }
 
 /**
+ * Compute the kept (non-removed) segments of a track given trim boundaries and
+ * removed regions. Merges overlapping enabled regions, inverts to kept segments.
+ */
+export function computeKeptSegments(
+  trimStart: number | undefined,
+  trimEnd: number | undefined,
+  duration: number,
+  regions: AudioRegion[] | undefined
+): Array<{ start: number; end: number }> {
+  const effStart = trimStart ?? 0
+  const effEnd = trimEnd ?? duration
+
+  if (!regions || regions.length === 0) {
+    return [{ start: effStart, end: effEnd }]
+  }
+
+  // Sort and merge overlapping enabled regions
+  const enabled = regions
+    .filter((r) => r.enabled)
+    .sort((a, b) => a.startTime - b.startTime)
+
+  const merged: Array<{ start: number; end: number }> = []
+  for (const r of enabled) {
+    const last = merged[merged.length - 1]
+    if (last && r.startTime <= last.end) {
+      last.end = Math.max(last.end, r.endTime)
+    } else {
+      merged.push({ start: r.startTime, end: r.endTime })
+    }
+  }
+
+  // Invert: compute kept segments (gaps between removed regions)
+  const kept: Array<{ start: number; end: number }> = []
+  let cursor = effStart
+
+  for (const region of merged) {
+    const rStart = Math.max(region.start, effStart)
+    const rEnd = Math.min(region.end, effEnd)
+    if (rStart >= rEnd) continue
+
+    if (cursor < rStart) {
+      kept.push({ start: cursor, end: rStart })
+    }
+    cursor = Math.max(cursor, rEnd)
+  }
+
+  if (cursor < effEnd) {
+    kept.push({ start: cursor, end: effEnd })
+  }
+
+  return kept
+}
+
+/**
  * Build an FFmpeg complex filter graph for mixing tracks with loudness normalization
  * and crossfades.
  *
@@ -178,48 +235,130 @@ export function buildFilterGraph(
     const inputLabel = `[${track.index}:a]`
     const outputLabel = `[a${track.index}]`
 
-    // Build per-track filter chain: atrim (optional) → loudnorm or acopy
-    const chainParts: string[] = []
+    // Check if this track has regions that need multi-segment handling
+    const enabledRegions = track.regions?.filter((r) => r.enabled) ?? []
+    const hasRegions = enabledRegions.length > 0 && track.duration != null
 
-    // Trim filter (before normalization)
-    if (track.trimStart != null || track.trimEnd != null) {
-      let atrim = 'atrim='
-      const parts: string[] = []
-      if (track.trimStart != null) parts.push(`start=${track.trimStart}`)
-      if (track.trimEnd != null) parts.push(`end=${track.trimEnd}`)
-      atrim += parts.join(':')
-      chainParts.push(atrim, 'asetpts=PTS-STARTPTS')
-    }
-
-    // Tempo adjustment (after trim, before normalization)
-    if (track.tempoAdjustment != null && track.tempoAdjustment !== 1) {
-      const tempoFilter = buildTempoFilter(track.tempoAdjustment, useRubberband)
-      if (tempoFilter) chainParts.push(tempoFilter)
-    }
-
-    // Volume adjustment (after tempo, before normalization)
-    const volumeFilter = buildVolumeFilter(
-      track.gainDb,
-      track.volumeEnvelope,
-      track.effectiveDuration
-    )
-    if (volumeFilter) chainParts.push(volumeFilter)
-
-    // Normalization or passthrough
-    if (normalization && track.loudnorm) {
-      const ln = track.loudnorm
-      chainParts.push(
-        `loudnorm=I=-14:TP=-1:LRA=11` +
-          `:measured_I=${ln.input_i}:measured_TP=${ln.input_tp}` +
-          `:measured_LRA=${ln.input_lra}:measured_thresh=${ln.input_thresh}` +
-          `:linear=true`
+    if (hasRegions) {
+      // ── Multi-segment: atrim per kept segment → concat → shared chain ──
+      const keptSegments = computeKeptSegments(
+        track.trimStart,
+        track.trimEnd,
+        track.duration!,
+        track.regions
       )
-    } else {
-      chainParts.push('acopy')
-    }
 
-    filters.push(`${inputLabel}${chainParts.join(',')}${outputLabel}`)
-    trackLabels.push(outputLabel)
+      if (keptSegments.length === 0) {
+        // All audio removed — skip track (use silent placeholder)
+        filters.push(
+          `${inputLabel}atrim=0:0.001,asetpts=PTS-STARTPTS${outputLabel}`
+        )
+        trackLabels.push(outputLabel)
+        continue
+      }
+
+      // Create atrim + asetpts for each kept segment
+      const segLabels: string[] = []
+      for (let s = 0; s < keptSegments.length; s++) {
+        const seg = keptSegments[s]
+        const segLabel = `[seg${track.index}_${s}]`
+        filters.push(
+          `${inputLabel}atrim=start=${seg.start}:end=${seg.end},asetpts=PTS-STARTPTS${segLabel}`
+        )
+        segLabels.push(segLabel)
+      }
+
+      // Determine the source label for the shared chain
+      let sourceLabel: string
+      if (keptSegments.length > 1) {
+        const joinedLabel = `[joined${track.index}]`
+        filters.push(
+          `${segLabels.join('')}concat=n=${keptSegments.length}:v=0:a=1${joinedLabel}`
+        )
+        sourceLabel = joinedLabel
+      } else {
+        sourceLabel = segLabels[0]
+      }
+
+      // Build shared chain: tempo → volume → loudnorm/acopy
+      const sharedParts: string[] = []
+
+      if (track.tempoAdjustment != null && track.tempoAdjustment !== 1) {
+        const tempoFilter = buildTempoFilter(
+          track.tempoAdjustment,
+          useRubberband
+        )
+        if (tempoFilter) sharedParts.push(tempoFilter)
+      }
+
+      const volumeFilter = buildVolumeFilter(
+        track.gainDb,
+        track.volumeEnvelope,
+        track.effectiveDuration
+      )
+      if (volumeFilter) sharedParts.push(volumeFilter)
+
+      if (normalization && track.loudnorm) {
+        const ln = track.loudnorm
+        sharedParts.push(
+          `loudnorm=I=-14:TP=-1:LRA=11` +
+            `:measured_I=${ln.input_i}:measured_TP=${ln.input_tp}` +
+            `:measured_LRA=${ln.input_lra}:measured_thresh=${ln.input_thresh}` +
+            `:linear=true`
+        )
+      } else {
+        sharedParts.push('acopy')
+      }
+
+      filters.push(`${sourceLabel}${sharedParts.join(',')}${outputLabel}`)
+      trackLabels.push(outputLabel)
+    } else {
+      // ── Standard single-segment processing ──
+      const chainParts: string[] = []
+
+      // Trim filter (before normalization)
+      if (track.trimStart != null || track.trimEnd != null) {
+        let atrim = 'atrim='
+        const parts: string[] = []
+        if (track.trimStart != null) parts.push(`start=${track.trimStart}`)
+        if (track.trimEnd != null) parts.push(`end=${track.trimEnd}`)
+        atrim += parts.join(':')
+        chainParts.push(atrim, 'asetpts=PTS-STARTPTS')
+      }
+
+      // Tempo adjustment (after trim, before normalization)
+      if (track.tempoAdjustment != null && track.tempoAdjustment !== 1) {
+        const tempoFilter = buildTempoFilter(
+          track.tempoAdjustment,
+          useRubberband
+        )
+        if (tempoFilter) chainParts.push(tempoFilter)
+      }
+
+      // Volume adjustment (after tempo, before normalization)
+      const volumeFilter = buildVolumeFilter(
+        track.gainDb,
+        track.volumeEnvelope,
+        track.effectiveDuration
+      )
+      if (volumeFilter) chainParts.push(volumeFilter)
+
+      // Normalization or passthrough
+      if (normalization && track.loudnorm) {
+        const ln = track.loudnorm
+        chainParts.push(
+          `loudnorm=I=-14:TP=-1:LRA=11` +
+            `:measured_I=${ln.input_i}:measured_TP=${ln.input_tp}` +
+            `:measured_LRA=${ln.input_lra}:measured_thresh=${ln.input_thresh}` +
+            `:linear=true`
+        )
+      } else {
+        chainParts.push('acopy')
+      }
+
+      filters.push(`${inputLabel}${chainParts.join(',')}${outputLabel}`)
+      trackLabels.push(outputLabel)
+    }
   }
 
   // Step 2: Single track — no crossfade needed

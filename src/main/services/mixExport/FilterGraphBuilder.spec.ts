@@ -4,6 +4,7 @@ import {
   buildAtempoChain,
   buildTempoFilter,
   buildVolumeFilter,
+  computeKeptSegments,
   type TrackInfo,
 } from './FilterGraphBuilder'
 import type { LoudnormAnalysis } from '@shared/types/mixExport.types'
@@ -510,6 +511,171 @@ describe('buildVolumeFilter', () => {
     ]
     const graph = buildFilterGraph(tracks, true)
     expect(graph).not.toContain('volume=')
+  })
+})
+
+describe('computeKeptSegments', () => {
+  it('returns full range when no regions', () => {
+    const kept = computeKeptSegments(undefined, undefined, 120, undefined)
+    expect(kept).toEqual([{ start: 0, end: 120 }])
+  })
+
+  it('returns trimmed range when no regions', () => {
+    const kept = computeKeptSegments(10, 100, 120, [])
+    expect(kept).toEqual([{ start: 10, end: 100 }])
+  })
+
+  it('splits around a single region', () => {
+    const kept = computeKeptSegments(0, 120, 120, [
+      { id: 'r1', startTime: 30, endTime: 45, enabled: true },
+    ])
+    expect(kept).toEqual([
+      { start: 0, end: 30 },
+      { start: 45, end: 120 },
+    ])
+  })
+
+  it('splits around multiple regions', () => {
+    const kept = computeKeptSegments(0, 120, 120, [
+      { id: 'r1', startTime: 30, endTime: 45, enabled: true },
+      { id: 'r2', startTime: 90, endTime: 100, enabled: true },
+    ])
+    expect(kept).toEqual([
+      { start: 0, end: 30 },
+      { start: 45, end: 90 },
+      { start: 100, end: 120 },
+    ])
+  })
+
+  it('merges overlapping regions', () => {
+    const kept = computeKeptSegments(0, 120, 120, [
+      { id: 'r1', startTime: 30, endTime: 50, enabled: true },
+      { id: 'r2', startTime: 40, endTime: 60, enabled: true },
+    ])
+    expect(kept).toEqual([
+      { start: 0, end: 30 },
+      { start: 60, end: 120 },
+    ])
+  })
+
+  it('ignores disabled regions', () => {
+    const kept = computeKeptSegments(0, 120, 120, [
+      { id: 'r1', startTime: 30, endTime: 45, enabled: false },
+    ])
+    expect(kept).toEqual([{ start: 0, end: 120 }])
+  })
+
+  it('respects trim boundaries', () => {
+    const kept = computeKeptSegments(10, 100, 120, [
+      { id: 'r1', startTime: 50, endTime: 60, enabled: true },
+    ])
+    expect(kept).toEqual([
+      { start: 10, end: 50 },
+      { start: 60, end: 100 },
+    ])
+  })
+
+  it('handles region at track start', () => {
+    const kept = computeKeptSegments(0, 120, 120, [
+      { id: 'r1', startTime: 0, endTime: 20, enabled: true },
+    ])
+    expect(kept).toEqual([{ start: 20, end: 120 }])
+  })
+
+  it('handles region at track end', () => {
+    const kept = computeKeptSegments(0, 120, 120, [
+      { id: 'r1', startTime: 100, endTime: 120, enabled: true },
+    ])
+    expect(kept).toEqual([{ start: 0, end: 100 }])
+  })
+
+  it('returns empty when entire track is removed', () => {
+    const kept = computeKeptSegments(0, 120, 120, [
+      { id: 'r1', startTime: 0, endTime: 120, enabled: true },
+    ])
+    expect(kept).toEqual([])
+  })
+})
+
+describe('buildFilterGraph with regions', () => {
+  it('splits track into segments when regions are present', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        crossfadeDuration: 0,
+        regions: [{ id: 'r1', startTime: 30, endTime: 45, enabled: true }],
+        duration: 120,
+      },
+    ]
+    const graph = buildFilterGraph(tracks, false)
+    expect(graph).toContain('atrim=start=0:end=30')
+    expect(graph).toContain('atrim=start=45:end=120')
+    expect(graph).toContain('concat=n=2:v=0:a=1')
+  })
+
+  it('ignores disabled regions in filter graph', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        crossfadeDuration: 0,
+        regions: [{ id: 'r1', startTime: 30, endTime: 45, enabled: false }],
+        duration: 120,
+      },
+    ]
+    const graph = buildFilterGraph(tracks, false)
+    expect(graph).not.toContain('concat')
+    expect(graph).not.toContain('seg0')
+  })
+
+  it('handles multiple regions creating 3 segments', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        crossfadeDuration: 0,
+        regions: [
+          { id: 'r1', startTime: 30, endTime: 45, enabled: true },
+          { id: 'r2', startTime: 90, endTime: 100, enabled: true },
+        ],
+        duration: 120,
+      },
+    ]
+    const graph = buildFilterGraph(tracks, false)
+    expect(graph).toContain('concat=n=3:v=0:a=1')
+  })
+
+  it('applies shared chain (tempo, volume, loudnorm) after concat', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        loudnorm: mockLoudnorm,
+        crossfadeDuration: 0,
+        tempoAdjustment: 1.05,
+        gainDb: -3,
+        regions: [{ id: 'r1', startTime: 30, endTime: 45, enabled: true }],
+        duration: 120,
+      },
+    ]
+    const graph = buildFilterGraph(tracks, true)
+    // After concat, should have tempo → volume → loudnorm
+    expect(graph).toContain('atempo=1.05')
+    expect(graph).toContain('volume=')
+    expect(graph).toContain('loudnorm=')
+  })
+
+  it('combines regions with trim boundaries', () => {
+    const tracks: TrackInfo[] = [
+      {
+        index: 0,
+        crossfadeDuration: 0,
+        trimStart: 10,
+        trimEnd: 110,
+        regions: [{ id: 'r1', startTime: 50, endTime: 60, enabled: true }],
+        duration: 120,
+      },
+    ]
+    const graph = buildFilterGraph(tracks, false)
+    expect(graph).toContain('atrim=start=10:end=50')
+    expect(graph).toContain('atrim=start=60:end=110')
   })
 })
 

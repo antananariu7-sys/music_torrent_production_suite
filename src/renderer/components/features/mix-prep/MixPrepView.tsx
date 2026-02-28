@@ -104,6 +104,7 @@ export function MixPrepView({
             cuePoints: undefined,
             gainDb: undefined,
             volumeEnvelope: undefined,
+            regions: undefined,
           },
         })
         if (response.success && response.data) {

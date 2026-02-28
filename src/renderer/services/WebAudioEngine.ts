@@ -11,6 +11,7 @@
  */
 
 import type {
+  AudioRegion,
   CrossfadeCurveType,
   VolumePoint,
 } from '@shared/types/project.types'
@@ -44,6 +45,10 @@ interface DeckChannel {
   volumeEnvelope: VolumePoint[] | null
   /** Persisted static gain offset in dB */
   volumeGainDb: number
+  /** Active regions for this deck (removed segments to skip during playback) */
+  regions: AudioRegion[] | null
+  /** Extra source nodes when playing with regions (need to stop all on stopDeck) */
+  extraSources: AudioBufferSourceNode[]
 }
 
 type EQBand = 'low' | 'mid' | 'high'
@@ -199,7 +204,16 @@ export class WebAudioEngine {
     // Resume suspended context (browser autoplay policy)
     const ctx = await this.ensureContextResumed()
 
-    // Create source
+    // Check for active regions
+    const activeRegions = channel.regions?.filter((r) => r.enabled) ?? []
+
+    if (activeRegions.length > 0) {
+      // ── Region-aware playback: schedule multiple sources ──
+      await this.playDeckWithRegions(deck, startTime, activeRegions)
+      return
+    }
+
+    // ── Standard playback (no regions) ──
     const source = ctx.createBufferSource()
     source.buffer = channel.buffer
     source.playbackRate.value = channel.playbackRate
@@ -255,6 +269,133 @@ export class WebAudioEngine {
     this.emit({ deck, type: 'play' })
   }
 
+  /**
+   * Play a deck skipping over removed regions.
+   * Schedules multiple AudioBufferSourceNode.start() calls for kept segments.
+   */
+  private async playDeckWithRegions(
+    deck: DeckId,
+    startTime: number,
+    regions: AudioRegion[]
+  ): Promise<void> {
+    const channel = this.decks[deck]
+    if (!channel.buffer) return
+
+    const ctx = await this.ensureContextResumed()
+    const duration = channel.buffer.duration
+
+    // Compute kept segments (gaps between removed regions)
+    const keptSegments = this.computeKeptSegmentsForPlayback(
+      startTime,
+      duration,
+      regions
+    )
+    if (keptSegments.length === 0) return
+
+    // Create shared audio chain
+    const gainNode = ctx.createGain()
+    gainNode.gain.value = this.masterVolume
+    const volumeNode = ctx.createGain()
+    volumeNode.gain.value = 1.0
+    const { eqLow, eqMid, eqHigh } = this.createEQChain(ctx, channel.eqGains)
+    eqLow
+      .connect(eqMid)
+      .connect(eqHigh)
+      .connect(volumeNode)
+      .connect(gainNode)
+      .connect(ctx.destination)
+
+    // Schedule one source per kept segment
+    const now = ctx.currentTime
+    let scheduleTime = now
+    const sources: AudioBufferSourceNode[] = []
+
+    for (const seg of keptSegments) {
+      const source = ctx.createBufferSource()
+      source.buffer = channel.buffer
+      source.playbackRate.value = channel.playbackRate
+      source.connect(eqLow)
+
+      const segDuration = seg.end - seg.start
+      source.start(scheduleTime, seg.start, segDuration)
+      sources.push(source)
+      scheduleTime += segDuration / channel.playbackRate
+    }
+
+    // Track first source as the primary, rest as extras
+    const firstSource = sources[0]
+    const lastSource = sources[sources.length - 1]
+
+    channel.source = firstSource
+    channel.extraSources = sources.slice(1)
+    channel.gainNode = gainNode
+    channel.volumeNode = volumeNode
+    channel.eqLow = eqLow
+    channel.eqMid = eqMid
+    channel.eqHigh = eqHigh
+    channel.contextStartTime = now
+    channel.bufferOffset = keptSegments[0].start
+    channel.isPlaying = true
+
+    // Auto-stop when last source ends
+    lastSource.onended = () => {
+      channel.isPlaying = false
+      channel.source = null
+      channel.extraSources = []
+      this.emit({ deck, type: 'ended' })
+    }
+
+    // Apply stored volume envelope (approximate, using first segment offset)
+    const totalRealDuration = scheduleTime - now
+    this.applyStoredVolumeEnvelope(
+      channel,
+      now,
+      keptSegments[0].start,
+      totalRealDuration
+    )
+
+    this.emit({ deck, type: 'play' })
+  }
+
+  /**
+   * Compute kept segments from a given buffer start time, skipping removed regions.
+   * `startTime` is a position in the original audio buffer (e.g. trimStart),
+   * NOT a virtual offset into concatenated kept segments.
+   */
+  private computeKeptSegmentsForPlayback(
+    startTime: number,
+    duration: number,
+    regions: AudioRegion[]
+  ): Array<{ start: number; end: number }> {
+    const sorted = [...regions].sort((a, b) => a.startTime - b.startTime)
+
+    // Build full kept segments (gaps between removed regions)
+    const allKept: Array<{ start: number; end: number }> = []
+    let cursor = 0
+    for (const region of sorted) {
+      if (cursor < region.startTime) {
+        allKept.push({ start: cursor, end: region.startTime })
+      }
+      cursor = Math.max(cursor, region.endTime)
+    }
+    if (cursor < duration) {
+      allKept.push({ start: cursor, end: duration })
+    }
+
+    // Filter to segments at or after startTime (buffer time)
+    const result: Array<{ start: number; end: number }> = []
+    for (const seg of allKept) {
+      if (seg.end <= startTime) continue // entirely before start, skip
+      if (seg.start < startTime) {
+        // Partially before start — truncate
+        result.push({ start: startTime, end: seg.end })
+      } else {
+        result.push(seg)
+      }
+    }
+    return result
+  }
+
   async playBoth(startTimeA = 0, startTimeB = 0): Promise<void> {
     // Resume context once, then play both
     await this.ensureContextResumed()
@@ -285,6 +426,16 @@ export class WebAudioEngine {
       channel.source.disconnect()
       channel.source = null
     }
+    // Stop extra source nodes from region-aware playback
+    for (const src of channel.extraSources) {
+      try {
+        src.stop()
+      } catch {
+        /* already stopped */
+      }
+      src.disconnect()
+    }
+    channel.extraSources = []
     if (channel.eqLow) {
       channel.eqLow.disconnect()
       channel.eqLow = null
@@ -537,6 +688,14 @@ export class WebAudioEngine {
   }
 
   /**
+   * Store regions (removed segments) for a deck.
+   * Persists across stop/start cycles. Applied when playDeck() is called.
+   */
+  setDeckRegions(deck: DeckId, regions?: AudioRegion[] | null): void {
+    this.decks[deck].regions = regions ?? null
+  }
+
+  /**
    * Store volume envelope + gainDb for a deck.
    * Persists across stop/start cycles (like EQ).
    * Automatically applied when playDeck() or scheduleCrossfade() is called.
@@ -718,6 +877,8 @@ export class WebAudioEngine {
       eqGains: { low: 0, mid: 0, high: 0 },
       volumeEnvelope: null,
       volumeGainDb: 0,
+      regions: null,
+      extraSources: [],
     }
   }
 }

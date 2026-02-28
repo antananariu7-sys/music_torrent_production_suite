@@ -5,7 +5,8 @@ import { TrimHandle } from '@/components/features/timeline/TrimHandle'
 import { EnergyOverlay } from './EnergyOverlay'
 import { SectionBands } from './SectionBands'
 import { VolumeEnvelopeEditor } from './VolumeEnvelopeEditor'
-import type { VolumePoint } from '@shared/types/project.types'
+import { RegionOverlay } from './RegionOverlay'
+import type { VolumePoint, AudioRegion } from '@shared/types/project.types'
 import { useTimelineStore } from '@/store/timelineStore'
 import { computeEnergyProfile } from '@shared/utils/energyAnalyzer'
 import type { Song } from '@shared/types/project.types'
@@ -35,6 +36,16 @@ interface TransitionWaveformPanelProps {
   onVolumeEnvelopeChange?: (envelope: VolumePoint[]) => void
   /** Whether to show the interactive volume envelope editor */
   showVolumeEditor?: boolean
+  /** Non-destructive edit regions */
+  regions?: AudioRegion[]
+  /** Whether region editing mode is active */
+  showRegionEditor?: boolean
+  /** Called when user drags to create a new region */
+  onAddRegion?: (startTime: number, endTime: number) => void
+  /** Called when user clicks a region to toggle it */
+  onToggleRegion?: (regionId: string) => void
+  /** Called when user right-clicks a region to delete it */
+  onDeleteRegion?: (regionId: string) => void
 }
 
 /**
@@ -54,6 +65,11 @@ export function TransitionWaveformPanel({
   volumeEnvelope,
   onVolumeEnvelopeChange,
   showVolumeEditor,
+  regions,
+  showRegionEditor,
+  onAddRegion,
+  onToggleRegion,
+  onDeleteRegion,
 }: TransitionWaveformPanelProps): JSX.Element {
   const frequencyColorMode = useTimelineStore((s) => s.frequencyColorMode)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -226,6 +242,21 @@ export function TransitionWaveformPanel({
                 height={100}
               />
             )}
+
+            {/* Region editing overlay */}
+            {(showRegionEditor || (regions && regions.length > 0)) &&
+              duration > 0 && (
+                <RegionOverlay
+                  regions={regions ?? []}
+                  duration={duration}
+                  width={containerWidth - 8}
+                  height={100}
+                  isEditing={showRegionEditor ?? false}
+                  onAddRegion={onAddRegion}
+                  onToggleRegion={onToggleRegion}
+                  onDeleteRegion={onDeleteRegion}
+                />
+              )}
 
             {/* Volume envelope editor overlay */}
             {showVolumeEditor &&

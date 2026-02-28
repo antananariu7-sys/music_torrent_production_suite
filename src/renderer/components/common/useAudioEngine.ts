@@ -159,6 +159,9 @@ export function useAudioEngine() {
 
     if (isPlaying) {
       audioRef.current.play().catch((err) => {
+        // AbortError is expected when play() is interrupted by pause()
+        // (e.g., when dual-deck preview pauses the global player)
+        if (err instanceof DOMException && err.name === 'AbortError') return
         console.error('Failed to play audio:', err)
       })
     } else {

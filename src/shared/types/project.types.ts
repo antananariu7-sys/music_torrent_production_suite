@@ -12,6 +12,17 @@ export interface VolumePoint {
   value: number
 }
 
+/** A region of audio content marked for removal (non-destructive editing) */
+export interface AudioRegion {
+  id: string
+  /** Start time of the removed segment in seconds */
+  startTime: number
+  /** End time of the removed segment in seconds */
+  endTime: number
+  /** Whether this removal is active. false = region restored (non-destructive toggle) */
+  enabled: boolean
+}
+
 /**
  * Main project data structure
  */
@@ -60,6 +71,7 @@ export interface Song {
   sections?: TrackSection[] // Auto-detected structural sections (intro, drop, outro, etc.)
   gainDb?: number // Static gain offset in dB (e.g. -3.0). undefined = 0 dB (unity)
   volumeEnvelope?: VolumePoint[] // Volume automation breakpoints. undefined = flat at unity
+  regions?: AudioRegion[] // Non-destructive edit regions (segments marked for removal)
 }
 
 /**

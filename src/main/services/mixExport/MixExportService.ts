@@ -237,6 +237,8 @@ export class MixExportService {
         gainDb: song.gainDb,
         volumeEnvelope: song.volumeEnvelope,
         effectiveDuration,
+        regions: song.regions,
+        duration: song.duration,
       }
     })
 

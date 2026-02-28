@@ -8,7 +8,7 @@ import {
   Button,
   Input,
 } from '@chakra-ui/react'
-import { FiMusic, FiSliders, FiVolume2 } from 'react-icons/fi'
+import { FiMusic, FiSliders, FiVolume2, FiScissors } from 'react-icons/fi'
 import { TransitionWaveformPanel } from './TransitionWaveformPanel'
 import { ComparisonStrip } from './ComparisonStrip'
 import { TransitionCrossfadeControl } from './TransitionCrossfadeControl'
@@ -20,6 +20,7 @@ import { useTransitionData } from './hooks/useTransitionData'
 import { useDualDeck } from './hooks/useDualDeck'
 import { useTrimDrag } from '@/components/features/timeline/hooks/useTrimDrag'
 import { useVolumeEnvelope } from './hooks/useVolumeEnvelope'
+import { useWaveformEditing } from './hooks/useWaveformEditing'
 import { useCrossfadePreview } from '@/hooks/useCrossfadePreview'
 import { WebAudioEngine } from '@/services/WebAudioEngine'
 import { suggestMixPoint } from './MixPointSuggester'
@@ -91,6 +92,7 @@ export function TransitionDetail({
   const [isSuggesting, setIsSuggesting] = useState(false)
   const [showEQ, setShowEQ] = useState(false)
   const [showVolume, setShowVolume] = useState(false)
+  const [showRegionEdit, setShowRegionEdit] = useState(false)
   const [suggestion, setSuggestion] =
     useState<EnhancedMixPointSuggestion | null>(null)
   const dualDeck = useDualDeck()
@@ -108,6 +110,29 @@ export function TransitionDetail({
     initialEnvelope: incomingTrack?.volumeEnvelope,
     initialGainDb: incomingTrack?.gainDb,
   })
+
+  // Waveform editing hooks for both tracks
+  const outRegions = useWaveformEditing({
+    projectId,
+    songId: outgoingTrack?.id,
+    initialRegions: outgoingTrack?.regions,
+  })
+  const inRegions = useWaveformEditing({
+    projectId,
+    songId: incomingTrack?.id,
+    initialRegions: incomingTrack?.regions,
+  })
+
+  // ── Sync regions to the audio engine ──────────────────────────────────────
+  useEffect(() => {
+    const engine = WebAudioEngine.getInstance()
+    engine.setDeckRegions('A', outRegions.activeRegions)
+  }, [outRegions.activeRegions])
+
+  useEffect(() => {
+    const engine = WebAudioEngine.getInstance()
+    engine.setDeckRegions('B', inRegions.activeRegions)
+  }, [inRegions.activeRegions])
 
   // ── Sync volume envelopes to the audio engine ─────────────────────────────
   useEffect(() => {
@@ -369,6 +394,11 @@ export function TransitionDetail({
           showVolumeEditor={showVolume}
           volumeEnvelope={outVol.envelope}
           onVolumeEnvelopeChange={outVol.setEnvelope}
+          regions={outRegions.regions}
+          showRegionEditor={showRegionEdit}
+          onAddRegion={outRegions.addRegion}
+          onToggleRegion={outRegions.toggleRegion}
+          onDeleteRegion={outRegions.deleteRegion}
         />
 
         {/* Comparison strip + crossfade controls + dual deck */}
@@ -416,14 +446,51 @@ export function TransitionDetail({
             <Button
               size="2xs"
               variant={showVolume ? 'solid' : 'outline'}
-              onClick={() => setShowVolume((prev) => !prev)}
+              onClick={() => {
+                setShowVolume((prev) => !prev)
+                setShowRegionEdit(false)
+              }}
               title="Toggle volume envelope editor"
             >
               <Icon as={FiVolume2} boxSize={3} />
               Vol
             </Button>
+            <Button
+              size="2xs"
+              variant={showRegionEdit ? 'solid' : 'outline'}
+              onClick={() => {
+                setShowRegionEdit((prev) => !prev)
+                setShowVolume(false)
+              }}
+              title="Toggle waveform region editing"
+            >
+              <Icon as={FiScissors} boxSize={3} />
+              Edit
+            </Button>
           </HStack>
           {showEQ && <TransitionEQPanel />}
+          {showRegionEdit &&
+            (outRegions.regions.length > 0 || inRegions.regions.length > 0) && (
+              <HStack justify="center" gap={3} py={1}>
+                <Text fontSize="2xs" color="text.muted">
+                  A: {outRegions.regions.length} region
+                  {outRegions.regions.length !== 1 ? 's' : ''} | B:{' '}
+                  {inRegions.regions.length} region
+                  {inRegions.regions.length !== 1 ? 's' : ''}
+                </Text>
+                <Button
+                  size="2xs"
+                  variant="ghost"
+                  onClick={() => {
+                    outRegions.clearAllRegions()
+                    inRegions.clearAllRegions()
+                  }}
+                  title="Clear all regions on both tracks"
+                >
+                  Clear All
+                </Button>
+              </HStack>
+            )}
           {showVolume && (
             <HStack justify="center" gap={4} py={1}>
               <HStack gap={1}>
@@ -507,6 +574,11 @@ export function TransitionDetail({
           showVolumeEditor={showVolume}
           volumeEnvelope={inVol.envelope}
           onVolumeEnvelopeChange={inVol.setEnvelope}
+          regions={inRegions.regions}
+          showRegionEditor={showRegionEdit}
+          onAddRegion={inRegions.addRegion}
+          onToggleRegion={inRegions.toggleRegion}
+          onDeleteRegion={inRegions.deleteRegion}
         />
       </VStack>
 
