@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Flex, VStack, Text, Icon } from '@chakra-ui/react'
-import { FiMusic } from 'react-icons/fi'
+import { Flex, VStack, HStack, Text, Icon, Button } from '@chakra-ui/react'
+import { FiMusic, FiSliders } from 'react-icons/fi'
 import { TransitionWaveformPanel } from './TransitionWaveformPanel'
 import { ComparisonStrip } from './ComparisonStrip'
 import { TransitionCrossfadeControl } from './TransitionCrossfadeControl'
 import { DualDeckControls } from './DualDeckControls'
+import { TransitionEQPanel } from './TransitionEQPanel'
 import { PairNavigationBar } from './PairNavigationBar'
 import { useTransitionData } from './hooks/useTransitionData'
 import { useDualDeck } from './hooks/useDualDeck'
@@ -43,6 +44,7 @@ export function TransitionDetail({
   const { outgoing, incoming } = useTransitionData(outgoingTrack, incomingTrack)
   const setCurrentProject = useProjectStore((s) => s.setCurrentProject)
   const [isSuggesting, setIsSuggesting] = useState(false)
+  const [showEQ, setShowEQ] = useState(false)
   const dualDeck = useDualDeck()
 
   // ── Trim drag (reused from timeline) ──────────────────────────────────────
@@ -298,11 +300,23 @@ export function TransitionDetail({
             canSuggest={!!outgoing.peaks && !!incoming.peaks}
             preview={crossfadePreview}
           />
-          <DualDeckControls
-            outgoing={outgoing.song}
-            incoming={incoming.song}
-            dualDeck={dualDeck}
-          />
+          <HStack justify="center" gap={2}>
+            <DualDeckControls
+              outgoing={outgoing.song}
+              incoming={incoming.song}
+              dualDeck={dualDeck}
+            />
+            <Button
+              size="2xs"
+              variant={showEQ ? 'solid' : 'outline'}
+              onClick={() => setShowEQ((prev) => !prev)}
+              title="Toggle 3-band EQ"
+            >
+              <Icon as={FiSliders} boxSize={3} />
+              EQ
+            </Button>
+          </HStack>
+          {showEQ && <TransitionEQPanel />}
         </VStack>
 
         {/* Incoming waveform */}

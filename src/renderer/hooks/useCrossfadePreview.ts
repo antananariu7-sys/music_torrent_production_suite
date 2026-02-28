@@ -1,4 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
+import { WebAudioEngine } from '@/services/WebAudioEngine'
+import type { CrossfadePlaybackInfo } from '@/services/WebAudioEngine'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 import type { CrossfadeCurveType } from '@shared/types/project.types'
 
@@ -24,69 +26,11 @@ export interface CrossfadePreviewReturn {
 
 /** Lead-in/lead-out seconds around the crossfade zone */
 const LEAD_SECONDS = 5
-/** Number of gain curve samples for setValueCurveAtTime */
-const CURVE_SAMPLES = 128
 
-// ─── Gain curve generators ───────────────────────────────────────────
-
-export function generateFadeOutCurve(
-  type: CrossfadeCurveType,
-  samples: number
-): Float32Array {
-  const curve = new Float32Array(samples)
-  for (let i = 0; i < samples; i++) {
-    const t = i / (samples - 1)
-    switch (type) {
-      case 'linear':
-        curve[i] = 1 - t
-        break
-      case 'equal-power':
-        curve[i] = Math.cos(t * Math.PI * 0.5)
-        break
-      case 's-curve':
-        curve[i] = (1 + Math.cos(t * Math.PI)) / 2
-        break
-    }
-  }
-  return curve
-}
-
-export function generateFadeInCurve(
-  type: CrossfadeCurveType,
-  samples: number
-): Float32Array {
-  const curve = new Float32Array(samples)
-  for (let i = 0; i < samples; i++) {
-    const t = i / (samples - 1)
-    switch (type) {
-      case 'linear':
-        curve[i] = t
-        break
-      case 'equal-power':
-        curve[i] = Math.sin(t * Math.PI * 0.5)
-        break
-      case 's-curve':
-        curve[i] = (1 - Math.cos(t * Math.PI)) / 2
-        break
-    }
-  }
-  return curve
-}
-
-// ─── Audio loading ───────────────────────────────────────────────────
-
-async function fetchAndDecode(
-  ctx: AudioContext,
-  filePath: string
-): Promise<AudioBuffer> {
-  const url = `audio://play?path=${encodeURIComponent(filePath)}`
-  const response = await fetch(url)
-  const arrayBuffer = await response.arrayBuffer()
-  return ctx.decodeAudioData(arrayBuffer)
-}
-
-// ─── Hook ────────────────────────────────────────────────────────────
-
+/**
+ * Thin wrapper around WebAudioEngine.scheduleCrossfade().
+ * Manages loading state, playhead tracking via rAF, and auto-stop.
+ */
 export function useCrossfadePreview(
   options: CrossfadePreviewOptions | null
 ): CrossfadePreviewReturn {
@@ -95,222 +39,129 @@ export function useCrossfadePreview(
   const [trackATime, setTrackATime] = useState(0)
   const [trackBTime, setTrackBTime] = useState(0)
   const [trackBActive, setTrackBActive] = useState(false)
+
+  const rafRef = useRef<number>(0)
+  const infoRef = useRef<CrossfadePlaybackInfo | null>(null)
   const trackBActiveRef = useRef(false)
 
-  const ctxRef = useRef<AudioContext | null>(null)
-  const sourceARef = useRef<AudioBufferSourceNode | null>(null)
-  const sourceBRef = useRef<AudioBufferSourceNode | null>(null)
-  const rafRef = useRef<number>(0)
-  const playbackParamsRef = useRef<{
-    startTime: number
-    aOffset: number
-    fadeStartTime: number
-    bOffset: number
-  } | null>(null)
-  const cacheRef = useRef<{
-    pathA: string
-    pathB: string
-    bufferA: AudioBuffer
-    bufferB: AudioBuffer
-  } | null>(null)
+  const engine = WebAudioEngine.getInstance()
 
-  // rAF loop for smooth playhead updates
+  // ── rAF loop for smooth playhead updates ──────────────────────────────
+
   const updatePlayheads = useCallback(() => {
-    const ctx = ctxRef.current
-    const params = playbackParamsRef.current
-    if (!ctx || !params) return
+    const info = infoRef.current
+    if (!info) return
 
-    const elapsed = ctx.currentTime - params.startTime
-    setTrackATime(params.aOffset + elapsed)
+    const elapsed = engine.getContextTime() - info.startTime
+    setTrackATime(info.deckAOffset + elapsed)
 
-    if (elapsed >= params.fadeStartTime) {
+    if (elapsed >= info.fadeStartDelay) {
       if (!trackBActiveRef.current) {
         trackBActiveRef.current = true
         setTrackBActive(true)
       }
-      setTrackBTime(params.bOffset + (elapsed - params.fadeStartTime))
+      setTrackBTime(info.deckBOffset + (elapsed - info.fadeStartDelay))
     }
 
-    if (sourceARef.current || sourceBRef.current) {
+    if (engine.isAnyPlaying()) {
       rafRef.current = requestAnimationFrame(updatePlayheads)
     }
-  }, [])
+  }, [engine])
+
+  // ── Stop ───────────────────────────────────────────────────────────────
 
   const stop = useCallback(() => {
     cancelAnimationFrame(rafRef.current)
-    playbackParamsRef.current = null
-    try {
-      sourceARef.current?.stop()
-    } catch {
-      /* already stopped */
-    }
-    try {
-      sourceBRef.current?.stop()
-    } catch {
-      /* already stopped */
-    }
-    sourceARef.current?.disconnect()
-    sourceBRef.current?.disconnect()
-    sourceARef.current = null
-    sourceBRef.current = null
+    infoRef.current = null
+    engine.stopAll()
     setIsPlaying(false)
     trackBActiveRef.current = false
     setTrackBActive(false)
-  }, [])
+  }, [engine])
+
+  // ── Play ───────────────────────────────────────────────────────────────
 
   const play = useCallback(async () => {
     if (!options) return
-
     const { trackA, trackB, crossfadeDuration, curveType } = options
     if (!trackA.filePath || !trackB.filePath || crossfadeDuration <= 0) return
 
-    // Stop any existing preview
     stop()
-
     setIsLoading(true)
 
     try {
-      // Lazy-create AudioContext
-      if (!ctxRef.current || ctxRef.current.state === 'closed') {
-        ctxRef.current = new AudioContext()
-      }
-      const ctx = ctxRef.current
-
-      // Resume if suspended (browser autoplay policy)
-      if (ctx.state === 'suspended') {
-        await ctx.resume()
-      }
-
-      // Pause main audio player
+      // Pause main audio player to avoid overlap
       useAudioPlayerStore.getState().pause()
 
-      // Decode (use cache if same files)
-      let bufferA: AudioBuffer
-      let bufferB: AudioBuffer
+      // Load buffers via engine (uses cache)
+      await engine.loadDeck('A', trackA.filePath)
+      await engine.loadDeck('B', trackB.filePath)
 
-      if (
-        cacheRef.current &&
-        cacheRef.current.pathA === trackA.filePath &&
-        cacheRef.current.pathB === trackB.filePath
-      ) {
-        bufferA = cacheRef.current.bufferA
-        bufferB = cacheRef.current.bufferB
-      } else {
-        ;[bufferA, bufferB] = await Promise.all([
-          fetchAndDecode(ctx, trackA.filePath),
-          fetchAndDecode(ctx, trackB.filePath),
-        ])
-        cacheRef.current = {
-          pathA: trackA.filePath,
-          pathB: trackB.filePath,
-          bufferA,
-          bufferB,
-        }
-      }
-
-      // Compute playback window (clamp crossfade to track length)
+      // Compute start offsets
       const aEnd = trackA.trimEnd ?? trackA.duration
       const effectiveCrossfade = Math.min(crossfadeDuration, aEnd)
       if (effectiveCrossfade <= 0) return
       const crossfadeStart = aEnd - effectiveCrossfade
       const aOffset = Math.max(0, crossfadeStart - LEAD_SECONDS)
-      const aDuration = aEnd - aOffset
+      const bOffset = trackB.trimStart ?? 0
 
-      const bTrimStart = trackB.trimStart ?? 0
-      const bOffset = bTrimStart
-      const bDuration = effectiveCrossfade + LEAD_SECONDS
+      // Schedule crossfade via engine
+      const info = engine.scheduleCrossfade({
+        crossfadeDuration: effectiveCrossfade,
+        curveType,
+        leadSeconds: crossfadeStart - aOffset,
+        deckAStartOffset: aOffset,
+        deckBStartOffset: bOffset,
+      })
 
-      // Time within the preview when the crossfade zone begins
-      const fadeStartTime = crossfadeStart - aOffset
-
-      // Create source + gain for track A
-      const sourceA = ctx.createBufferSource()
-      sourceA.buffer = bufferA
-      const gainA = ctx.createGain()
-      gainA.gain.value = 1
-      sourceA.connect(gainA).connect(ctx.destination)
-
-      // Create source + gain for track B
-      const sourceB = ctx.createBufferSource()
-      sourceB.buffer = bufferB
-      const gainB = ctx.createGain()
-      gainB.gain.value = 0
-      sourceB.connect(gainB).connect(ctx.destination)
-
-      // Schedule gain automation
-      const fadeOut = generateFadeOutCurve(curveType, CURVE_SAMPLES)
-      const fadeIn = generateFadeInCurve(curveType, CURVE_SAMPLES)
-
-      const now = ctx.currentTime
-      gainA.gain.setValueCurveAtTime(
-        fadeOut,
-        now + fadeStartTime,
-        effectiveCrossfade
-      )
-      gainB.gain.setValueCurveAtTime(
-        fadeIn,
-        now + fadeStartTime,
-        effectiveCrossfade
-      )
-
-      // Start sources
-      sourceA.start(now, aOffset, aDuration)
-      sourceB.start(now + fadeStartTime, bOffset, bDuration)
-
-      sourceARef.current = sourceA
-      sourceBRef.current = sourceB
-
-      // Store scheduling params for rAF playhead tracking
-      playbackParamsRef.current = {
-        startTime: now,
-        aOffset,
-        fadeStartTime,
-        bOffset,
-      }
-
+      infoRef.current = info
+      setTrackATime(info.deckAOffset)
+      setTrackBTime(info.deckBOffset)
       setIsPlaying(true)
       setIsLoading(false)
 
       // Start playhead update loop
       rafRef.current = requestAnimationFrame(updatePlayheads)
 
-      // Auto-stop when both sources finish
-      const totalDuration = fadeStartTime + effectiveCrossfade + LEAD_SECONDS
-      sourceB.onended = () => {
-        cancelAnimationFrame(rafRef.current)
-        playbackParamsRef.current = null
-        setIsPlaying(false)
-        trackBActiveRef.current = false
-        setTrackBActive(false)
-        sourceARef.current = null
-        sourceBRef.current = null
-      }
       // Fallback timeout in case onended doesn't fire
       setTimeout(
         () => {
-          if (sourceARef.current === sourceA) {
+          if (infoRef.current === info) {
             stop()
           }
         },
-        (totalDuration + 1) * 1000
+        (info.totalDuration + 1) * 1000
       )
     } catch (error) {
       console.error('[CrossfadePreview] Failed:', error)
       setIsLoading(false)
       setIsPlaying(false)
     }
-  }, [options, stop, updatePlayheads])
+  }, [options, stop, engine, updatePlayheads])
 
-  // Cleanup on unmount
+  // ── Listen for engine stop/ended events ────────────────────────────────
+
+  useEffect(() => {
+    const unsubscribe = engine.addEventListener((event) => {
+      if (event.type === 'ended' && !engine.isAnyPlaying() && infoRef.current) {
+        cancelAnimationFrame(rafRef.current)
+        infoRef.current = null
+        setIsPlaying(false)
+        trackBActiveRef.current = false
+        setTrackBActive(false)
+      }
+    })
+    return unsubscribe
+  }, [engine])
+
+  // ── Cleanup on unmount ─────────────────────────────────────────────────
+
   useEffect(() => {
     return () => {
-      stop()
-      if (ctxRef.current && ctxRef.current.state !== 'closed') {
-        ctxRef.current.close()
-      }
-      cacheRef.current = null
+      cancelAnimationFrame(rafRef.current)
+      // Don't call stopAll — other hooks may be using the engine
     }
-  }, [stop])
+  }, [])
 
   return {
     isLoading,

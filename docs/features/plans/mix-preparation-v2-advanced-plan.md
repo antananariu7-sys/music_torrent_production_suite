@@ -122,6 +122,20 @@ Move from `useCrossfadePreview.ts`. Both `WebAudioEngine` and future volume auto
 - [ ] All existing crossfade preview functionality preserved (lead-in/out, curve types, auto-stop)
 - [ ] No regression in dual-deck playback (Play A / Play B / Play Both)
 
+### Code size note
+
+`WebAudioEngine.ts` is currently **318 lines**. Phases 6, 8, and 11 all add methods to it:
+
+- Phase 6: `scheduleCrossfade()` (~60–80 lines)
+- Phase 8: EQ nodes + `setDeckEQ()`/`getDeckEQ()`/`resetDeckEQ()` (~80–100 lines)
+- Phase 11: `scheduleVolumeEnvelope()` (~30–40 lines)
+
+**Projected: ~490–530 lines** — at the critical threshold (>500). To prevent this:
+
+- Phase 6c already extracts curve utilities to `audioCurves.ts` (good).
+- Phase 8 should extract EQ filter management into a `DeckEQManager` class (~100 lines) in `src/renderer/services/DeckEQManager.ts`. `WebAudioEngine` delegates to it, keeping the engine under 400 lines.
+- Alternative: extract the crossfade scheduling into a `CrossfadeScheduler` class if EQ extraction alone isn't enough.
+
 ---
 
 ## Phase 7 — Auto Section Detection & Labels
@@ -269,6 +283,10 @@ Same as KeyDetector:
 - [ ] Batch detection with progress reporting
 - [ ] Disk caching with hash invalidation
 - [ ] Graceful fallback when detection fails or produces low-confidence results
+
+### Code size note
+
+`TransitionWaveformPanel.tsx` is currently **371 lines** (approaching the 400-line warning zone). Phase 7 adds a `SectionBands` overlay and Phase 11 adds `VolumeEnvelopeEditor`. While these are separate components, the conditional rendering + props threading will push this file further. If it exceeds 400 lines during Phase 7, extract the trim/cue-point overlay logic into a `TrackAnnotationOverlays` component.
 
 ---
 
@@ -567,17 +585,12 @@ Adjust → opens crossfade control pre-filled with suggestion.
 
 - v2 Phase 3 (Actionable Tempo Sync) — `Song.tempoAdjustment` field exists
 
-### New files
-
-| File                                                | Purpose                                                                        |
-| --------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `src/main/services/mixExport/FilterGraphBuilder.ts` | Extract filter graph building from MixExportService (if not already extracted) |
-
 ### Changes to existing files
 
-| File                                              | Change                                                                 |
-| ------------------------------------------------- | ---------------------------------------------------------------------- |
-| `src/main/services/mixExport/MixExportService.ts` | Add `atempo` or `rubberband` filter when `song.tempoAdjustment` is set |
+| File                                                | Change                                                                                         |
+| --------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `src/main/services/mixExport/FilterGraphBuilder.ts` | Add `atempo` or `rubberband` filter to per-track chain when `song.tempoAdjustment` is set      |
+| `src/main/services/mixExport/MixExportService.ts`   | Pass `tempoAdjustment` through to filter graph builder; check rubberband availability at start |
 
 ### Step-by-step
 

@@ -19,8 +19,15 @@ export function DualDeckControls({
   incoming,
   dualDeck,
 }: DualDeckControlsProps): JSX.Element {
-  const { deckA, deckB, isLoading, loadDecks, playDeck, playBoth, stopAll } =
-    dualDeck
+  const {
+    deckA,
+    deckB,
+    isLoading,
+    loadDecks,
+    playDeck,
+    scheduleCrossfade,
+    stopAll,
+  } = dualDeck
 
   const isAnythingPlaying = deckA.isPlaying || deckB.isPlaying
 
@@ -45,12 +52,21 @@ export function DualDeckControls({
   }
 
   const handlePlayBoth = () => {
-    // Play A from near the end (crossfade zone), B from its trim start
+    // Play both with crossfade gain automation (matches crossfade preview)
     const aDuration = outgoing.duration ?? deckA.duration
     const crossfade = outgoing.crossfadeDuration ?? 8
-    const aStart = Math.max(0, (outgoing.trimEnd ?? aDuration) - crossfade - 5)
+    const aEnd = outgoing.trimEnd ?? aDuration
+    const effectiveCrossfade = Math.min(crossfade, aEnd)
+    const crossfadeStart = aEnd - effectiveCrossfade
+    const aStart = Math.max(0, crossfadeStart - 5)
     const bStart = incoming.trimStart ?? 0
-    playBoth(aStart, bStart)
+    scheduleCrossfade({
+      crossfadeDuration: effectiveCrossfade,
+      curveType: outgoing.crossfadeCurveType ?? 'linear',
+      leadSeconds: crossfadeStart - aStart,
+      deckAStartOffset: aStart,
+      deckBStartOffset: bStart,
+    })
   }
 
   if (isLoading) {

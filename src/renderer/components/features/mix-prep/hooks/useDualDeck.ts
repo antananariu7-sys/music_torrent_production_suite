@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { WebAudioEngine } from '@/services/WebAudioEngine'
+import type { CrossfadeScheduleOptions } from '@/services/WebAudioEngine'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
 
 type DeckId = 'A' | 'B'
@@ -17,8 +18,10 @@ interface DualDeckActions {
   loadDecks: (filePathA: string, filePathB: string) => Promise<void>
   /** Play a single deck from optional start time */
   playDeck: (deck: DeckId, startTime?: number) => Promise<void>
-  /** Play both decks simultaneously */
+  /** Play both decks simultaneously (no crossfade curves) */
   playBoth: (startTimeA?: number, startTimeB?: number) => Promise<void>
+  /** Play both decks with crossfade gain automation */
+  scheduleCrossfade: (options: CrossfadeScheduleOptions) => void
   /** Stop a single deck */
   stopDeck: (deck: DeckId) => void
   /** Stop all playback */
@@ -160,6 +163,14 @@ export function useDualDeck(): DualDeckReturn {
     [engine]
   )
 
+  const scheduleCrossfade = useCallback(
+    (options: CrossfadeScheduleOptions) => {
+      useAudioPlayerStore.getState().pause()
+      engine.scheduleCrossfade(options)
+    },
+    [engine]
+  )
+
   const stopDeck = useCallback(
     (deck: DeckId) => {
       engine.stopDeck(deck)
@@ -193,6 +204,7 @@ export function useDualDeck(): DualDeckReturn {
     loadDecks,
     playDeck,
     playBoth,
+    scheduleCrossfade,
     stopDeck,
     stopAll,
     setPlaybackRate,

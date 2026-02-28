@@ -10,12 +10,19 @@
  *   engine.playDeck('A')
  */
 
+import type { CrossfadeCurveType } from '@shared/types/project.types'
+import { generateFadeInCurve, generateFadeOutCurve } from './audioCurves'
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface DeckChannel {
   buffer: AudioBuffer | null
   source: AudioBufferSourceNode | null
   gainNode: GainNode | null
+  /** 3-band EQ filter nodes (transient, created per playback) */
+  eqLow: BiquadFilterNode | null
+  eqMid: BiquadFilterNode | null
+  eqHigh: BiquadFilterNode | null
   /** AudioContext.currentTime when playback started */
   contextStartTime: number
   /** Offset into the buffer when playback started */
@@ -25,7 +32,28 @@ interface DeckChannel {
   duration: number
   /** Playback rate (1.0 = normal speed) */
   playbackRate: number
+  /** Persisted EQ gain values (dB), survive stop/start cycles */
+  eqGains: { low: number; mid: number; high: number }
 }
+
+type EQBand = 'low' | 'mid' | 'high'
+
+export interface DeckEQState {
+  low: number
+  mid: number
+  high: number
+}
+
+/** EQ band configuration */
+const EQ_CONFIG = {
+  low: { type: 'lowshelf' as BiquadFilterType, frequency: 250, Q: 0.7 },
+  mid: { type: 'peaking' as BiquadFilterType, frequency: 1000, Q: 1.0 },
+  high: { type: 'highshelf' as BiquadFilterType, frequency: 4000, Q: 0.7 },
+} as const
+
+/** EQ gain range in dB */
+const EQ_MIN_DB = -12
+const EQ_MAX_DB = 12
 
 type DeckId = 'A' | 'B'
 
@@ -37,6 +65,30 @@ interface DeckEvent {
 }
 
 type DeckEventListener = (event: DeckEvent) => void
+
+export interface CrossfadeScheduleOptions {
+  crossfadeDuration: number
+  curveType: CrossfadeCurveType
+  leadSeconds?: number
+  deckAStartOffset: number
+  deckBStartOffset: number
+}
+
+export interface CrossfadePlaybackInfo {
+  /** AudioContext.currentTime when playback started */
+  startTime: number
+  /** Buffer offset for deck A */
+  deckAOffset: number
+  /** Buffer offset for deck B */
+  deckBOffset: number
+  /** Seconds from start until crossfade begins (and B starts) */
+  fadeStartDelay: number
+  /** Total preview duration */
+  totalDuration: number
+}
+
+/** Number of gain curve samples for setValueCurveAtTime */
+const CURVE_SAMPLES = 128
 
 // ─── Engine ─────────────────────────────────────────────────────────────────
 
@@ -145,7 +197,15 @@ export class WebAudioEngine {
     // Create gain
     const gainNode = ctx.createGain()
     gainNode.gain.value = this.masterVolume
-    source.connect(gainNode).connect(ctx.destination)
+
+    // Create EQ chain: source → eqLow → eqMid → eqHigh → gainNode → destination
+    const { eqLow, eqMid, eqHigh } = this.createEQChain(ctx, channel.eqGains)
+    source
+      .connect(eqLow)
+      .connect(eqMid)
+      .connect(eqHigh)
+      .connect(gainNode)
+      .connect(ctx.destination)
 
     // Handle natural end
     source.onended = () => {
@@ -162,6 +222,9 @@ export class WebAudioEngine {
 
     channel.source = source
     channel.gainNode = gainNode
+    channel.eqLow = eqLow
+    channel.eqMid = eqMid
+    channel.eqHigh = eqHigh
     channel.contextStartTime = ctx.currentTime
     channel.bufferOffset = offset
     channel.isPlaying = true
@@ -199,6 +262,18 @@ export class WebAudioEngine {
       channel.source.disconnect()
       channel.source = null
     }
+    if (channel.eqLow) {
+      channel.eqLow.disconnect()
+      channel.eqLow = null
+    }
+    if (channel.eqMid) {
+      channel.eqMid.disconnect()
+      channel.eqMid = null
+    }
+    if (channel.eqHigh) {
+      channel.eqHigh.disconnect()
+      channel.eqHigh = null
+    }
     if (channel.gainNode) {
       channel.gainNode.disconnect()
       channel.gainNode = null
@@ -227,7 +302,11 @@ export class WebAudioEngine {
     const channel = this.decks[deck]
     if (!channel.isPlaying || !this.context) return channel.bufferOffset
 
-    const elapsed = this.context.currentTime - channel.contextStartTime
+    // Clamp to 0 — elapsed can be negative for scheduled-start sources
+    const elapsed = Math.max(
+      0,
+      this.context.currentTime - channel.contextStartTime
+    )
     // Account for playback rate: audio advances faster/slower
     return Math.min(
       channel.bufferOffset + elapsed * channel.playbackRate,
@@ -249,6 +328,149 @@ export class WebAudioEngine {
 
   isAnyPlaying(): boolean {
     return this.decks.A.isPlaying || this.decks.B.isPlaying
+  }
+
+  /** Current AudioContext time (seconds). Returns 0 if no context exists. */
+  getContextTime(): number {
+    return this.context?.currentTime ?? 0
+  }
+
+  // ── Crossfade scheduling ──────────────────────────────────────────────
+
+  /**
+   * Schedule a crossfade preview between deck A and deck B.
+   * Both decks must already have buffers loaded via loadDeck().
+   * Returns timing info for playhead tracking in the UI layer.
+   */
+  scheduleCrossfade(options: CrossfadeScheduleOptions): CrossfadePlaybackInfo {
+    const {
+      crossfadeDuration,
+      curveType,
+      leadSeconds = 5,
+      deckAStartOffset,
+      deckBStartOffset,
+    } = options
+
+    const deckA = this.decks.A
+    const deckB = this.decks.B
+    if (!deckA.buffer || !deckB.buffer) {
+      throw new Error(
+        '[WebAudioEngine] Both decks must be loaded before scheduling crossfade'
+      )
+    }
+
+    // Stop any existing playback
+    this.stopDeckInternal('A')
+    this.stopDeckInternal('B')
+
+    const ctx = this.getContext()
+    const now = ctx.currentTime
+
+    // Compute timing
+    const aOffset = deckAStartOffset
+    const bOffset = deckBStartOffset
+    const fadeStartDelay = leadSeconds
+    const aDuration = fadeStartDelay + crossfadeDuration
+    const bDuration = crossfadeDuration + leadSeconds
+
+    // ── Deck A: source → EQ → gain → destination ──
+    const sourceA = ctx.createBufferSource()
+    sourceA.buffer = deckA.buffer
+    sourceA.playbackRate.value = deckA.playbackRate
+    const gainA = ctx.createGain()
+    gainA.gain.value = this.masterVolume
+    const eqA = this.createEQChain(ctx, deckA.eqGains)
+    sourceA
+      .connect(eqA.eqLow)
+      .connect(eqA.eqMid)
+      .connect(eqA.eqHigh)
+      .connect(gainA)
+      .connect(ctx.destination)
+
+    // Schedule fade-out on A
+    const fadeOut = generateFadeOutCurve(curveType, CURVE_SAMPLES)
+    for (let i = 0; i < fadeOut.length; i++) fadeOut[i] *= this.masterVolume
+    gainA.gain.setValueCurveAtTime(
+      fadeOut,
+      now + fadeStartDelay,
+      crossfadeDuration
+    )
+
+    // ── Deck B: source → EQ → gain → destination ──
+    const sourceB = ctx.createBufferSource()
+    sourceB.buffer = deckB.buffer
+    sourceB.playbackRate.value = deckB.playbackRate
+    const gainB = ctx.createGain()
+    gainB.gain.value = 0
+    const eqB = this.createEQChain(ctx, deckB.eqGains)
+    sourceB
+      .connect(eqB.eqLow)
+      .connect(eqB.eqMid)
+      .connect(eqB.eqHigh)
+      .connect(gainB)
+      .connect(ctx.destination)
+
+    // Schedule fade-in on B
+    const fadeIn = generateFadeInCurve(curveType, CURVE_SAMPLES)
+    for (let i = 0; i < fadeIn.length; i++) fadeIn[i] *= this.masterVolume
+    gainB.gain.setValueCurveAtTime(
+      fadeIn,
+      now + fadeStartDelay,
+      crossfadeDuration
+    )
+
+    // ── Start sources ──
+    sourceA.start(now, aOffset, aDuration)
+    sourceB.start(now + fadeStartDelay, bOffset, bDuration)
+
+    // ── Update deck channel state ──
+    deckA.source = sourceA
+    deckA.gainNode = gainA
+    deckA.eqLow = eqA.eqLow
+    deckA.eqMid = eqA.eqMid
+    deckA.eqHigh = eqA.eqHigh
+    deckA.contextStartTime = now
+    deckA.bufferOffset = aOffset
+    deckA.isPlaying = true
+
+    deckB.source = sourceB
+    deckB.gainNode = gainB
+    deckB.eqLow = eqB.eqLow
+    deckB.eqMid = eqB.eqMid
+    deckB.eqHigh = eqB.eqHigh
+    deckB.contextStartTime = now + fadeStartDelay
+    deckB.bufferOffset = bOffset
+    deckB.isPlaying = true
+
+    // ── Auto-stop on end ──
+    const totalDuration = fadeStartDelay + crossfadeDuration + leadSeconds
+
+    sourceA.onended = () => {
+      if (deckA.source === sourceA) {
+        deckA.isPlaying = false
+        deckA.source = null
+        this.emit({ deck: 'A', type: 'ended' })
+      }
+    }
+
+    sourceB.onended = () => {
+      if (deckB.source === sourceB) {
+        deckB.isPlaying = false
+        deckB.source = null
+        this.emit({ deck: 'B', type: 'ended' })
+      }
+    }
+
+    this.emit({ deck: 'A', type: 'play' })
+    this.emit({ deck: 'B', type: 'play' })
+
+    return {
+      startTime: now,
+      deckAOffset: aOffset,
+      deckBOffset: bOffset,
+      fadeStartDelay,
+      totalDuration,
+    }
   }
 
   // ── Volume ──────────────────────────────────────────────────────────────
@@ -285,6 +507,67 @@ export class WebAudioEngine {
     }
   }
 
+  // ── EQ ──────────────────────────────────────────────────────────────────
+
+  /**
+   * Set EQ gain for a specific band on a deck.
+   * Value persists across stop/start cycles. Applied in real-time if playing.
+   */
+  setDeckEQ(deck: DeckId, band: EQBand, gainDb: number): void {
+    const clamped = Math.max(EQ_MIN_DB, Math.min(EQ_MAX_DB, gainDb))
+    const channel = this.decks[deck]
+    channel.eqGains[band] = clamped
+
+    // Apply to live filter node if playing
+    const filterNode =
+      band === 'low'
+        ? channel.eqLow
+        : band === 'mid'
+          ? channel.eqMid
+          : channel.eqHigh
+    if (filterNode) {
+      filterNode.gain.value = clamped
+    }
+  }
+
+  getDeckEQ(deck: DeckId): DeckEQState {
+    return { ...this.decks[deck].eqGains }
+  }
+
+  resetDeckEQ(deck: DeckId): void {
+    this.setDeckEQ(deck, 'low', 0)
+    this.setDeckEQ(deck, 'mid', 0)
+    this.setDeckEQ(deck, 'high', 0)
+  }
+
+  /** Create a 3-band EQ filter chain for a given AudioContext. */
+  private createEQChain(
+    ctx: AudioContext,
+    gains: { low: number; mid: number; high: number }
+  ): {
+    eqLow: BiquadFilterNode
+    eqMid: BiquadFilterNode
+    eqHigh: BiquadFilterNode
+  } {
+    const eqLow = ctx.createBiquadFilter()
+    eqLow.type = EQ_CONFIG.low.type
+    eqLow.frequency.value = EQ_CONFIG.low.frequency
+    eqLow.gain.value = gains.low
+
+    const eqMid = ctx.createBiquadFilter()
+    eqMid.type = EQ_CONFIG.mid.type
+    eqMid.frequency.value = EQ_CONFIG.mid.frequency
+    eqMid.Q.value = EQ_CONFIG.mid.Q
+    eqMid.gain.value = gains.mid
+
+    const eqHigh = ctx.createBiquadFilter()
+    eqHigh.type = EQ_CONFIG.high.type
+    eqHigh.frequency.value = EQ_CONFIG.high.frequency
+    eqHigh.gain.value = gains.high
+
+    return { eqLow, eqMid, eqHigh }
+  }
+
   // ── Cleanup ─────────────────────────────────────────────────────────────
 
   clearCache(): void {
@@ -308,11 +591,15 @@ export class WebAudioEngine {
       buffer: null,
       source: null,
       gainNode: null,
+      eqLow: null,
+      eqMid: null,
+      eqHigh: null,
       contextStartTime: 0,
       bufferOffset: 0,
       isPlaying: false,
       duration: 0,
       playbackRate: 1.0,
+      eqGains: { low: 0, mid: 0, high: 0 },
     }
   }
 }

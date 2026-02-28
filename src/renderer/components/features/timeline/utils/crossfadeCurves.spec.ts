@@ -3,7 +3,7 @@ import { computeGains } from '../CrossfadeCurveCanvas'
 import {
   generateFadeOutCurve,
   generateFadeInCurve,
-} from '@/hooks/useCrossfadePreview'
+} from '@/services/audioCurves'
 import type { CrossfadeCurveType } from '@shared/types/project.types'
 
 const CURVE_TYPES: CrossfadeCurveType[] = ['linear', 'equal-power', 's-curve']
