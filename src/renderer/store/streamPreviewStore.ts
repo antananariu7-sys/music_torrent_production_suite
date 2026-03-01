@@ -19,8 +19,8 @@ interface StreamPreviewState {
     magnetUri: string,
     fileIndex: number,
     trackName: string
-  ) => void
-  stopPreview: () => void
+  ) => Promise<void>
+  stopPreview: () => Promise<void>
 
   // Internal setters (called from IPC listener hook)
   setBuffering: (progress: number) => void

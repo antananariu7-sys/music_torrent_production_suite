@@ -32,7 +32,7 @@ export class DiscographySearchService {
     private authService: AuthService,
     options: Partial<BrowserOptions> = {}
   ) {
-    const headless = options.headless ?? (process.env.DEBUG_BROWSER !== 'true')
+    const headless = options.headless ?? process.env.DEBUG_BROWSER !== 'true'
     this.browserOptions = { headless }
   }
 
@@ -41,8 +41,10 @@ export class DiscographySearchService {
       return this.browser
     }
 
-    const executablePath = findChromePath()
-    console.log(`[DiscographySearchService] Launching browser (headless: ${this.browserOptions.headless})`)
+    const executablePath = await findChromePath()
+    console.log(
+      `[DiscographySearchService] Launching browser (headless: ${this.browserOptions.headless})`
+    )
 
     this.browser = await puppeteer.launch({
       executablePath,
@@ -50,6 +52,7 @@ export class DiscographySearchService {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
+        // Required for RuTracker page scraping (cross-origin content access)
         '--disable-web-security',
         '--disable-features=IsolateOrigins,site-per-process',
       ],
@@ -74,7 +77,13 @@ export class DiscographySearchService {
     request: DiscographySearchRequest,
     onProgress?: (progress: DiscographySearchProgress) => void
   ): Promise<DiscographySearchResponse> {
-    const { searchResults, albumName, artistName, maxConcurrent = 3, pageTimeout = 30000 } = request
+    const {
+      searchResults,
+      albumName,
+      artistName,
+      maxConcurrent = 3,
+      pageTimeout = 30000,
+    } = request
 
     const authState = this.authService.getAuthStatus()
     if (!authState.isLoggedIn) {
@@ -88,7 +97,9 @@ export class DiscographySearchService {
       }
     }
 
-    console.log(`[DiscographySearchService] Starting scan of ${searchResults.length} pages for album: "${albumName}"`)
+    console.log(
+      `[DiscographySearchService] Starting scan of ${searchResults.length} pages for album: "${albumName}"`
+    )
 
     try {
       const browser = await this.initBrowser()
@@ -110,14 +121,20 @@ export class DiscographySearchService {
         }
 
         const batchPromises = batch.map((searchResult, batchIndex) =>
-          scanSinglePage(browser, sessionCookies, searchResult, albumName, artistName, pageTimeout)
-            .then(result => {
-              console.log(
-                `[DiscographySearchService] Page ${i + batchIndex + 1}/${searchResults.length}: ` +
+          scanSinglePage(
+            browser,
+            sessionCookies,
+            searchResult,
+            albumName,
+            artistName,
+            pageTimeout
+          ).then((result) => {
+            console.log(
+              `[DiscographySearchService] Page ${i + batchIndex + 1}/${searchResults.length}: ` +
                 `${result.albumFound ? 'FOUND' : 'not found'} in "${result.pageTitle}"`
-              )
-              return result
-            })
+            )
+            return result
+          })
         )
 
         const batchResults = await Promise.all(batchPromises)
@@ -134,7 +151,9 @@ export class DiscographySearchService {
         await this.closeBrowser()
       }
 
-      console.log(`[DiscographySearchService] Scan complete: ${matchedPages.length}/${scanResults.length} pages contain the album`)
+      console.log(
+        `[DiscographySearchService] Scan complete: ${matchedPages.length}/${scanResults.length} pages contain the album`
+      )
 
       return {
         success: true,

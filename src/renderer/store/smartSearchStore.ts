@@ -41,7 +41,7 @@ export {
   useDiscoSearchMeta,
   useIsLoadingMore,
   useLoadMoreError,
-  useIsScannningDiscography,
+  useIsScanningDiscography,
   useDiscographyScanProgress,
   useDiscographyScanResults,
   useScannedTorrentIds,
@@ -69,7 +69,7 @@ const initialState = {
   searchHistory: [] as SearchHistoryEntry[],
   activityLog: [] as ActivityLogEntry[],
   // Discography scan initial state
-  isScannningDiscography: false,
+  isScanningDiscography: false,
   discographyScanProgress: null as DiscographySearchProgress | null,
   discographyScanResults: [] as PageContentScanResult[],
   scannedTorrentIds: new Set<string>(),
@@ -196,53 +196,54 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
       ],
     })),
 
-  addToHistory: (entry: Omit<SearchHistoryEntry, 'id' | 'timestamp'>) =>
-    set((state) => {
-      const newHistory = [
-        {
-          id: `${Date.now()}-${Math.random()}`,
-          timestamp: new Date(),
-          ...entry,
-        },
-        ...state.searchHistory,
-      ].slice(0, 50) // Keep only last 50 searches
+  addToHistory: (entry: Omit<SearchHistoryEntry, 'id' | 'timestamp'>) => {
+    const newHistory = [
+      {
+        id: `${Date.now()}-${Math.random()}`,
+        timestamp: new Date(),
+        ...entry,
+      },
+      ...useSmartSearchStore.getState().searchHistory,
+    ].slice(0, 50) // Keep only last 50 searches
 
-      // Auto-save to file (fire and forget)
-      saveSearchHistoryToDisk(
-        newHistory,
-        state.projectId,
-        state.projectName,
-        state.projectDirectory
-      )
+    set({ searchHistory: newHistory })
 
-      return { searchHistory: newHistory }
-    }),
+    // Auto-save to file (fire and forget, outside set())
+    const { projectId, projectName, projectDirectory } =
+      useSmartSearchStore.getState()
+    saveSearchHistoryToDisk(
+      newHistory,
+      projectId,
+      projectName,
+      projectDirectory
+    )
+  },
 
-  removeFromHistory: (id: string) =>
-    set((state) => {
-      const newHistory = state.searchHistory.filter((entry) => entry.id !== id)
+  removeFromHistory: (id: string) => {
+    const state = useSmartSearchStore.getState()
+    const newHistory = state.searchHistory.filter((entry) => entry.id !== id)
 
-      // Auto-save to file (fire and forget)
-      saveSearchHistoryToDisk(
-        newHistory,
-        state.projectId,
-        state.projectName,
-        state.projectDirectory
-      )
+    set({ searchHistory: newHistory })
 
-      return { searchHistory: newHistory }
-    }),
+    // Auto-save to file (fire and forget, outside set())
+    saveSearchHistoryToDisk(
+      newHistory,
+      state.projectId,
+      state.projectName,
+      state.projectDirectory
+    )
+  },
 
   clearHistory: () => set({ searchHistory: [] }),
 
   clearActivityLog: () => set({ activityLog: [] }),
 
   reset: () =>
-    set({
+    set((state) => ({
       ...initialState,
-      searchHistory: useSmartSearchStore.getState().searchHistory,
-      activityLog: useSmartSearchStore.getState().activityLog,
-    }),
+      searchHistory: state.searchHistory,
+      activityLog: state.activityLog,
+    })),
 
   // Load-more actions
   setDiscoSearchMeta: (
@@ -281,7 +282,7 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
   // Discography scan actions
   startDiscographyScan: () =>
     set({
-      isScannningDiscography: true,
+      isScanningDiscography: true,
       discographyScanProgress: null,
       discographyScanResults: [],
     }),
@@ -298,14 +299,14 @@ export const useSmartSearchStore = create<SmartSearchState>((set) => ({
       return {
         discographyScanResults: results,
         scannedTorrentIds: scannedIds,
-        isScannningDiscography: false,
+        isScanningDiscography: false,
         discographyScanProgress: null,
       }
     }),
 
   stopDiscographyScan: () =>
     set({
-      isScannningDiscography: false,
+      isScanningDiscography: false,
       discographyScanProgress: null,
     }),
 }))

@@ -1,11 +1,10 @@
 import puppeteer, { Browser } from 'puppeteer-core'
-import { execSync } from 'child_process'
-import { existsSync } from 'fs'
 import type { AuthService } from './AuthService'
 import {
   PageScraper,
   type SessionCookie,
 } from './rutracker/scrapers/PageScraper'
+import { findChromePath } from './utils/browserUtils'
 
 interface BrowserOptions {
   headless: boolean
@@ -39,47 +38,6 @@ export class BrowserManager {
   }
 
   /**
-   * Find Chrome/Chromium executable path
-   */
-  findChromePath(): string {
-    const possiblePaths = [
-      // Windows paths
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
-      // Linux paths
-      '/usr/bin/google-chrome',
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      // macOS paths
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    ]
-
-    for (const path of possiblePaths) {
-      if (existsSync(path)) {
-        console.log(`[BrowserManager] Found Chrome at: ${path}`)
-        return path
-      }
-    }
-
-    // Try to find Chrome using 'where' on Windows
-    try {
-      const result = execSync('where chrome', { encoding: 'utf-8' })
-      const chromePath = result.trim().split('\n')[0]
-      if (existsSync(chromePath)) {
-        console.log(`[BrowserManager] Found Chrome via 'where': ${chromePath}`)
-        return chromePath
-      }
-    } catch (error) {
-      // Ignore error
-    }
-
-    throw new Error(
-      'Chrome/Chromium executable not found. Please install Google Chrome.'
-    )
-  }
-
-  /**
    * Initialize or reuse the shared search browser instance.
    */
   async initBrowser(): Promise<Browser> {
@@ -87,7 +45,7 @@ export class BrowserManager {
       return this.browser
     }
 
-    const executablePath = this.findChromePath()
+    const executablePath = await findChromePath()
     console.log(
       `[BrowserManager] Launching browser (headless: ${this.browserOptions.headless})`
     )
@@ -98,6 +56,7 @@ export class BrowserManager {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
+        // Required for RuTracker page scraping (cross-origin content access)
         '--disable-web-security',
         '--disable-features=IsolateOrigins,site-per-process',
       ],
@@ -155,7 +114,7 @@ export class BrowserManager {
 
       // Launch a separate browser instance for viewing (not reusing this.browser)
       // This prevents interfering with the search browser instance
-      const executablePath = this.findChromePath()
+      const executablePath = await findChromePath()
       console.log(
         '[BrowserManager] Launching separate browser instance for viewing'
       )

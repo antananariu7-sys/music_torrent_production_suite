@@ -1,6 +1,4 @@
 import puppeteer, { Browser } from 'puppeteer-core'
-import { execSync } from 'child_process'
-import { existsSync } from 'fs'
 import type { AuthService } from './AuthService'
 import type {
   TorrentMetadataRequest,
@@ -8,6 +6,7 @@ import type {
   TorrentPageMetadata,
 } from '@shared/types/torrentMetadata.types'
 import { parseAlbumsFromHtml } from './rutracker/utils/torrentPageParser'
+import { findChromePath } from './utils/browserUtils'
 
 interface BrowserOptions {
   headless: boolean
@@ -28,41 +27,8 @@ export class TorrentMetadataService {
     private authService: AuthService,
     options: Partial<BrowserOptions> = {}
   ) {
-    const headless = options.headless ?? (process.env.DEBUG_BROWSER !== 'true')
+    const headless = options.headless ?? process.env.DEBUG_BROWSER !== 'true'
     this.browserOptions = { headless }
-  }
-
-  /**
-   * Find Chrome/Chromium executable path
-   */
-  private findChromePath(): string {
-    const possiblePaths = [
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
-      '/usr/bin/google-chrome',
-      '/usr/bin/chromium',
-      '/usr/bin/chromium-browser',
-      '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    ]
-
-    for (const path of possiblePaths) {
-      if (existsSync(path)) {
-        return path
-      }
-    }
-
-    try {
-      const result = execSync('where chrome', { encoding: 'utf-8' })
-      const chromePath = result.trim().split('\n')[0]
-      if (existsSync(chromePath)) {
-        return chromePath
-      }
-    } catch {
-      // Ignore error
-    }
-
-    throw new Error('Chrome/Chromium executable not found.')
   }
 
   /**
@@ -73,8 +39,10 @@ export class TorrentMetadataService {
       return this.browser
     }
 
-    const executablePath = this.findChromePath()
-    console.log(`[TorrentMetadataService] Launching browser (headless: ${this.browserOptions.headless})`)
+    const executablePath = await findChromePath()
+    console.log(
+      `[TorrentMetadataService] Launching browser (headless: ${this.browserOptions.headless})`
+    )
 
     this.browser = await puppeteer.launch({
       executablePath,
@@ -82,6 +50,7 @@ export class TorrentMetadataService {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
+        // Required for RuTracker page scraping (cross-origin content access)
         '--disable-web-security',
         '--disable-features=IsolateOrigins,site-per-process',
       ],
@@ -104,7 +73,9 @@ export class TorrentMetadataService {
   /**
    * Parse metadata from a torrent page
    */
-  async parseMetadata(request: TorrentMetadataRequest): Promise<TorrentMetadataResponse> {
+  async parseMetadata(
+    request: TorrentMetadataRequest
+  ): Promise<TorrentMetadataResponse> {
     const { torrentUrl, torrentId } = request
 
     // Check cache first
@@ -117,7 +88,10 @@ export class TorrentMetadataService {
     // Check auth
     const authState = this.authService.getAuthStatus()
     if (!authState.isLoggedIn) {
-      return { success: false, error: 'User is not logged in. Please login first.' }
+      return {
+        success: false,
+        error: 'User is not logged in. Please login first.',
+      }
     }
 
     console.log(`[TorrentMetadataService] Parsing metadata for: ${torrentUrl}`)
@@ -134,7 +108,10 @@ export class TorrentMetadataService {
         await page.setCookie(...sessionCookies)
       }
 
-      await page.goto(torrentUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      await page.goto(torrentUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 30000,
+      })
 
       // Wait for the post body to be present
       await page.waitForSelector('.post_body', { timeout: 10000 })
@@ -144,9 +121,15 @@ export class TorrentMetadataService {
       try {
         const magnetSelector = 'a.magnet-link[href^="magnet:"]'
         await page.waitForSelector(magnetSelector, { timeout: 5000 })
-        magnetLink = await page.$eval(magnetSelector, (el) => (el as HTMLAnchorElement).href) || undefined
+        magnetLink =
+          (await page.$eval(
+            magnetSelector,
+            (el) => (el as HTMLAnchorElement).href
+          )) || undefined
       } catch {
-        console.log(`[TorrentMetadataService] No magnet link found on page ${torrentId}`)
+        console.log(
+          `[TorrentMetadataService] No magnet link found on page ${torrentId}`
+        )
       }
 
       // Extract page HTML
@@ -159,11 +142,16 @@ export class TorrentMetadataService {
       // Cache result
       this.cache.set(torrentId, metadata)
 
-      console.log(`[TorrentMetadataService] Parsed ${metadata.albums.length} albums from torrent ${torrentId}`)
+      console.log(
+        `[TorrentMetadataService] Parsed ${metadata.albums.length} albums from torrent ${torrentId}`
+      )
       return { success: true, metadata }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      console.error(`[TorrentMetadataService] Failed to parse metadata:`, message)
+      console.error(
+        `[TorrentMetadataService] Failed to parse metadata:`,
+        message
+      )
       return { success: false, error: message }
     } finally {
       if (page) {

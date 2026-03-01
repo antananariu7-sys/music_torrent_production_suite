@@ -86,7 +86,7 @@ export interface SmartSearchState {
   isLoading: boolean
 
   // Discography scan state
-  isScannningDiscography: boolean
+  isScanningDiscography: boolean
   discographyScanProgress: DiscographySearchProgress | null
   discographyScanResults: PageContentScanResult[]
   scannedTorrentIds: Set<string>

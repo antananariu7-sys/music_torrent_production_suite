@@ -77,7 +77,7 @@ export class AuthService {
       return this.browser
     }
 
-    const executablePath = findChromePath()
+    const executablePath = await findChromePath()
     const headless = process.env.DEBUG_BROWSER !== 'true'
     console.log(`[AuthService] Launching browser (headless: ${headless})`)
 
@@ -87,6 +87,7 @@ export class AuthService {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
+        // Required for RuTracker authentication flow (cross-origin content access)
         '--disable-web-security',
         '--disable-features=IsolateOrigins,site-per-process',
       ],

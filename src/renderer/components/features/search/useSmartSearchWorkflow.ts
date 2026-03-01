@@ -31,7 +31,7 @@ export function useSmartSearchWorkflow({
     selectedAlbum,
     ruTrackerResults,
     error,
-    isScannningDiscography,
+    isScanningDiscography,
     discographyScanProgress,
     discographyScanResults,
     setClassificationResults,
@@ -81,7 +81,7 @@ export function useSmartSearchWorkflow({
     useDiscographyScan({
       selectedAlbum,
       ruTrackerResults,
-      isScannningDiscography,
+      isScanningDiscography,
       addActivityLog,
       startDiscographyScan,
       stopDiscographyScan,
@@ -270,7 +270,7 @@ export function useSmartSearchWorkflow({
       step === 'selecting-torrent' &&
       selectedAlbum &&
       ruTrackerResults.length > 0 &&
-      !isScannningDiscography &&
+      !isScanningDiscography &&
       !autoScanFiredRef.current
     ) {
       autoScanFiredRef.current = true
@@ -282,7 +282,7 @@ export function useSmartSearchWorkflow({
     selectedAlbum,
     ruTrackerResults,
     autoScanDiscography,
-    isScannningDiscography,
+    isScanningDiscography,
   ])
 
   useEffect(() => {
@@ -331,7 +331,7 @@ export function useSmartSearchWorkflow({
     albums,
     selectedAlbum,
     ruTrackerResults,
-    isScannningDiscography,
+    isScanningDiscography,
     discographyScanProgress,
     discographyScanResults,
 

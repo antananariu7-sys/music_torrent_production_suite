@@ -12,7 +12,10 @@ interface SmartSearchProps {
   onCancel?: () => void
 }
 
-export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }) => {
+export const SmartSearch: React.FC<SmartSearchProps> = ({
+  onComplete,
+  onCancel,
+}) => {
   const {
     step,
     error,
@@ -21,7 +24,7 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
     albums,
     selectedAlbum,
     ruTrackerResults,
-    isScannningDiscography,
+    isScanningDiscography,
     discographyScanProgress,
     discographyScanResults,
     inlineStep,
@@ -39,7 +42,12 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
 
   return (
     <>
-      {loadingMessage && <SearchLoadingIndicator message={loadingMessage} progress={searchProgress} />}
+      {loadingMessage && (
+        <SearchLoadingIndicator
+          message={loadingMessage}
+          progress={searchProgress}
+        />
+      )}
 
       {inlineStep && (
         <InlineSearchResults
@@ -49,7 +57,9 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
           albums={albums}
           onSelectAlbum={handleSelectAlbum}
           onSelectDiscography={
-            selectedClassification?.type === 'artist' ? handleSelectDiscography : undefined
+            selectedClassification?.type === 'artist'
+              ? handleSelectDiscography
+              : undefined
           }
           selectedClassification={selectedClassification}
           torrents={ruTrackerResults}
@@ -57,10 +67,12 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
           isDownloading={step === 'downloading'}
           onCancel={handleCancel}
           selectedAlbum={selectedAlbum}
-          isScannningDiscography={isScannningDiscography}
+          isScanningDiscography={isScanningDiscography}
           discographyScanProgress={discographyScanProgress}
           discographyScanResults={discographyScanResults}
-          onStartDiscographyScan={selectedAlbum ? handleStartDiscographyScan : undefined}
+          onStartDiscographyScan={
+            selectedAlbum ? handleStartDiscographyScan : undefined
+          }
           onStopDiscographyScan={handleStopDiscographyScan}
         />
       )}
@@ -68,7 +80,11 @@ export const SmartSearch: React.FC<SmartSearchProps> = ({ onComplete, onCancel }
       {step === 'completed' && <SearchCompletionNotice />}
 
       {step === 'error' && error && (
-        <SearchErrorNotice error={error} onClose={handleCancel} onRetry={handleRetry} />
+        <SearchErrorNotice
+          error={error}
+          onClose={handleCancel}
+          onRetry={handleRetry}
+        />
       )}
     </>
   )

@@ -34,8 +34,8 @@ export const useLoadMoreError = () =>
   useSmartSearchStore((state) => state.loadMoreError)
 
 // Discography scan selectors
-export const useIsScannningDiscography = () =>
-  useSmartSearchStore((state) => state.isScannningDiscography)
+export const useIsScanningDiscography = () =>
+  useSmartSearchStore((state) => state.isScanningDiscography)
 export const useDiscographyScanProgress = () =>
   useSmartSearchStore((state) => state.discographyScanProgress)
 export const useDiscographyScanResults = () =>

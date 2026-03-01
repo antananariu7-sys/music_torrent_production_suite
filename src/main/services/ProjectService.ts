@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from 'uuid'
 import * as path from 'path'
+import * as fs from 'fs-extra'
 import {
   Project,
   Song,
@@ -42,10 +43,8 @@ export class ProjectService {
     description?: string
   ): Promise<Project> {
     // Create project directory structure
-    const projectDirectory = await this.fileSystemService.createProjectDirectory(
-      location,
-      name
-    )
+    const projectDirectory =
+      await this.fileSystemService.createProjectDirectory(location, name)
 
     // Create project object
     const project: Project = {
@@ -136,9 +135,10 @@ export class ProjectService {
    */
   async saveProject(project: Project): Promise<void> {
     // Validate project directory exists
-    const fs = await import('fs-extra')
-    if (!await fs.pathExists(project.projectDirectory)) {
-      throw new Error(`Project directory does not exist: ${project.projectDirectory}`)
+    if (!(await fs.pathExists(project.projectDirectory))) {
+      throw new Error(
+        `Project directory does not exist: ${project.projectDirectory}`
+      )
     }
 
     // Update timestamp
@@ -288,7 +288,10 @@ export class ProjectService {
    * @returns Updated project
    * @throws Error if project not found
    */
-  async reorderSongs(projectId: string, orderedSongIds: string[]): Promise<Project> {
+  async reorderSongs(
+    projectId: string,
+    orderedSongIds: string[]
+  ): Promise<Project> {
     const project = this.getProjectById(projectId)
 
     orderedSongIds.forEach((id, index) => {

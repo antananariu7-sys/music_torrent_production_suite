@@ -285,5 +285,31 @@ export const SelectFileResponseSchema = z.object({
 /**
  * Legacy schemas (for backward compatibility)
  */
+/**
+ * Add song from file request schema (for IPC project:add-song)
+ */
+export const AddSongFromFileRequestSchema = z.object({
+  projectId: z.string().uuid(),
+  sourcePath: z.string().min(1, 'Source path is required'),
+  title: z.string().optional(),
+  order: z.number().int().nonnegative(),
+})
+
+/**
+ * Reorder songs request schema
+ */
+export const ReorderSongsRequestSchema = z.object({
+  projectId: z.string().uuid(),
+  orderedSongIds: z.array(z.string().uuid()).min(1),
+})
+
+/**
+ * Delete project from disk request schema
+ */
+export const DeleteFromDiskRequestSchema = z.object({
+  projectId: z.string().uuid(),
+  projectDirectory: z.string().min(1),
+})
+
 export const CreateProjectSchema = CreateProjectRequestSchema
 export const ProjectIdSchema = z.string().uuid()

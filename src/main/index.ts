@@ -2,7 +2,7 @@ import { app, BrowserWindow, protocol } from 'electron'
 import { stat } from 'fs/promises'
 import { createReadStream } from 'fs'
 import { Readable } from 'stream'
-import { extname } from 'path'
+import { extname, isAbsolute, resolve } from 'path'
 import { APP_CONFIG } from '../shared/constants'
 import { createWindow } from './window'
 import { registerIpcHandlers, cleanupServices } from './ipc'
@@ -44,10 +44,18 @@ app.whenReady().then(() => {
       return new Response('Missing path parameter', { status: 400 })
     }
 
-    const { size } = await stat(filePath)
-    const contentType =
-      AUDIO_MIME_TYPES[extname(filePath).toLowerCase()] ||
-      'application/octet-stream'
+    // Validate the path is absolute and points to a known audio extension
+    const resolved = resolve(filePath)
+    if (!isAbsolute(resolved)) {
+      return new Response('Path must be absolute', { status: 400 })
+    }
+    const ext = extname(resolved).toLowerCase()
+    if (!AUDIO_MIME_TYPES[ext]) {
+      return new Response('Not an audio file', { status: 403 })
+    }
+
+    const { size } = await stat(resolved)
+    const contentType = AUDIO_MIME_TYPES[ext]
     const rangeHeader = req.headers.get('range')
 
     if (rangeHeader) {
@@ -58,7 +66,7 @@ app.whenReady().then(() => {
 
       return new Response(
         Readable.toWeb(
-          createReadStream(filePath, { start, end })
+          createReadStream(resolved, { start, end })
         ) as ReadableStream,
         {
           status: 206,
@@ -73,7 +81,7 @@ app.whenReady().then(() => {
     }
 
     return new Response(
-      Readable.toWeb(createReadStream(filePath)) as ReadableStream,
+      Readable.toWeb(createReadStream(resolved)) as ReadableStream,
       {
         headers: {
           'Content-Type': contentType,

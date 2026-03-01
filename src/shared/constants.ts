@@ -140,6 +140,10 @@ export const IPC_CHANNELS = {
   SECTION_DETECT: 'section:detect',
   SECTION_DETECT_BATCH: 'section:detect-batch',
   SECTION_PROGRESS: 'section:progress',
+
+  // Search history
+  SEARCH_HISTORY_LOAD: 'searchHistory:load',
+  SEARCH_HISTORY_SAVE: 'searchHistory:save',
 } as const
 
 // Application settings

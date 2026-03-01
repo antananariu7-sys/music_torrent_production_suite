@@ -2,17 +2,25 @@ import { useCallback } from 'react'
 import { toaster } from '@/components/ui/toaster'
 import type { MusicBrainzAlbum } from '@shared/types/musicbrainz.types'
 import type { SearchResult } from '@shared/types/search.types'
-import type { DiscographySearchProgress, PageContentScanResult } from '@shared/types/discography.types'
+import type {
+  DiscographySearchProgress,
+  PageContentScanResult,
+} from '@shared/types/discography.types'
 import { isLikelyDiscography } from '@shared/utils/resultClassifier'
 
 export interface UseDiscographyScanDeps {
   selectedAlbum: MusicBrainzAlbum | null
   ruTrackerResults: SearchResult[]
-  isScannningDiscography: boolean
-  addActivityLog: (message: string, type: 'info' | 'success' | 'warning' | 'error') => void
+  isScanningDiscography: boolean
+  addActivityLog: (
+    message: string,
+    type: 'info' | 'success' | 'warning' | 'error'
+  ) => void
   startDiscographyScan: () => void
   stopDiscographyScan: () => void
-  setDiscographyScanProgress: (progress: DiscographySearchProgress | null) => void
+  setDiscographyScanProgress: (
+    progress: DiscographySearchProgress | null
+  ) => void
   setDiscographyScanResults: (results: PageContentScanResult[]) => void
 }
 
@@ -33,14 +41,19 @@ export function useDiscographyScan({
   const handleStartDiscographyScan = useCallback(async () => {
     if (!selectedAlbum || ruTrackerResults.length === 0) return
 
-    const discographyPages = ruTrackerResults.filter((t) => isLikelyDiscography(t.title))
+    const discographyPages = ruTrackerResults.filter((t) =>
+      isLikelyDiscography(t.title)
+    )
 
     if (discographyPages.length === 0) {
       addActivityLog('No discography pages found to scan', 'warning')
       return
     }
 
-    addActivityLog(`Scanning ${discographyPages.length} discography pages for "${selectedAlbum.title}"...`, 'info')
+    addActivityLog(
+      `Scanning ${discographyPages.length} discography pages for "${selectedAlbum.title}"...`,
+      'info'
+    )
     startDiscographyScan()
 
     const cleanupProgress = window.api.discography.onProgress((progress) => {
@@ -72,7 +85,10 @@ export function useDiscographyScan({
             duration: 5000,
           })
         } else {
-          addActivityLog(`Album not found in ${response.totalScanned} scanned pages`, 'warning')
+          addActivityLog(
+            `Album not found in ${response.totalScanned} scanned pages`,
+            'warning'
+          )
         }
       } else {
         addActivityLog(response.error || 'Scan failed', 'error')

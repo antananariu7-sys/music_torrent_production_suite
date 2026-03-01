@@ -82,3 +82,43 @@ export const LoadMoreResponseSchema = z.object({
   isComplete: z.boolean(),
   error: z.string().optional(),
 })
+
+export const ProgressiveSearchRequestSchema = z.object({
+  query: z.string().min(1, 'Search query is required'),
+  filters: SearchFiltersSchema.optional(),
+  maxPages: z.number().int().positive().optional(),
+})
+
+export const DiscographySearchRequestSchema = z.object({
+  searchResults: z.array(SearchResultSchema),
+  albumName: z.string().min(1, 'Album name is required'),
+  artistName: z.string().optional(),
+  maxConcurrent: z.number().int().positive().optional(),
+  pageTimeout: z.number().int().positive().optional(),
+})
+
+export const LoadSearchHistoryRequestSchema = z.object({
+  projectId: z.string().uuid(),
+  projectDirectory: z.string().min(1),
+})
+
+export const SaveSearchHistoryRequestSchema = z.object({
+  projectId: z.string().uuid(),
+  projectName: z.string().min(1),
+  projectDirectory: z.string().min(1),
+  history: z.array(
+    z.object({
+      id: z.string(),
+      query: z.string(),
+      timestamp: z.string(),
+      status: z.enum(['completed', 'error', 'cancelled']),
+      result: z.string().optional(),
+    })
+  ),
+})
+
+export const StreamPreviewStartRequestSchema = z.object({
+  magnetUri: z.string().min(1, 'Magnet URI is required'),
+  fileIndex: z.number().int().nonnegative(),
+  trackName: z.string().min(1, 'Track name is required'),
+})

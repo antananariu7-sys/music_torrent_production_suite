@@ -3,148 +3,130 @@ import { IPC_CHANNELS } from '@shared/constants'
 import type { RuTrackerSearchService } from '../services/RuTrackerSearchService'
 import type { DiscographySearchService } from '../services/DiscographySearchService'
 import { searchHistoryService } from '../services/SearchHistoryService'
-import type {
-  SearchRequest,
-  ProgressiveSearchRequest,
-  LoadMoreRequest,
-} from '@shared/types/search.types'
-import type { DiscographySearchRequest } from '@shared/types/discography.types'
-import type {
-  SaveSearchHistoryRequest,
-  LoadSearchHistoryRequest,
-  SearchHistoryResponse,
-} from '@shared/types/searchHistory.types'
+import {
+  SearchRequestSchema,
+  ProgressiveSearchRequestSchema,
+  LoadMoreRequestSchema,
+  DiscographySearchRequestSchema,
+  LoadSearchHistoryRequestSchema,
+  SaveSearchHistoryRequestSchema,
+} from '@shared/schemas/search.schema'
+import { z, ZodError } from 'zod'
+import type { SearchHistoryResponse } from '@shared/types/searchHistory.types'
+
+function formatError(error: unknown): string {
+  if (error instanceof ZodError) return error.message
+  if (error instanceof Error) return error.message
+  return String(error)
+}
 
 export function registerSearchHandlers(
   searchService: RuTrackerSearchService,
   discographySearchService: DiscographySearchService
 ): void {
   // Search
-  ipcMain.handle(
-    IPC_CHANNELS.SEARCH_START,
-    async (_event, request: SearchRequest) => {
-      try {
-        const response = await searchService.search(request)
-        return response
-      } catch (error) {
-        console.error('Search failed:', error)
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Search failed',
-        }
-      }
-    }
-  )
-
-  ipcMain.handle(IPC_CHANNELS.SEARCH_OPEN_URL, async (_event, url: string) => {
+  ipcMain.handle(IPC_CHANNELS.SEARCH_START, async (_event, request) => {
     try {
-      const response = await searchService.openUrlWithSession(url)
+      const validated = SearchRequestSchema.parse(request)
+      const response = await searchService.search(validated)
       return response
     } catch (error) {
-      console.error('Failed to open URL:', error)
+      console.error('Search failed:', formatError(error))
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to open URL',
+        error: formatError(error),
+      }
+    }
+  })
+
+  ipcMain.handle(IPC_CHANNELS.SEARCH_OPEN_URL, async (_event, url) => {
+    try {
+      const validatedUrl = z.string().url().parse(url)
+      const response = await searchService.openUrlWithSession(validatedUrl)
+      return response
+    } catch (error) {
+      console.error('Failed to open URL:', formatError(error))
+      return {
+        success: false,
+        error: formatError(error),
       }
     }
   })
 
   ipcMain.handle(
     IPC_CHANNELS.SEARCH_START_PROGRESSIVE,
-    async (event, request: ProgressiveSearchRequest) => {
+    async (event, request) => {
       try {
+        const validated = ProgressiveSearchRequestSchema.parse(request)
         const response = await searchService.searchProgressive(
-          request,
+          validated,
           (progress) => {
             event.sender.send(IPC_CHANNELS.SEARCH_PROGRESS, progress)
           }
         )
         return response
       } catch (error) {
-        console.error('Progressive search failed:', error)
+        console.error('Progressive search failed:', formatError(error))
         return {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Progressive search failed',
+          error: formatError(error),
         }
       }
     }
   )
 
   // Load more results (additional pages)
-  ipcMain.handle(
-    IPC_CHANNELS.SEARCH_LOAD_MORE,
-    async (_event, request: LoadMoreRequest) => {
-      try {
-        return await searchService.loadMoreResults(request)
-      } catch (error) {
-        console.error('Load more failed:', error)
-        return {
-          success: false,
-          results: [],
-          loadedPages: 0,
-          totalPages: 0,
-          isComplete: false,
-          error: error instanceof Error ? error.message : 'Load more failed',
-        }
+  ipcMain.handle(IPC_CHANNELS.SEARCH_LOAD_MORE, async (_event, request) => {
+    try {
+      const validated = LoadMoreRequestSchema.parse(request)
+      return await searchService.loadMoreResults(validated)
+    } catch (error) {
+      console.error('Load more failed:', formatError(error))
+      return {
+        success: false,
+        results: [],
+        loadedPages: 0,
+        totalPages: 0,
+        isComplete: false,
+        error: formatError(error),
       }
     }
-  )
+  })
 
   // Discography search
-  ipcMain.handle(
-    IPC_CHANNELS.DISCOGRAPHY_SEARCH,
-    async (event, request: DiscographySearchRequest) => {
-      try {
-        const response = await discographySearchService.searchInPages(
-          request,
-          (progress) => {
-            event.sender.send(
-              IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS,
-              progress
-            )
-          }
-        )
-        return response
-      } catch (error) {
-        console.error('Discography search failed:', error)
-        return {
-          success: false,
-          scanResults: [],
-          matchedPages: [],
-          totalScanned: 0,
-          matchCount: 0,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Discography search failed',
+  ipcMain.handle(IPC_CHANNELS.DISCOGRAPHY_SEARCH, async (event, request) => {
+    try {
+      const validated = DiscographySearchRequestSchema.parse(request)
+      const response = await discographySearchService.searchInPages(
+        validated,
+        (progress) => {
+          event.sender.send(IPC_CHANNELS.DISCOGRAPHY_SEARCH_PROGRESS, progress)
         }
+      )
+      return response
+    } catch (error) {
+      console.error('Discography search failed:', formatError(error))
+      return {
+        success: false,
+        scanResults: [],
+        matchedPages: [],
+        totalScanned: 0,
+        matchCount: 0,
+        error: formatError(error),
       }
     }
-  )
+  })
 
   // Search history
   ipcMain.handle(
-    'searchHistory:load',
-    async (
-      _event,
-      request: LoadSearchHistoryRequest & { projectDirectory: string }
-    ): Promise<SearchHistoryResponse> => {
+    IPC_CHANNELS.SEARCH_HISTORY_LOAD,
+    async (_event, request): Promise<SearchHistoryResponse> => {
       try {
-        const { projectId, projectDirectory } = request
-
-        if (!projectDirectory) {
-          return {
-            success: false,
-            error: 'Project directory not provided',
-          }
-        }
+        const validated = LoadSearchHistoryRequestSchema.parse(request)
 
         const history = await searchHistoryService.loadHistory(
-          projectId,
-          projectDirectory
+          validated.projectId,
+          validated.projectDirectory
         )
 
         return {
@@ -152,52 +134,36 @@ export function registerSearchHandlers(
           history,
         }
       } catch (error) {
-        console.error('Error loading search history:', error)
+        console.error('Error loading search history:', formatError(error))
         return {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Failed to load search history',
+          error: formatError(error),
         }
       }
     }
   )
 
   ipcMain.handle(
-    'searchHistory:save',
-    async (
-      _event,
-      request: SaveSearchHistoryRequest & { projectDirectory: string }
-    ): Promise<SearchHistoryResponse> => {
+    IPC_CHANNELS.SEARCH_HISTORY_SAVE,
+    async (_event, request): Promise<SearchHistoryResponse> => {
       try {
-        const { projectId, projectName, history, projectDirectory } = request
-
-        if (!projectDirectory) {
-          return {
-            success: false,
-            error: 'Project directory not provided',
-          }
-        }
+        const validated = SaveSearchHistoryRequestSchema.parse(request)
 
         await searchHistoryService.saveHistory(
-          projectId,
-          projectName,
-          projectDirectory,
-          history
+          validated.projectId,
+          validated.projectName,
+          validated.projectDirectory,
+          validated.history
         )
 
         return {
           success: true,
         }
       } catch (error) {
-        console.error('Error saving search history:', error)
+        console.error('Error saving search history:', formatError(error))
         return {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : 'Failed to save search history',
+          error: formatError(error),
         }
       }
     }

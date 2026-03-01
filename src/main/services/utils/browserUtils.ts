@@ -1,11 +1,12 @@
 import { existsSync } from 'fs'
-import { execSync } from 'child_process'
+import { exec as execCb } from 'child_process'
+import { promisify } from 'util'
 
 /**
  * Find Chrome/Chromium executable path on the system.
  * Checks common installation paths across Windows, Linux, and macOS.
  */
-export function findChromePath(): string {
+export async function findChromePath(): Promise<string> {
   const possiblePaths = [
     // Windows paths
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -26,17 +27,20 @@ export function findChromePath(): string {
     }
   }
 
-  // Try to find Chrome using 'where' on Windows
+  // Try to find Chrome using 'where' on Windows (async to avoid blocking event loop)
   try {
-    const result = execSync('where chrome', { encoding: 'utf-8' })
-    const chromePath = result.trim().split('\n')[0]
+    const execAsync = promisify(execCb)
+    const { stdout } = await execAsync('where chrome', { encoding: 'utf-8' })
+    const chromePath = stdout.trim().split('\n')[0]
     if (existsSync(chromePath)) {
       console.log(`[browserUtils] Found Chrome via 'where': ${chromePath}`)
       return chromePath
     }
-  } catch (error) {
+  } catch {
     // Ignore error
   }
 
-  throw new Error('Chrome/Chromium executable not found. Please install Google Chrome.')
+  throw new Error(
+    'Chrome/Chromium executable not found. Please install Google Chrome.'
+  )
 }

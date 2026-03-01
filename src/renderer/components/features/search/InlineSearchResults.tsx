@@ -45,7 +45,7 @@ interface InlineSearchResultsProps {
 
   // Discography scan props
   selectedAlbum?: MusicBrainzAlbum | null
-  isScannningDiscography?: boolean
+  isScanningDiscography?: boolean
   discographyScanProgress?: DiscographySearchProgress | null
   discographyScanResults?: PageContentScanResult[]
   onStartDiscographyScan?: () => void
@@ -66,7 +66,7 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
   onSelectTorrent,
   isDownloading = false,
   selectedAlbum,
-  isScannningDiscography = false,
+  isScanningDiscography = false,
   discographyScanProgress = null,
   discographyScanResults = [],
   onStartDiscographyScan,
@@ -201,7 +201,7 @@ export const InlineSearchResults: React.FC<InlineSearchResultsProps> = ({
             onStartDiscographyScan &&
             onStopDiscographyScan && (
               <DiscographyScanPanel
-                isScanning={isScannningDiscography}
+                isScanning={isScanningDiscography}
                 progress={discographyScanProgress}
                 scanResults={discographyScanResults}
                 discographyTorrents={discographyTorrents}

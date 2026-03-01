@@ -27,14 +27,17 @@ export class TorrentDownloadService {
     settings?: Partial<TorrentSettings>
   ) {
     this.settings = {
-      torrentsFolder: settings?.torrentsFolder || this.getDefaultTorrentsFolder(),
+      torrentsFolder:
+        settings?.torrentsFolder || this.getDefaultTorrentsFolder(),
       autoOpen: settings?.autoOpen ?? false,
       keepHistory: settings?.keepHistory ?? true,
       preferMagnetLinks: settings?.preferMagnetLinks ?? false,
     }
 
     this.ensureTorrentsFolder()
-    this.historyManager = new DownloadHistoryManager(this.settings.torrentsFolder)
+    this.historyManager = new DownloadHistoryManager(
+      this.settings.torrentsFolder
+    )
     this.historyManager.load(undefined, this.settings.keepHistory)
   }
 
@@ -46,7 +49,9 @@ export class TorrentDownloadService {
   private ensureTorrentsFolder(): void {
     if (!existsSync(this.settings.torrentsFolder)) {
       mkdirSync(this.settings.torrentsFolder, { recursive: true })
-      console.log(`[TorrentDownloadService] Created torrents folder: ${this.settings.torrentsFolder}`)
+      console.log(
+        `[TorrentDownloadService] Created torrents folder: ${this.settings.torrentsFolder}`
+      )
     }
   }
 
@@ -65,7 +70,7 @@ export class TorrentDownloadService {
       return this.browser
     }
 
-    const executablePath = findChromePath()
+    const executablePath = await findChromePath()
     console.log('[TorrentDownloadService] Launching browser')
 
     this.browser = await puppeteer.launch({
@@ -74,6 +79,7 @@ export class TorrentDownloadService {
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
+        // Required for RuTracker page scraping (cross-origin content access)
         '--disable-web-security',
         '--disable-features=IsolateOrigins,site-per-process',
       ],
@@ -94,17 +100,23 @@ export class TorrentDownloadService {
     try {
       const loginForm = await page.$('#login-form-full')
       if (loginForm) {
-        console.log('[TorrentDownloadService] ❌ Session expired - login form detected')
+        console.log(
+          '[TorrentDownloadService] ❌ Session expired - login form detected'
+        )
         return false
       }
 
       const profileLink = await page.$('a[href*="profile.php"]')
       if (profileLink) {
-        console.log('[TorrentDownloadService] ✅ Session valid - user profile link found')
+        console.log(
+          '[TorrentDownloadService] ✅ Session valid - user profile link found'
+        )
         return true
       }
 
-      console.log('[TorrentDownloadService] ⚠️  Cannot determine session status')
+      console.log(
+        '[TorrentDownloadService] ⚠️  Cannot determine session status'
+      )
       return false
     } catch (error) {
       console.error('[TorrentDownloadService] Session validation error:', error)
@@ -161,22 +173,34 @@ export class TorrentDownloadService {
   // DOWNLOAD
   // ====================================
 
-  async downloadTorrent(request: TorrentDownloadRequest): Promise<TorrentDownloadResponse> {
+  async downloadTorrent(
+    request: TorrentDownloadRequest
+  ): Promise<TorrentDownloadResponse> {
     let page: Page | null = null
 
     try {
       const authState = this.authService.getAuthStatus()
       if (!authState.isLoggedIn) {
-        return { success: false, error: 'User is not logged in. Please login first.' }
+        return {
+          success: false,
+          error: 'User is not logged in. Please login first.',
+        }
       }
 
-      console.log(`[TorrentDownloadService] Downloading torrent ${request.torrentId} from ${request.pageUrl}`)
+      console.log(
+        `[TorrentDownloadService] Downloading torrent ${request.torrentId} from ${request.pageUrl}`
+      )
 
       const sessionCookies = this.authService.getSessionCookies()
-      console.log(`[TorrentDownloadService] Using ${sessionCookies.length} session cookies`)
+      console.log(
+        `[TorrentDownloadService] Using ${sessionCookies.length} session cookies`
+      )
 
       if (sessionCookies.length === 0) {
-        return { success: false, error: 'No session cookies found. Please login again.' }
+        return {
+          success: false,
+          error: 'No session cookies found. Please login again.',
+        }
       }
 
       const browser = await this.initBrowser()
@@ -189,7 +213,7 @@ export class TorrentDownloadService {
       })
 
       await page.setCookie(
-        ...sessionCookies.map(cookie => ({
+        ...sessionCookies.map((cookie) => ({
           name: cookie.name,
           value: cookie.value,
           domain: cookie.domain,
@@ -209,7 +233,10 @@ export class TorrentDownloadService {
 
       const isSessionValid = await this.validateSession(page)
       if (!isSessionValid) {
-        return { success: false, error: 'Session expired or invalid. Please login again.' }
+        return {
+          success: false,
+          error: 'Session expired or invalid. Please login again.',
+        }
       }
 
       // Extract magnet link
@@ -217,7 +244,10 @@ export class TorrentDownloadService {
       let magnetLink: string | null = null
       try {
         await page.waitForSelector(magnetSelector, { timeout: 5000 })
-        magnetLink = await page.$eval(magnetSelector, (el) => (el as HTMLAnchorElement).href)
+        magnetLink = await page.$eval(
+          magnetSelector,
+          (el) => (el as HTMLAnchorElement).href
+        )
       } catch {
         console.log('[TorrentDownloadService] No magnet link found on page')
       }
@@ -232,7 +262,11 @@ export class TorrentDownloadService {
           downloadedAt: new Date(),
         }
 
-        this.historyManager.addEntry(torrentFile, request.projectDirectory, this.settings.keepHistory)
+        this.historyManager.addEntry(
+          torrentFile,
+          request.projectDirectory,
+          this.settings.keepHistory
+        )
         await this.closeBrowser()
         return { success: true, torrent: torrentFile }
       }
@@ -242,13 +276,21 @@ export class TorrentDownloadService {
       let downloadHref: string | null = null
       try {
         await page.waitForSelector(downloadSelector, { timeout: 10000 })
-        downloadHref = await page.$eval(downloadSelector, (el) => (el as HTMLAnchorElement).getAttribute('href'))
+        downloadHref = await page.$eval(downloadSelector, (el) =>
+          (el as HTMLAnchorElement).getAttribute('href')
+        )
       } catch {
         const pageUrl = page.url()
         if (pageUrl.includes('login.php')) {
-          return { success: false, error: 'Redirected to login page. Session may have expired. Please login again.' }
+          return {
+            success: false,
+            error:
+              'Redirected to login page. Session may have expired. Please login again.',
+          }
         }
-        throw new Error(`Download link not found on page. Expected selector: ${downloadSelector}`)
+        throw new Error(
+          `Download link not found on page. Expected selector: ${downloadSelector}`
+        )
       }
 
       if (!downloadHref) {
@@ -275,7 +317,10 @@ export class TorrentDownloadService {
       }
 
       const { projectPath, globalPath } = this.saveTorrentFile(
-        torrentBuffer, request.torrentId, request.title, request.projectDirectory
+        torrentBuffer,
+        request.torrentId,
+        request.title,
+        request.projectDirectory
       )
 
       const filePath = projectPath || globalPath
@@ -289,20 +334,29 @@ export class TorrentDownloadService {
         downloadedAt: new Date(),
       }
 
-      this.historyManager.addEntry(torrentFile, request.projectDirectory, this.settings.keepHistory)
+      this.historyManager.addEntry(
+        torrentFile,
+        request.projectDirectory,
+        this.settings.keepHistory
+      )
       await this.closeBrowser()
 
-      console.log(`[TorrentDownloadService] Torrent downloaded successfully: ${filePath}`)
+      console.log(
+        `[TorrentDownloadService] Torrent downloaded successfully: ${filePath}`
+      )
       return { success: true, torrent: torrentFile }
     } catch (error) {
       console.error('[TorrentDownloadService] Download failed:', error)
       await this.closeBrowser()
 
-      let errorMessage = error instanceof Error ? error.message : 'Download failed'
+      let errorMessage =
+        error instanceof Error ? error.message : 'Download failed'
       if (errorMessage.includes('ERR_ABORTED')) {
-        errorMessage = 'Download was aborted. This may indicate session expiry or authentication issues. Please try logging in again.'
+        errorMessage =
+          'Download was aborted. This may indicate session expiry or authentication issues. Please try logging in again.'
       } else if (errorMessage.includes('timeout')) {
-        errorMessage = 'Request timed out. Please check your internet connection and try again.'
+        errorMessage =
+          'Request timed out. Please check your internet connection and try again.'
       } else if (errorMessage.includes('net::')) {
         errorMessage = `Network error: ${errorMessage}. This may indicate session or authentication issues.`
       }
@@ -316,11 +370,17 @@ export class TorrentDownloadService {
   // ====================================
 
   getHistory(projectDirectory?: string): TorrentFile[] {
-    return this.historyManager.getHistory(projectDirectory, this.settings.keepHistory)
+    return this.historyManager.getHistory(
+      projectDirectory,
+      this.settings.keepHistory
+    )
   }
 
   clearHistory(projectDirectory?: string): void {
-    this.historyManager.clearHistory(projectDirectory, this.settings.keepHistory)
+    this.historyManager.clearHistory(
+      projectDirectory,
+      this.settings.keepHistory
+    )
   }
 
   updateSettings(settings: Partial<TorrentSettings>): void {
@@ -335,9 +395,14 @@ export class TorrentDownloadService {
     return { ...this.settings }
   }
 
-  async openInTorrentClient(torrent: TorrentFile): Promise<{ success: boolean; error?: string }> {
+  async openInTorrentClient(
+    torrent: TorrentFile
+  ): Promise<{ success: boolean; error?: string }> {
     try {
       if (torrent.magnetLink) {
+        if (!torrent.magnetLink.startsWith('magnet:')) {
+          return { success: false, error: 'Invalid magnet link' }
+        }
         await shell.openExternal(torrent.magnetLink)
         return { success: true }
       }
@@ -347,11 +412,15 @@ export class TorrentDownloadService {
         return { success: true }
       }
 
-      return { success: false, error: 'No magnet link or torrent file available to open' }
+      return {
+        success: false,
+        error: 'No magnet link or torrent file available to open',
+      }
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Failed to open torrent',
+        error:
+          error instanceof Error ? error.message : 'Failed to open torrent',
       }
     }
   }

@@ -1,6 +1,8 @@
-import { BrowserWindow, session } from 'electron'
+import { app, BrowserWindow, session } from 'electron'
 import { join } from 'path'
 import { APP_CONFIG } from '../shared/constants'
+
+const isDev = !app.isPackaged
 
 export function createWindow(): BrowserWindow {
   // Set Content Security Policy headers.
@@ -13,8 +15,11 @@ export function createWindow(): BrowserWindow {
         delete headers[key]
       }
     }
+    // In development, 'unsafe-inline' is needed for Vite HMR script injection.
+    // In production, remove it from script-src for tighter security.
+    const scriptSrc = isDev ? "'self' 'unsafe-inline'" : "'self'"
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data: audio:; connect-src 'self' audio:",
+      `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; media-src 'self' data: audio:; connect-src 'self' audio:`,
     ]
     callback({ responseHeaders: headers })
   })

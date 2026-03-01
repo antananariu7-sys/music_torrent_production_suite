@@ -13,7 +13,9 @@ const mockWindowApi = {
 import { useSmartSearchStore } from './smartSearchStore'
 import type { SearchClassificationResult } from '@shared/types/musicbrainz.types'
 
-function makeClassification(overrides: Partial<SearchClassificationResult> = {}): SearchClassificationResult {
+function makeClassification(
+  overrides: Partial<SearchClassificationResult> = {}
+): SearchClassificationResult {
   return {
     type: 'album',
     artist: 'Test Artist',
@@ -43,7 +45,7 @@ describe('smartSearchStore', () => {
       isLoading: false,
       searchHistory: [],
       activityLog: [],
-      isScannningDiscography: false,
+      isScanningDiscography: false,
       discographyScanProgress: null,
       discographyScanResults: [],
       scannedTorrentIds: new Set(),
@@ -69,8 +71,23 @@ describe('smartSearchStore', () => {
     it('should preserve searchHistory and activityLog', () => {
       // Pre-populate history and activity log
       useSmartSearchStore.setState({
-        searchHistory: [{ id: '1', query: 'old search', timestamp: new Date(), status: 'completed' }],
-        activityLog: [{ id: '1', timestamp: new Date(), step: 'idle', message: 'test', type: 'info' }],
+        searchHistory: [
+          {
+            id: '1',
+            query: 'old search',
+            timestamp: new Date(),
+            status: 'completed',
+          },
+        ],
+        activityLog: [
+          {
+            id: '1',
+            timestamp: new Date(),
+            step: 'idle',
+            message: 'test',
+            type: 'info',
+          },
+        ],
       })
 
       const { startSearch } = useSmartSearchStore.getState()
@@ -272,8 +289,18 @@ describe('smartSearchStore', () => {
     it('should remove entry by id', () => {
       useSmartSearchStore.setState({
         searchHistory: [
-          { id: 'a', query: 'first', timestamp: new Date(), status: 'completed' },
-          { id: 'b', query: 'second', timestamp: new Date(), status: 'completed' },
+          {
+            id: 'a',
+            query: 'first',
+            timestamp: new Date(),
+            status: 'completed',
+          },
+          {
+            id: 'b',
+            query: 'second',
+            timestamp: new Date(),
+            status: 'completed',
+          },
         ],
       })
 
@@ -288,9 +315,24 @@ describe('smartSearchStore', () => {
     it('should preserve other entries', () => {
       useSmartSearchStore.setState({
         searchHistory: [
-          { id: 'a', query: 'first', timestamp: new Date(), status: 'completed' },
-          { id: 'b', query: 'second', timestamp: new Date(), status: 'completed' },
-          { id: 'c', query: 'third', timestamp: new Date(), status: 'completed' },
+          {
+            id: 'a',
+            query: 'first',
+            timestamp: new Date(),
+            status: 'completed',
+          },
+          {
+            id: 'b',
+            query: 'second',
+            timestamp: new Date(),
+            status: 'completed',
+          },
+          {
+            id: 'c',
+            query: 'third',
+            timestamp: new Date(),
+            status: 'completed',
+          },
         ],
       })
 
@@ -299,7 +341,7 @@ describe('smartSearchStore', () => {
 
       const state = useSmartSearchStore.getState()
       expect(state.searchHistory).toHaveLength(2)
-      expect(state.searchHistory.map(e => e.id)).toEqual(['a', 'c'])
+      expect(state.searchHistory.map((e) => e.id)).toEqual(['a', 'c'])
     })
   })
 
@@ -327,22 +369,24 @@ describe('smartSearchStore', () => {
       setDiscographyScanResults([{ searchResult: { id: 'torrent-1' } } as any])
 
       // Second call
-      useSmartSearchStore.getState().setDiscographyScanResults([
-        { searchResult: { id: 'torrent-2' } } as any,
-      ])
+      useSmartSearchStore
+        .getState()
+        .setDiscographyScanResults([
+          { searchResult: { id: 'torrent-2' } } as any,
+        ])
 
       const state = useSmartSearchStore.getState()
       expect(state.scannedTorrentIds.has('torrent-1')).toBe(true)
       expect(state.scannedTorrentIds.has('torrent-2')).toBe(true)
     })
 
-    it('should set isScannningDiscography to false', () => {
-      useSmartSearchStore.setState({ isScannningDiscography: true })
+    it('should set isScanningDiscography to false', () => {
+      useSmartSearchStore.setState({ isScanningDiscography: true })
 
       const { setDiscographyScanResults } = useSmartSearchStore.getState()
       setDiscographyScanResults([])
 
-      expect(useSmartSearchStore.getState().isScannningDiscography).toBe(false)
+      expect(useSmartSearchStore.getState().isScanningDiscography).toBe(false)
     })
   })
 
@@ -357,8 +401,23 @@ describe('smartSearchStore', () => {
         originalQuery: 'test query',
         error: 'something failed',
         isLoading: true,
-        searchHistory: [{ id: '1', query: 'saved', timestamp: new Date(), status: 'completed' }],
-        activityLog: [{ id: '1', timestamp: new Date(), step: 'idle', message: 'log', type: 'info' }],
+        searchHistory: [
+          {
+            id: '1',
+            query: 'saved',
+            timestamp: new Date(),
+            status: 'completed',
+          },
+        ],
+        activityLog: [
+          {
+            id: '1',
+            timestamp: new Date(),
+            step: 'idle',
+            message: 'log',
+            type: 'info',
+          },
+        ],
       })
 
       const { reset } = useSmartSearchStore.getState()
