@@ -12,6 +12,8 @@ interface UseTimelineHandlersOptions {
   handleTrimStartDrag: (songId: string, newTimestamp: number) => void
   handleTrimEndDrag: (songId: string, newTimestamp: number) => void
   handleTrimDragEnd: (songId: string) => void
+  /** Play full mix starting from the given track index and seek time */
+  onMixPlay?: (startTrackIndex: number, seekTime?: number) => void
 }
 
 export function useTimelineHandlers({
@@ -22,6 +24,7 @@ export function useTimelineHandlers({
   handleTrimStartDrag,
   handleTrimEndDrag,
   handleTrimDragEnd,
+  onMixPlay,
 }: UseTimelineHandlersOptions) {
   const setSelectedTrack = useTimelineStore((s) => s.setSelectedTrack)
   const openCrossfadePopover = useTimelineStore((s) => s.openCrossfadePopover)
@@ -95,10 +98,16 @@ export function useTimelineHandlers({
         trackLeft
       const seekTime = clickX / pixelsPerSecond + (song.trimStart ?? 0)
 
-      const tracks = songs.map(songToTrack)
-      useAudioPlayerStore
-        .getState()
-        .playPlaylist(tracks, clickedIndex, seekTime)
+      if (onMixPlay) {
+        // Play full mix with crossfades starting from clicked position
+        onMixPlay(clickedIndex, seekTime)
+      } else {
+        // Fallback: single-track sequential playback
+        const tracks = songs.map(songToTrack)
+        useAudioPlayerStore
+          .getState()
+          .playPlaylist(tracks, clickedIndex, seekTime)
+      }
     },
     [
       pixelsPerSecond,
@@ -106,6 +115,7 @@ export function useTimelineHandlers({
       songToTrack,
       setSelectedTrack,
       clearActiveSelection,
+      onMixPlay,
     ]
   )
 

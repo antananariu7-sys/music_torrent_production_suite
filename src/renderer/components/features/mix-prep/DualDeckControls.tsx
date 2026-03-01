@@ -53,7 +53,7 @@ export function DualDeckControls({
   }
 
   const handlePlayBoth = () => {
-    // Play both with crossfade gain automation (matches crossfade preview)
+    // Play both with crossfade gain automation — B continues till end
     const aDuration = outgoing.duration ?? deckA.duration
     const crossfade = outgoing.crossfadeDuration ?? 8
     const aEnd = outgoing.trimEnd ?? aDuration
@@ -61,12 +61,14 @@ export function DualDeckControls({
     const crossfadeStart = aEnd - effectiveCrossfade
     const aStart = Math.max(0, crossfadeStart - 5)
     const bStart = incoming.trimStart ?? 0
+    const bEnd = incoming.trimEnd ?? incoming.duration ?? deckB.duration
     scheduleCrossfade({
       crossfadeDuration: effectiveCrossfade,
       curveType: outgoing.crossfadeCurveType ?? 'linear',
       leadSeconds: crossfadeStart - aStart,
       deckAStartOffset: aStart,
       deckBStartOffset: bStart,
+      deckBEndOffset: bEnd,
     })
   }
 

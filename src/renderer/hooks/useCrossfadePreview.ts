@@ -6,7 +6,12 @@ import type { CrossfadeCurveType } from '@shared/types/project.types'
 
 interface CrossfadePreviewOptions {
   trackA: { filePath: string; duration: number; trimEnd?: number }
-  trackB: { filePath: string; trimStart?: number }
+  trackB: {
+    filePath: string
+    trimStart?: number
+    trimEnd?: number
+    duration?: number
+  }
   crossfadeDuration: number
   curveType: CrossfadeCurveType
 }
@@ -105,13 +110,14 @@ export function useCrossfadePreview(
       const aOffset = Math.max(0, crossfadeStart - LEAD_SECONDS)
       const bOffset = trackB.trimStart ?? 0
 
-      // Schedule crossfade via engine
+      // Schedule crossfade via engine — B plays until its trim end
       const info = engine.scheduleCrossfade({
         crossfadeDuration: effectiveCrossfade,
         curveType,
         leadSeconds: crossfadeStart - aOffset,
         deckAStartOffset: aOffset,
         deckBStartOffset: bOffset,
+        deckBEndOffset: trackB.trimEnd ?? trackB.duration,
       })
 
       infoRef.current = info

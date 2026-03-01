@@ -1,5 +1,5 @@
 import { useRef, useMemo } from 'react'
-import { Box, Text, VStack, Spinner } from '@chakra-ui/react'
+import { Box, HStack, Text, VStack, Spinner } from '@chakra-ui/react'
 import { useTimelineStore } from '@/store/timelineStore'
 import { useProjectStore } from '@/store/useProjectStore'
 import { useAudioPlayerStore } from '@/store/audioPlayerStore'
@@ -8,6 +8,7 @@ import { TrackInfoOverlay } from './TrackInfoOverlay'
 import { TimeRuler } from './TimeRuler'
 import { CuePointMarker } from './CuePointMarker'
 import { TrimOverlay } from './TrimOverlay'
+import { TimelineRegionOverlay } from './TimelineRegionOverlay'
 import { BeatGrid } from './BeatGrid'
 import { Playhead } from './Playhead'
 import { CrossfadePopover } from './CrossfadePopover'
@@ -24,11 +25,20 @@ import { useSelectionEdgeDrag } from './hooks/useSelectionEdgeDrag'
 import { useTimelineHandlers } from './hooks/useTimelineHandlers'
 import type { Song } from '@shared/types/project.types'
 import type { WaveformData } from '@shared/types/waveform.types'
+import type { MixPlayheadInfo } from '@/hooks/useFullMixPlayback'
 
 interface TimelineLayoutProps {
   songs: Song[]
   waveforms: Record<string, WaveformData>
   defaultCrossfade?: number
+  /** Play full mix starting from the given track index and seek time */
+  onMixPlay?: (startTrackIndex: number, seekTime?: number) => void
+  /** Whether mix buffers are currently loading */
+  isMixLoading?: boolean
+  /** Get current mix playhead position (called on rAF) */
+  getMixPlayhead?: () => MixPlayheadInfo | null
+  /** Whether mix playback is currently active */
+  isMixPlaying?: boolean
 }
 
 /** Base pixels per second at zoom 1x */
@@ -76,6 +86,10 @@ export function TimelineLayout({
   songs,
   waveforms,
   defaultCrossfade = 5,
+  onMixPlay,
+  isMixLoading,
+  getMixPlayhead,
+  isMixPlaying,
 }: TimelineLayoutProps): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
   const isScrollSyncing = useRef(false)
@@ -199,6 +213,7 @@ export function TimelineLayout({
     handleTrimStartDrag,
     handleTrimEndDrag,
     handleTrimDragEnd,
+    onMixPlay,
   })
 
   // Get data for active popovers
@@ -211,206 +226,256 @@ export function TimelineLayout({
 
   return (
     <>
-      <Box
-        ref={containerRef}
-        data-timeline-scroll
-        overflowX="auto"
-        bg="bg.surface"
-        borderWidth="1px"
-        borderColor="border.base"
-        borderRadius="md"
-        p={3}
-        onScroll={handleScroll}
-      >
-        {/* Time ruler */}
-        <TimeRuler totalWidth={totalWidth} pixelsPerSecond={pixelsPerSecond} />
-
-        {/* Track area */}
+      <Box position="relative">
+        {/* Mix loading overlay */}
+        {isMixLoading && (
+          <Box
+            position="absolute"
+            inset="0"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            bg="blackAlpha.500"
+            zIndex="overlay"
+            borderRadius="md"
+          >
+            <HStack
+              gap={2}
+              bg="bg.elevated"
+              px={4}
+              py={2}
+              borderRadius="md"
+              boxShadow="md"
+            >
+              <Spinner size="sm" color="blue.400" />
+              <Text fontSize="sm" color="text.primary">
+                Loading mix...
+              </Text>
+            </HStack>
+          </Box>
+        )}
         <Box
-          position="relative"
-          h={`${TRACK_HEIGHT}px`}
-          minW={`${totalWidth}px`}
+          ref={containerRef}
+          data-timeline-scroll
+          overflowX="auto"
+          bg="bg.surface"
+          borderWidth="1px"
+          borderColor="border.base"
+          borderRadius="md"
+          p={3}
+          onScroll={handleScroll}
         >
-          {songs.map((song, index) => {
-            const pos = positions[index]
-            const waveform = slicedWaveforms[song.id]
-            const color = TRACK_COLORS[index % TRACK_COLORS.length]
-            const isSelected = selectedTrackId === song.id
-            const cuePoints = song.cuePoints ?? []
+          {/* Time ruler */}
+          <TimeRuler
+            totalWidth={totalWidth}
+            pixelsPerSecond={pixelsPerSecond}
+          />
 
-            return (
-              <VirtualTrack
-                key={song.id}
-                left={pos.left}
-                width={pos.width}
-                height={TRACK_HEIGHT}
-              >
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => handleTrackClick(e, song, pos.left, index)}
-                  onDoubleClick={(e) =>
-                    handleTrackDoubleClick(e, song, pos.left)
-                  }
-                  onPointerDown={(e) =>
-                    handleRegionPointerDown(e, song, pos.left)
-                  }
-                  style={{ position: 'relative' }}
+          {/* Track area */}
+          <Box
+            position="relative"
+            h={`${TRACK_HEIGHT}px`}
+            minW={`${totalWidth}px`}
+          >
+            {songs.map((song, index) => {
+              const pos = positions[index]
+              const waveform = slicedWaveforms[song.id]
+              const color = TRACK_COLORS[index % TRACK_COLORS.length]
+              const isSelected = selectedTrackId === song.id
+              const cuePoints = song.cuePoints ?? []
+
+              return (
+                <VirtualTrack
+                  key={song.id}
+                  left={pos.left}
+                  width={pos.width}
+                  height={TRACK_HEIGHT}
                 >
-                  <TrackInfoOverlay song={song} />
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => handleTrackClick(e, song, pos.left, index)}
+                    onDoubleClick={(e) =>
+                      handleTrackDoubleClick(e, song, pos.left)
+                    }
+                    onPointerDown={(e) =>
+                      handleRegionPointerDown(e, song, pos.left)
+                    }
+                    style={{ position: 'relative' }}
+                  >
+                    <TrackInfoOverlay song={song} />
 
-                  {waveform ? (
-                    <WaveformCanvas
-                      songId={song.id}
-                      peaks={waveform.peaks}
-                      peaksLow={waveform.peaksLow}
-                      peaksMid={waveform.peaksMid}
-                      peaksHigh={waveform.peaksHigh}
-                      frequencyColorMode={frequencyColorMode}
-                      width={pos.width}
-                      height={TRACK_HEIGHT}
-                      color={color}
-                      isSelected={isSelected}
-                    />
-                  ) : (
-                    <WaveformPlaceholder
-                      width={pos.width}
-                      height={TRACK_HEIGHT}
-                    />
-                  )}
+                    {waveform ? (
+                      <WaveformCanvas
+                        songId={song.id}
+                        peaks={waveform.peaks}
+                        peaksLow={waveform.peaksLow}
+                        peaksMid={waveform.peaksMid}
+                        peaksHigh={waveform.peaksHigh}
+                        frequencyColorMode={frequencyColorMode}
+                        width={pos.width}
+                        height={TRACK_HEIGHT}
+                        color={color}
+                        isSelected={isSelected}
+                      />
+                    ) : (
+                      <WaveformPlaceholder
+                        width={pos.width}
+                        height={TRACK_HEIGHT}
+                      />
+                    )}
 
-                  {/* Beat grid overlay */}
-                  {showBeatGrid && song.bpm != null && song.bpm > 0 && (
-                    <BeatGrid
-                      bpm={song.bpm}
-                      firstBeatOffset={song.firstBeatOffset ?? 0}
+                    {/* Beat grid overlay */}
+                    {showBeatGrid && song.bpm != null && song.bpm > 0 && (
+                      <BeatGrid
+                        bpm={song.bpm}
+                        firstBeatOffset={song.firstBeatOffset ?? 0}
+                        trackWidth={pos.width}
+                        trackHeight={TRACK_HEIGHT}
+                        pixelsPerSecond={pixelsPerSecond}
+                        trimStart={song.trimStart ?? 0}
+                      />
+                    )}
+
+                    {/* Trim overlay + handles */}
+                    <TrimOverlay
+                      trimStart={
+                        previewTrims[song.id]?.trimStart ?? song.trimStart
+                      }
+                      trimEnd={previewTrims[song.id]?.trimEnd ?? song.trimEnd}
+                      trackStartTime={song.trimStart ?? 0}
                       trackWidth={pos.width}
                       trackHeight={TRACK_HEIGHT}
                       pixelsPerSecond={pixelsPerSecond}
-                      trimStart={song.trimStart ?? 0}
+                      songDuration={song.duration ?? 0}
+                      onTrimStartDrag={(ts) => handleTrimStartDrag(song.id, ts)}
+                      onTrimEndDrag={(ts) => handleTrimEndDrag(song.id, ts)}
+                      onTrimDragEnd={() => handleTrimDragEnd(song.id)}
+                      snapMode={snapMode}
+                      bpm={song.bpm}
+                      firstBeatOffset={song.firstBeatOffset}
+                      trackIndex={index}
+                      trackCount={songs.length}
                     />
-                  )}
 
-                  {/* Trim overlay + handles */}
-                  <TrimOverlay
-                    trimStart={
-                      previewTrims[song.id]?.trimStart ?? song.trimStart
-                    }
-                    trimEnd={previewTrims[song.id]?.trimEnd ?? song.trimEnd}
-                    trackStartTime={song.trimStart ?? 0}
-                    trackWidth={pos.width}
-                    trackHeight={TRACK_HEIGHT}
-                    pixelsPerSecond={pixelsPerSecond}
-                    songDuration={song.duration ?? 0}
-                    onTrimStartDrag={(ts) => handleTrimStartDrag(song.id, ts)}
-                    onTrimEndDrag={(ts) => handleTrimEndDrag(song.id, ts)}
-                    onTrimDragEnd={() => handleTrimDragEnd(song.id)}
-                    snapMode={snapMode}
-                    bpm={song.bpm}
-                    firstBeatOffset={song.firstBeatOffset}
-                    trackIndex={index}
-                    trackCount={songs.length}
-                  />
-
-                  {/* Cue point markers */}
-                  {cuePoints.map((cp) => {
-                    const previewTs = previewCuePoints[song.id]?.[cp.id]
-                    const effectiveTs = previewTs ?? cp.timestamp
-                    const cpX =
-                      (effectiveTs - (song.trimStart ?? 0)) * pixelsPerSecond
-                    if (cpX < 0 || cpX > pos.width) return null
-                    return (
-                      <CuePointMarker
-                        key={cp.id}
-                        cuePoint={cp}
-                        x={cpX}
-                        trackHeight={TRACK_HEIGHT}
-                        pixelsPerSecond={pixelsPerSecond}
-                        onClick={(clickedCp) =>
-                          handleCuePointClick(song.id, pos.left, cpX, clickedCp)
-                        }
-                        onDrag={(draggedCp, ts) =>
-                          handleCuePointDrag(song.id, draggedCp, ts)
-                        }
-                        onDragEnd={(draggedCp, ts) =>
-                          handleCuePointDragEnd(song.id, draggedCp, ts)
-                        }
-                        snapMode={snapMode}
-                        bpm={song.bpm}
-                        firstBeatOffset={song.firstBeatOffset}
-                        minTimestamp={song.trimStart ?? 0}
-                        maxTimestamp={song.trimEnd ?? song.duration ?? 0}
-                      />
-                    )
-                  })}
-
-                  {/* Region selection overlay */}
-                  {(() => {
-                    const sel =
-                      activeSelection?.songId === song.id
-                        ? activeSelection
-                        : pendingSelection?.songId === song.id
-                          ? pendingSelection
-                          : null
-                    if (!sel) return null
-                    const isFinalized = activeSelection?.songId === song.id
-                    return (
-                      <RegionSelection
-                        startTime={sel.startTime}
-                        endTime={sel.endTime}
-                        pixelsPerSecond={pixelsPerSecond}
-                        trackHeight={TRACK_HEIGHT}
+                    {/* Muted region overlay */}
+                    {(song.regions?.length ?? 0) > 0 && (
+                      <TimelineRegionOverlay
+                        regions={song.regions!}
                         trimStart={song.trimStart ?? 0}
-                        showToolbar={isFinalized}
-                        onTrimToSelection={() =>
-                          handleTrimToSelection(
-                            song.id,
-                            sel.startTime,
-                            sel.endTime
-                          )
-                        }
-                        onPlaySelection={() =>
-                          handlePlaySelection(
-                            song,
-                            sel.startTime,
-                            sel.endTime,
-                            index
-                          )
-                        }
-                        onClear={() => {
-                          clearActiveSelection()
-                          useAudioPlayerStore.getState().clearLoopRegion()
-                        }}
-                        onEdgeDragStart={(side) =>
-                          handleSelectionEdgeDragStart(song, side)
-                        }
-                        onEdgeDrag={(side, delta) =>
-                          handleSelectionEdgeDrag(song.id, side, delta)
-                        }
-                        onEdgeDragEnd={handleSelectionEdgeDragEnd}
+                        trimEnd={song.trimEnd ?? song.duration ?? 0}
+                        width={pos.width}
+                        height={TRACK_HEIGHT}
                       />
-                    )
-                  })()}
-                </div>
-              </VirtualTrack>
-            )
-          })}
+                    )}
 
-          {/* Crossfade overlap zones */}
-          <CrossfadeZones
-            songs={songs}
-            positions={positions}
-            trackHeight={TRACK_HEIGHT}
-            onCrossfadeClick={handleCrossfadeClick}
-          />
+                    {/* Cue point markers */}
+                    {cuePoints.map((cp) => {
+                      const previewTs = previewCuePoints[song.id]?.[cp.id]
+                      const effectiveTs = previewTs ?? cp.timestamp
+                      const cpX =
+                        (effectiveTs - (song.trimStart ?? 0)) * pixelsPerSecond
+                      if (cpX < 0 || cpX > pos.width) return null
+                      return (
+                        <CuePointMarker
+                          key={cp.id}
+                          cuePoint={cp}
+                          x={cpX}
+                          trackHeight={TRACK_HEIGHT}
+                          pixelsPerSecond={pixelsPerSecond}
+                          onClick={(clickedCp) =>
+                            handleCuePointClick(
+                              song.id,
+                              pos.left,
+                              cpX,
+                              clickedCp
+                            )
+                          }
+                          onDrag={(draggedCp, ts) =>
+                            handleCuePointDrag(song.id, draggedCp, ts)
+                          }
+                          onDragEnd={(draggedCp, ts) =>
+                            handleCuePointDragEnd(song.id, draggedCp, ts)
+                          }
+                          snapMode={snapMode}
+                          bpm={song.bpm}
+                          firstBeatOffset={song.firstBeatOffset}
+                          minTimestamp={song.trimStart ?? 0}
+                          maxTimestamp={song.trimEnd ?? song.duration ?? 0}
+                        />
+                      )
+                    })}
 
-          {/* Playhead */}
-          <Playhead
-            positions={positions}
-            songs={songs}
-            pixelsPerSecond={pixelsPerSecond}
-            trackHeight={TRACK_HEIGHT}
-          />
+                    {/* Region selection overlay */}
+                    {(() => {
+                      const sel =
+                        activeSelection?.songId === song.id
+                          ? activeSelection
+                          : pendingSelection?.songId === song.id
+                            ? pendingSelection
+                            : null
+                      if (!sel) return null
+                      const isFinalized = activeSelection?.songId === song.id
+                      return (
+                        <RegionSelection
+                          startTime={sel.startTime}
+                          endTime={sel.endTime}
+                          pixelsPerSecond={pixelsPerSecond}
+                          trackHeight={TRACK_HEIGHT}
+                          trimStart={song.trimStart ?? 0}
+                          showToolbar={isFinalized}
+                          onTrimToSelection={() =>
+                            handleTrimToSelection(
+                              song.id,
+                              sel.startTime,
+                              sel.endTime
+                            )
+                          }
+                          onPlaySelection={() =>
+                            handlePlaySelection(
+                              song,
+                              sel.startTime,
+                              sel.endTime,
+                              index
+                            )
+                          }
+                          onClear={() => {
+                            clearActiveSelection()
+                            useAudioPlayerStore.getState().clearLoopRegion()
+                          }}
+                          onEdgeDragStart={(side) =>
+                            handleSelectionEdgeDragStart(song, side)
+                          }
+                          onEdgeDrag={(side, delta) =>
+                            handleSelectionEdgeDrag(song.id, side, delta)
+                          }
+                          onEdgeDragEnd={handleSelectionEdgeDragEnd}
+                        />
+                      )
+                    })()}
+                  </div>
+                </VirtualTrack>
+              )
+            })}
+
+            {/* Crossfade overlap zones */}
+            <CrossfadeZones
+              songs={songs}
+              positions={positions}
+              trackHeight={TRACK_HEIGHT}
+              onCrossfadeClick={handleCrossfadeClick}
+            />
+
+            {/* Playhead */}
+            <Playhead
+              positions={positions}
+              songs={songs}
+              pixelsPerSecond={pixelsPerSecond}
+              trackHeight={TRACK_HEIGHT}
+              getMixPlayhead={getMixPlayhead}
+              isMixPlaying={isMixPlaying}
+            />
+          </Box>
         </Box>
       </Box>
 

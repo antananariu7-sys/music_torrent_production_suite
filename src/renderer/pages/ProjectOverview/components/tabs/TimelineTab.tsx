@@ -223,6 +223,10 @@ export function TimelineTab(): JSX.Element {
             songs={songs}
             waveforms={waveformCache}
             defaultCrossfade={defaultCrossfade}
+            onMixPlay={mixPlayback.play}
+            isMixLoading={mixPlayback.isLoading}
+            getMixPlayhead={mixPlayback.getMixPlayhead}
+            isMixPlaying={mixPlayback.isPlaying}
           />
         </>
       )}

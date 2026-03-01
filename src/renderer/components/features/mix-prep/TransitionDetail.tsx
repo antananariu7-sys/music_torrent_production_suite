@@ -211,6 +211,8 @@ export function TransitionDetail({
             trackB: {
               filePath: inFilePath,
               trimStart: incomingTrack?.trimStart,
+              trimEnd: incomingTrack?.trimEnd,
+              duration: incomingTrack?.duration,
             },
             crossfadeDuration: outgoingTrack?.crossfadeDuration ?? 5,
             curveType: outgoingTrack?.crossfadeCurveType ?? 'linear',

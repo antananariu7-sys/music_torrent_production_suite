@@ -89,6 +89,8 @@ export interface CrossfadeScheduleOptions {
   leadSeconds?: number
   deckAStartOffset: number
   deckBStartOffset: number
+  /** If provided, B plays until this offset; otherwise until buffer end */
+  deckBEndOffset?: number
 }
 
 export interface CrossfadePlaybackInfo {
@@ -620,6 +622,7 @@ export class WebAudioEngine {
       leadSeconds = 5,
       deckAStartOffset,
       deckBStartOffset,
+      deckBEndOffset,
     } = options
 
     const deckA = this.decks.A
@@ -642,7 +645,8 @@ export class WebAudioEngine {
     const bOffset = deckBStartOffset
     const fadeStartDelay = leadSeconds
     const aDuration = fadeStartDelay + crossfadeDuration
-    const bDuration = crossfadeDuration + leadSeconds
+    const bEnd = deckBEndOffset ?? deckB.buffer.duration
+    const bDuration = bEnd - bOffset
 
     // ── Deck A: source → EQ → volumeNode → gain → destination ──
     const sourceA = ctx.createBufferSource()
@@ -733,7 +737,7 @@ export class WebAudioEngine {
     )
 
     // ── Auto-stop on end ──
-    const totalDuration = fadeStartDelay + crossfadeDuration + leadSeconds
+    const totalDuration = fadeStartDelay + bDuration / deckB.playbackRate
 
     sourceA.onended = () => {
       if (deckA.source === sourceA) {
